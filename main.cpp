@@ -98,13 +98,13 @@ struct Car {
     
     Brain brain; // Cada coche tiene su propio cerebro
 
-    Car(float startX, float startY) {
-        Reset(startX, startY);
+    Car(float startX, float startY, float startRot = 0.0f) {
+        Reset(startX, startY, startRot);
     }
     
-    void Reset(float startX, float startY) {
+    void Reset(float startX, float startY, float startRot = 0.0f) {
         position = {startX, startY};
-        rotation = 0.0f;
+        rotation = startRot;
         speed = 0.0f;
         isCrashed = false;
         fitness = 0.0f;
@@ -192,7 +192,7 @@ bool CargarMejoresCerebros(std::vector<Car>& population) {
     return true;
 }
 
-void EvolvePopulation(std::vector<Car>& population, Vector2 startPosition) {
+void EvolvePopulation(std::vector<Car>& population, Vector2 startPosition, float startRotation) {
 
     std::sort(population.begin(), population.end(), [](const Car& a, const Car& b) {
         return a.fitness > b.fitness;
@@ -232,7 +232,7 @@ void EvolvePopulation(std::vector<Car>& population, Vector2 startPosition) {
     }
 
     for (auto& car : population) {
-        car.Reset(startPosition.x, startPosition.y);
+        car.Reset(startPosition.x, startPosition.y, startRotation);
     }
     std::cout << "Generación terminada. ¡Evolucionando población!" << std::endl;
 }
@@ -479,6 +479,7 @@ int main(int argc, char* argv[]) {
     if (argc > 1) trackFile = argv[1];
 
     Vector2 startPosition = {400.0f, 650.0f};
+    float startRotation = 0.0f;
     std::vector<std::pair<Vector2, Vector2>> trackWalls;
     LoadTrackFromFile(trackFile, trackWalls, startPosition);
     if (trackWalls.empty()) trackWalls.push_back({{100, 100}, {900, 100}});
@@ -489,15 +490,15 @@ int main(int argc, char* argv[]) {
     
     // --- Variables MODO TRAINING ---
     std::vector<Car> population;
-    for (int i = 0; i < POPULATION_SIZE; i++) population.push_back(Car(startPosition.x, startPosition.y));
+    for (int i = 0; i < POPULATION_SIZE; i++) population.push_back(Car(startPosition.x, startPosition.y, startRotation));
     CargarMejoresCerebros(population);
     int generationTimer = 0;
     int generationCount = 0;
     int simSpeed = 1;
 
     // --- Variables MODO EXHIBICION ---
-    Car playerCar(startPosition.x, startPosition.y);
-    Car aiCar(startPosition.x, startPosition.y);
+    Car playerCar(startPosition.x, startPosition.y, startRotation);
+    Car aiCar(startPosition.x, startPosition.y, startRotation);
     int exhibitionResult = 0; // 0=jugando, 1=player gana, 2=ai gana
 
     GameState currentState = MENU;
@@ -510,14 +511,14 @@ int main(int argc, char* argv[]) {
         if (currentState == MENU) {
             if (IsKeyPressed(KEY_T)) currentState = TRAINING;
             if (IsKeyPressed(KEY_E)) {
-                playerCar.Reset(startPosition.x, startPosition.y);
-                aiCar.Reset(startPosition.x, startPosition.y);
+                playerCar.Reset(startPosition.x, startPosition.y, startRotation);
+                aiCar.Reset(startPosition.x, startPosition.y, startRotation);
                 // Cargar mejor IA
-                std::vector<Car> temp(1, Car(startPosition.x, startPosition.y));
+                std::vector<Car> temp(1, Car(startPosition.x, startPosition.y, startRotation));
                 if (CargarMejoresCerebros(temp)) {
                     aiCar = temp[0];
                 }
-                aiCar.Reset(startPosition.x, startPosition.y);
+                aiCar.Reset(startPosition.x, startPosition.y, startRotation);
                 exhibitionResult = 0;
                 currentState = EXHIBITION;
             }
@@ -527,15 +528,41 @@ int main(int argc, char* argv[]) {
                 trackWalls.clear();
                 GenerateBordersFromCenterLine(denseCenterLine, 65.0f, trackWalls);
                 if (!puntosProcedurales.empty()) {
-                    startPosition = puntosProcedurales[0];
+                    int n = puntosProcedurales.size();
+                    float maxDist = 0;
+                    int bestIdx = 0;
+                    for (int i = 0; i < n; i++) {
+                        Vector2 p1 = puntosProcedurales[i];
+                        Vector2 p2 = puntosProcedurales[(i+1)%n];
+                        float d = (p1.x - p2.x)*(p1.x - p2.x) + (p1.y - p2.y)*(p1.y - p2.y);
+                        if (d > maxDist) {
+                            maxDist = d;
+                            bestIdx = i;
+                        }
+                    }
+                    Vector2 p1 = puntosProcedurales[bestIdx];
+                    Vector2 p2 = puntosProcedurales[(bestIdx+1)%n];
+                    startPosition.x = (p1.x + p2.x) / 2.0f;
+                    startPosition.y = (p1.y + p2.y) / 2.0f;
+                    startRotation = atan2(p2.y - p1.y, p2.x - p1.x) * (180.0f / PI);
                 }
-                for (auto& car : population) car.Reset(startPosition.x, startPosition.y);
-                playerCar.Reset(startPosition.x, startPosition.y);
-                aiCar.Reset(startPosition.x, startPosition.y);
+                for (auto& car : population) car.Reset(startPosition.x, startPosition.y, startRotation);
+                playerCar.Reset(startPosition.x, startPosition.y, startRotation);
+                aiCar.Reset(startPosition.x, startPosition.y, startRotation);
             }
             if (IsKeyPressed(KEY_G)) {
                 if (!puntosProcedurales.empty()) {
-                    TrackGenerator::SaveTrackToFile(puntosProcedurales, "pista_procedural.txt");
+                    int counter = 1;
+                    std::string filename;
+                    while (true) {
+                        filename = "pista_procedural" + std::to_string(counter) + ".txt";
+                        std::ifstream f(filename.c_str());
+                        if (!f.good()) {
+                            break;
+                        }
+                        counter++;
+                    }
+                    TrackGenerator::SaveTrackToFile(puntosProcedurales, filename);
                 }
             }
             
@@ -570,7 +597,7 @@ int main(int argc, char* argv[]) {
                 }
                 generationTimer++;
                 if (allCrashed || generationTimer >= MAX_GENERATION_TIME) {
-                    EvolvePopulation(population, startPosition);
+                    EvolvePopulation(population, startPosition, startRotation);
                     generationTimer = 0;
                     generationCount++;
                 }
@@ -638,8 +665,8 @@ int main(int argc, char* argv[]) {
         else if (currentState == EXHIBITION) {
             if (IsKeyPressed(KEY_M)) currentState = MENU;
             if (IsKeyPressed(KEY_R) && exhibitionResult != 0) {
-                playerCar.Reset(startPosition.x, startPosition.y);
-                aiCar.Reset(startPosition.x, startPosition.y);
+                playerCar.Reset(startPosition.x, startPosition.y, startRotation);
+                aiCar.Reset(startPosition.x, startPosition.y, startRotation);
                 exhibitionResult = 0;
             }
 
