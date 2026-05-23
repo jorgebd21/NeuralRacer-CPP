@@ -26,6 +26,7 @@ Graphical rendering and 2D physics are handled via the lightweight [raylib](http
 * [raylib](https://github.com/raysan5/raylib) installed and configured on your system.
 
 ### Building the Project
+
 ```bash
 # Clone the repository
 git clone [https://github.com/jorgebd21/NeuralRacer-CPP.git](https://github.com/jorgebd21/NeuralRacer-CPP.git)
@@ -36,3 +37,16 @@ make
 
 # Run the simulation
 ./app
+```
+
+## 🎮 Game Modes
+
+Press the following keys in the Main Menu to switch modes:
+* **[ T ] Training Mode:** Spawns a generation of 100 cars learning to drive via AI evolution. You can speed up the simulation x50.
+* **[ E ] Exhibition Mode:** Play manually against the smartest AI brain saved in `mejores.txt`.
+* **[ P ] Generate Procedural Track:** Creates a brand new track layout on the fly.
+
+## 📄 License
+
+This project is open-source and available under the [MIT License](LICENSE).
+Graphics and rendering powered by [raylib](https://www.raylib.com/) (zlib License).
