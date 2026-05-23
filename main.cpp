@@ -8,6 +8,7 @@
 #include <ctime>
 #include <algorithm>
 #include <random>
+#include "./include/TrackGenerator.h"
 
 // --- CONFIGURACIÓN BÁSICA ---
 const int SCREEN_WIDTH = 1280;
@@ -484,6 +485,8 @@ int main(int argc, char* argv[]) {
 
     float sensorAngles[5] = {-90.0f, -45.0f, 0.0f, 45.0f, 90.0f};
     
+    std::vector<Vector2> puntosProcedurales;
+    
     // --- Variables MODO TRAINING ---
     std::vector<Car> population;
     for (int i = 0; i < POPULATION_SIZE; i++) population.push_back(Car(startPosition.x, startPosition.y));
@@ -518,12 +521,33 @@ int main(int argc, char* argv[]) {
                 exhibitionResult = 0;
                 currentState = EXHIBITION;
             }
+            if (IsKeyPressed(KEY_P)) {
+                puntosProcedurales = TrackGenerator::GenerateProceduralCenterPoints();
+                std::vector<Vector2> denseCenterLine = GenerateSplinePoints(puntosProcedurales, 50);
+                trackWalls.clear();
+                GenerateBordersFromCenterLine(denseCenterLine, 65.0f, trackWalls);
+                if (!puntosProcedurales.empty()) {
+                    startPosition = puntosProcedurales[0];
+                }
+                for (auto& car : population) car.Reset(startPosition.x, startPosition.y);
+                playerCar.Reset(startPosition.x, startPosition.y);
+                aiCar.Reset(startPosition.x, startPosition.y);
+            }
+            if (IsKeyPressed(KEY_G)) {
+                if (!puntosProcedurales.empty()) {
+                    TrackGenerator::SaveTrackToFile(puntosProcedurales, "pista_procedural.txt");
+                }
+            }
             
             BeginDrawing();
             ClearBackground(DARKGRAY);
             DrawText("SIMULADOR GENETICO", SCREEN_WIDTH/2 - 250, 200, 40, WHITE);
             DrawText("[ T ] MODO ENTRENAMIENTO (IA vs IA)", SCREEN_WIDTH/2 - 200, 350, 20, LIGHTGRAY);
             DrawText("[ E ] MODO EXHIBICION (Jugador vs Mejor IA)", SCREEN_WIDTH/2 - 200, 400, 20, LIGHTGRAY);
+            DrawText("[ P ] GENERAR PISTA PROCEDURAL", SCREEN_WIDTH/2 - 200, 450, 20, YELLOW);
+            if (!puntosProcedurales.empty()) {
+                DrawText("[ G ] GUARDAR PISTA ACTUAL", SCREEN_WIDTH/2 - 200, 500, 20, GREEN);
+            }
             EndDrawing();
         }
         
