@@ -8,6 +8,7 @@
 #include <ctime>
 #include <algorithm>
 #include <random>
+#include <filesystem>
 #include "./include/TrackGenerator.h"
 
 // --- CONFIGURACIÓN BÁSICA ---
@@ -385,7 +386,28 @@ void GenerateBordersFromCenterLine(const std::vector<Vector2>& centerPoints, flo
     }
 }
 
-void LoadTrackFromFile(const std::string& filename, std::vector<std::pair<Vector2, Vector2>>& outWalls, Vector2& outStartPos) {
+void CalculateStartGrid(const std::vector<Vector2>& puntosProcedurales, Vector2& startPosition, float& startRotation) {
+    if (puntosProcedurales.empty()) return;
+    int n = puntosProcedurales.size();
+    float maxDist = 0;
+    int bestIdx = 0;
+    for (int i = 0; i < n; i++) {
+        Vector2 p1 = puntosProcedurales[i];
+        Vector2 p2 = puntosProcedurales[(i+1)%n];
+        float d = (p1.x - p2.x)*(p1.x - p2.x) + (p1.y - p2.y)*(p1.y - p2.y);
+        if (d > maxDist) {
+            maxDist = d;
+            bestIdx = i;
+        }
+    }
+    Vector2 p1 = puntosProcedurales[bestIdx];
+    Vector2 p2 = puntosProcedurales[(bestIdx+1)%n];
+    startPosition.x = (p1.x + p2.x) / 2.0f;
+    startPosition.y = (p1.y + p2.y) / 2.0f;
+    startRotation = atan2(p2.y - p1.y, p2.x - p1.x) * (180.0f / PI);
+}
+
+void LoadTrackFromFile(const std::string& filename, std::vector<std::pair<Vector2, Vector2>>& outWalls, Vector2& outStartPos, float& outStartRot) {
     std::ifstream file(filename);
     if (!file.is_open()) {
         std::cerr << "Error: No se pudo abrir " << filename << std::endl;
@@ -393,17 +415,16 @@ void LoadTrackFromFile(const std::string& filename, std::vector<std::pair<Vector
     }
     std::vector<Vector2> centerPoints;
     std::string line;
-    bool isFirstLine = true;
     while (std::getline(file, line)) {
         if (line.empty()) continue;
         std::stringstream ss(line);
         float x, y;
         if (ss >> x >> y) {
-            if (isFirstLine) { outStartPos = {x, y}; isFirstLine = false; }
-            else { centerPoints.push_back({x, y}); }
+            centerPoints.push_back({x, y});
         }
     }
     if (centerPoints.size() >= 3) {
+        CalculateStartGrid(centerPoints, outStartPos, outStartRot);
         std::vector<Vector2> denseCenterLine = GenerateSplinePoints(centerPoints, 50);
         GenerateBordersFromCenterLine(denseCenterLine, 65.0f, outWalls);
     }
@@ -475,13 +496,35 @@ int main(int argc, char* argv[]) {
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Simulador Genético - IA Autónoma");
     SetTargetFPS(60);
 
-    std::string trackFile = "track1_facil.txt";
+    std::string trackFile = "pista_facil.txt";
     if (argc > 1) trackFile = argv[1];
 
     Vector2 startPosition = {400.0f, 650.0f};
     float startRotation = 0.0f;
     std::vector<std::pair<Vector2, Vector2>> trackWalls;
-    LoadTrackFromFile(trackFile, trackWalls, startPosition);
+    
+    // Escaneo de mapas
+    std::vector<std::string> mapFiles;
+    for (const auto& entry : std::filesystem::directory_iterator(".")) {
+        if (entry.path().extension() == ".txt") {
+            std::string name = entry.path().filename().string();
+            if (name.rfind("pista_", 0) == 0) {
+                mapFiles.push_back(name);
+            }
+        }
+    }
+    if (mapFiles.empty()) mapFiles.push_back("pista_facil.txt");
+    std::sort(mapFiles.begin(), mapFiles.end());
+    
+    int currentMapIndex = 0;
+    for (size_t i = 0; i < mapFiles.size(); i++) {
+        if (mapFiles[i] == trackFile) {
+            currentMapIndex = i;
+            break;
+        }
+    }
+    trackFile = mapFiles[currentMapIndex];
+    LoadTrackFromFile(trackFile, trackWalls, startPosition, startRotation);
     if (trackWalls.empty()) trackWalls.push_back({{100, 100}, {900, 100}});
 
     float sensorAngles[5] = {-90.0f, -45.0f, 0.0f, 45.0f, 90.0f};
@@ -527,28 +570,26 @@ int main(int argc, char* argv[]) {
                 std::vector<Vector2> denseCenterLine = GenerateSplinePoints(puntosProcedurales, 50);
                 trackWalls.clear();
                 GenerateBordersFromCenterLine(denseCenterLine, 65.0f, trackWalls);
-                if (!puntosProcedurales.empty()) {
-                    int n = puntosProcedurales.size();
-                    float maxDist = 0;
-                    int bestIdx = 0;
-                    for (int i = 0; i < n; i++) {
-                        Vector2 p1 = puntosProcedurales[i];
-                        Vector2 p2 = puntosProcedurales[(i+1)%n];
-                        float d = (p1.x - p2.x)*(p1.x - p2.x) + (p1.y - p2.y)*(p1.y - p2.y);
-                        if (d > maxDist) {
-                            maxDist = d;
-                            bestIdx = i;
-                        }
-                    }
-                    Vector2 p1 = puntosProcedurales[bestIdx];
-                    Vector2 p2 = puntosProcedurales[(bestIdx+1)%n];
-                    startPosition.x = (p1.x + p2.x) / 2.0f;
-                    startPosition.y = (p1.y + p2.y) / 2.0f;
-                    startRotation = atan2(p2.y - p1.y, p2.x - p1.x) * (180.0f / PI);
-                }
+                CalculateStartGrid(puntosProcedurales, startPosition, startRotation);
                 for (auto& car : population) car.Reset(startPosition.x, startPosition.y, startRotation);
                 playerCar.Reset(startPosition.x, startPosition.y, startRotation);
                 aiCar.Reset(startPosition.x, startPosition.y, startRotation);
+            }
+            if (IsKeyPressed(KEY_LEFT)) {
+                currentMapIndex--;
+                if (currentMapIndex < 0) currentMapIndex = mapFiles.size() - 1;
+                trackFile = mapFiles[currentMapIndex];
+                trackWalls.clear();
+                LoadTrackFromFile(trackFile, trackWalls, startPosition, startRotation);
+                for (auto& car : population) car.Reset(startPosition.x, startPosition.y, startRotation);
+            }
+            if (IsKeyPressed(KEY_RIGHT)) {
+                currentMapIndex++;
+                if (currentMapIndex >= (int)mapFiles.size()) currentMapIndex = 0;
+                trackFile = mapFiles[currentMapIndex];
+                trackWalls.clear();
+                LoadTrackFromFile(trackFile, trackWalls, startPosition, startRotation);
+                for (auto& car : population) car.Reset(startPosition.x, startPosition.y, startRotation);
             }
             if (IsKeyPressed(KEY_G)) {
                 if (!puntosProcedurales.empty()) {
@@ -569,6 +610,7 @@ int main(int argc, char* argv[]) {
             BeginDrawing();
             ClearBackground(DARKGRAY);
             DrawText("SIMULADOR GENETICO", SCREEN_WIDTH/2 - 250, 200, 40, WHITE);
+            DrawText(TextFormat("Pista Actual: < %s >", mapFiles[currentMapIndex].c_str()), SCREEN_WIDTH/2 - 200, 300, 25, SKYBLUE);
             DrawText("[ T ] MODO ENTRENAMIENTO (IA vs IA)", SCREEN_WIDTH/2 - 200, 350, 20, LIGHTGRAY);
             DrawText("[ E ] MODO EXHIBICION (Jugador vs Mejor IA)", SCREEN_WIDTH/2 - 200, 400, 20, LIGHTGRAY);
             DrawText("[ P ] GENERAR PISTA PROCEDURAL", SCREEN_WIDTH/2 - 200, 450, 20, YELLOW);
