@@ -6,15 +6,18 @@
 #include "TrackManager.h"
 
 Car::Car(float startX, float startY, float startRot) {
-    Reset(startX, startY, startRot);
+    Reset(startX, startY, startRot, true);
 }
 
-void Car::Reset(float startX, float startY, float startRot) {
+void Car::Reset(float startX, float startY, float startRot, bool fullReset) {
     position = {startX, startY};
     rotation = startRot;
     speed = 0.0f;
     isCrashed = false;
-    fitness = 0.0f;
+    if (fullReset) {
+        accumulatedFitness = 0.0f;
+        fitness = 0.0f;
+    }
     timeAlive = 0;
     distanceTraveled = 0.0f;
     for(int i=0; i<5; i++) sensorDistances[i] = 100.0f;
@@ -72,7 +75,7 @@ void Car::UpdatePhysics(float inputAcelerar, float inputGiro, const std::vector<
         }
         
         // El fitness general es la distancia viajada castigada por el tiempo (promueve coches rápidos)
-        fitness = distanceTraveled - timeAlive;
+        fitness = accumulatedFitness + distanceTraveled - timeAlive;
         
         // Condiciones de "Muerte" (Crash): 
         // 1. Chocar de frente con pared.

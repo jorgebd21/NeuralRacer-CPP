@@ -9,7 +9,7 @@
 /**
  * @brief Representa el estado global de la aplicación (máquina de estados finitos).
  */
-enum GameState { MENU, TRAINING, EXHIBITION };
+enum GameState { MENU, TRAINING, EXHIBITION, TEST_AI };
 
 /**
  * @brief Controlador principal de la simulación gráfica y lógica.
@@ -48,10 +48,12 @@ private:
     void UpdateMenu();
     void UpdateTraining();
     void UpdateExhibition();
+    void UpdateTestAI();
 
     void DrawMenu();
     void DrawTraining();
     void DrawExhibition();
+    void DrawTestAI();
 
     GameState currentState;
 
@@ -67,6 +69,7 @@ private:
     std::vector<Car> population;
     int generationTimer;
     int generationCount;
+    int currentEvaluationTrack;
     int simSpeed;
 
     Car playerCar;

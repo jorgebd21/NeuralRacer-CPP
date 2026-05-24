@@ -15,6 +15,7 @@ Simulation::Simulation() :
     startRotation(0.0f),
     generationTimer(0),
     generationCount(0),
+    currentEvaluationTrack(0),
     simSpeed(1),
     playerCar(startPosition.x, startPosition.y, startRotation),
     aiCar(startPosition.x, startPosition.y, startRotation),
@@ -23,6 +24,8 @@ Simulation::Simulation() :
 }
 
 constexpr int SIM_TARGET_FPS = 60;
+constexpr int PROCEDURAL_SPLINE_SEGMENTS = 50;
+constexpr float PROCEDURAL_TRACK_WIDTH = 65.0f;
 
 void Simulation::Init() {
     InitWindow(Config::SCREEN_WIDTH, Config::SCREEN_HEIGHT, "Simulador Genético - IA Autónoma");
@@ -57,6 +60,7 @@ void Simulation::Update() {
     if (currentState == MENU) UpdateMenu();
     else if (currentState == TRAINING) UpdateTraining();
     else if (currentState == EXHIBITION) UpdateExhibition();
+    else if (currentState == TEST_AI) UpdateTestAI();
 }
 
 void Simulation::UpdateMenu() {
@@ -73,9 +77,15 @@ void Simulation::UpdateMenu() {
         exhibitionResult = 0;
         currentState = EXHIBITION;
     }
-constexpr int PROCEDURAL_SPLINE_SEGMENTS = 50;
-constexpr float PROCEDURAL_TRACK_WIDTH = 65.0f;
-
+    if (IsKeyPressed(KEY_A)) {
+        std::vector<Car> temp(1, Car(startPosition.x, startPosition.y, startRotation));
+        if (Evolution::CargarMejoresCerebros(temp)) {
+            aiCar = temp[0];
+        }
+        aiCar.Reset(startPosition.x, startPosition.y, startRotation);
+        exhibitionResult = 0;
+        currentState = TEST_AI;
+    }
     if (IsKeyPressed(KEY_P)) {
         puntosProcedurales = TrackGenerator::GenerateProceduralCenterPoints();
         std::vector<Vector2> denseCenterLine = TrackManager::GenerateSplinePoints(puntosProcedurales, PROCEDURAL_SPLINE_SEGMENTS);
@@ -145,9 +155,28 @@ void Simulation::UpdateTraining() {
         
         // Si todos los coches han muerto o se acabó el tiempo máximo por generación
         if (allCrashed || generationTimer >= Config::MAX_GENERATION_TIME) {
-            Evolution::EvolvePopulation(population, startPosition, startRotation);
-            generationTimer = 0;
-            generationCount++;
+            currentEvaluationTrack++;
+            if (currentEvaluationTrack >= 3) {
+                Evolution::EvolvePopulation(population, startPosition, startRotation);
+                generationTimer = 0;
+                generationCount++;
+                currentEvaluationTrack = 0;
+            } else {
+                for (auto& car : population) {
+                    car.accumulatedFitness = car.fitness;
+                }
+                
+                puntosProcedurales = TrackGenerator::GenerateProceduralCenterPoints();
+                std::vector<Vector2> denseCenterLine = TrackManager::GenerateSplinePoints(puntosProcedurales, PROCEDURAL_SPLINE_SEGMENTS);
+                trackWalls.clear();
+                TrackManager::GenerateBordersFromCenterLine(denseCenterLine, PROCEDURAL_TRACK_WIDTH, trackWalls);
+                TrackManager::CalculateStartGrid(puntosProcedurales, startPosition, startRotation);
+                
+                for (auto& car : population) {
+                    car.Reset(startPosition.x, startPosition.y, startRotation, false);
+                }
+                generationTimer = 0;
+            }
         }
     }
 }
@@ -185,6 +214,7 @@ void Simulation::Draw() {
     if (currentState == MENU) DrawMenu();
     else if (currentState == TRAINING) DrawTraining();
     else if (currentState == EXHIBITION) DrawExhibition();
+    else if (currentState == TEST_AI) DrawTestAI();
     
     EndDrawing();
 }
@@ -198,9 +228,10 @@ void Simulation::DrawMenu() {
     DrawText(TextFormat("Pista Actual: < %s >", displayName.c_str()), Config::SCREEN_WIDTH/2 - 200, 300, 25, SKYBLUE);
     DrawText("[ T ] MODO ENTRENAMIENTO (IA vs IA)", Config::SCREEN_WIDTH/2 - 200, 350, 20, LIGHTGRAY);
     DrawText("[ E ] MODO EXHIBICION (Jugador vs Mejor IA)", Config::SCREEN_WIDTH/2 - 200, 400, 20, LIGHTGRAY);
-    DrawText("[ P ] GENERAR PISTA PROCEDURAL", Config::SCREEN_WIDTH/2 - 200, 450, 20, YELLOW);
+    DrawText("[ A ] PROBAR IA (Solo ver mejor IA)", Config::SCREEN_WIDTH/2 - 200, 450, 20, LIGHTGRAY);
+    DrawText("[ P ] GENERAR PISTA PROCEDURAL", Config::SCREEN_WIDTH/2 - 200, 500, 20, YELLOW);
     if (!puntosProcedurales.empty()) {
-        DrawText("[ G ] GUARDAR PISTA ACTUAL", Config::SCREEN_WIDTH/2 - 200, 500, 20, GREEN);
+        DrawText("[ G ] GUARDAR PISTA ACTUAL", Config::SCREEN_WIDTH/2 - 200, 550, 20, GREEN);
     }
 }
 
@@ -247,7 +278,7 @@ void Simulation::DrawTraining() {
 
     constexpr int UI_PANEL_WIDTH = 250;
     DrawRectangle(Config::SCREEN_WIDTH - UI_PANEL_WIDTH, 0, UI_PANEL_WIDTH, Config::SCREEN_HEIGHT, Fade(BLACK, 0.85f));
-    DrawText(TextFormat("Generacion: %d", generationCount), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 20, 20, WHITE);
+    DrawText(TextFormat("Generacion: %d (Pista %d/3)", generationCount, currentEvaluationTrack + 1), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 20, 20, WHITE);
     DrawText(TextFormat("Tiempo: %d / %d", generationTimer, Config::MAX_GENERATION_TIME), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 50, 20, WHITE);
     DrawText(TextFormat("Vivos: %d / %d", aliveCount, Config::POPULATION_SIZE), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 80, 20, WHITE);
     DrawText(TextFormat("Velocidad: %s", (simSpeed == 1) ? "NORMAL" : "MAX (x50)"), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 110, 15, (simSpeed == 1) ? GREEN : RED);
@@ -283,6 +314,45 @@ void Simulation::DrawExhibition() {
     } else if (exhibitionResult == 2) {
         DrawText("LA IA TE HA DESTRUIDO", Config::SCREEN_WIDTH/2 - 200, 200, 40, RED);
         DrawText("Pulsa R para reintentar", Config::SCREEN_WIDTH/2 - 150, 250, 20, WHITE);
+    }
+
+    DrawText("[M] Volver al Menú Principal", 20, 20, 20, LIGHTGRAY);
+}
+
+void Simulation::UpdateTestAI() {
+    if (IsKeyPressed(KEY_M)) currentState = MENU;
+    if (IsKeyPressed(KEY_R) && aiCar.isCrashed) {
+        aiCar.Reset(startPosition.x, startPosition.y, startRotation);
+    }
+
+    if (!aiCar.isCrashed) {
+        float aiAcelerar = 0.0f, aiGiro = 0.0f;
+        aiCar.brain.Evaluate(aiCar.sensorDistances, aiCar.speed, aiAcelerar, aiGiro);
+        aiCar.UpdatePhysics(aiAcelerar, aiGiro, trackWalls, 0);
+    }
+}
+
+void Simulation::DrawTestAI() {
+    for(int i=0; i<FINISH_LINE_BLOCK_COUNT; i++) {
+        DrawRectangle(FINISH_LINE_X, FINISH_LINE_START_Y + i * FINISH_LINE_BLOCK_SIZE, FINISH_LINE_BLOCK_SIZE, FINISH_LINE_BLOCK_SIZE, (i % 2 == 0) ? WHITE : BLACK);
+        DrawRectangle(FINISH_LINE_X + FINISH_LINE_BLOCK_SIZE, FINISH_LINE_START_Y + i * FINISH_LINE_BLOCK_SIZE, FINISH_LINE_BLOCK_SIZE, FINISH_LINE_BLOCK_SIZE, (i % 2 == 0) ? BLACK : WHITE);
+    }
+    
+    for (auto wall : trackWalls) {
+        DrawLineEx(wall.first, wall.second, 6.0f, WHITE);
+    }
+
+    if (!aiCar.isCrashed) {
+        DrawRectanglePro({ aiCar.position.x, aiCar.position.y, 20.0f, 10.0f }, { 10.0f, 5.0f }, aiCar.rotation, RED);
+        for (int i = 0; i < 5; i++) {
+            float rayAngle = (aiCar.rotation + Config::SENSOR_ANGLES[i]) * DEG2RAD;
+            Vector2 actualRayEnd = { aiCar.position.x + cos(rayAngle) * aiCar.sensorDistances[i], aiCar.position.y + sin(rayAngle) * aiCar.sensorDistances[i] };
+            DrawLineV(aiCar.position, actualRayEnd, Fade(GREEN, 0.5f));
+            DrawCircleV(actualRayEnd, 3.0f, Fade(GREEN, 0.5f));
+        }
+    } else {
+        DrawText("LA IA HA CHOCADO", Config::SCREEN_WIDTH/2 - 150, 200, 30, RED);
+        DrawText("Pulsa R para reiniciar", Config::SCREEN_WIDTH/2 - 100, 250, 20, WHITE);
     }
 
     DrawText("[M] Volver al Menú Principal", 20, 20, 20, LIGHTGRAY);

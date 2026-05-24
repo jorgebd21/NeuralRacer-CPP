@@ -19,6 +19,7 @@ struct Car {
     bool isCrashed;
     
     float fitness;
+    float accumulatedFitness;
     int timeAlive;
     float distanceTraveled;
     
@@ -40,7 +41,7 @@ struct Car {
      * @param startY Nueva posición inicial en el eje Y.
      * @param startRot Nueva rotación inicial en grados (por defecto 0.0f).
      */
-    void Reset(float startX, float startY, float startRot = 0.0f);
+    void Reset(float startX, float startY, float startRot = 0.0f, bool fullReset = true);
     
     /**
      * @brief Actualiza la física del coche según sus entradas y calcula las colisiones.
