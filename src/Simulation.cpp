@@ -231,16 +231,39 @@ void Simulation::Draw() {
     EndDrawing();
 }
 
-constexpr int FINISH_LINE_X = 450;
-constexpr int FINISH_LINE_START_Y = 600;
 constexpr int FINISH_LINE_BLOCK_SIZE = 10;
 constexpr int FINISH_LINE_BLOCK_COUNT = 10;
 
-void Simulation::DrawMenu() {
-    for(int i=0; i<FINISH_LINE_BLOCK_COUNT; i++) {
-        DrawRectangle(FINISH_LINE_X, FINISH_LINE_START_Y + i * FINISH_LINE_BLOCK_SIZE, FINISH_LINE_BLOCK_SIZE, FINISH_LINE_BLOCK_SIZE, Fade((i % 2 == 0) ? WHITE : BLACK, 0.3f));
-        DrawRectangle(FINISH_LINE_X + FINISH_LINE_BLOCK_SIZE, FINISH_LINE_START_Y + i * FINISH_LINE_BLOCK_SIZE, FINISH_LINE_BLOCK_SIZE, FINISH_LINE_BLOCK_SIZE, Fade((i % 2 == 0) ? BLACK : WHITE, 0.3f));
+void Simulation::DrawFinishLine(float alpha) {
+    float rad = startRotation * DEG2RAD;
+    float cosR = cos(rad);
+    float sinR = sin(rad);
+    
+    float halfWidth = (FINISH_LINE_BLOCK_COUNT * FINISH_LINE_BLOCK_SIZE) / 2.0f;
+
+    for (int i = 0; i < FINISH_LINE_BLOCK_COUNT; i++) {
+        float localY = i * FINISH_LINE_BLOCK_SIZE - halfWidth;
+        
+        float localX1 = 0;
+        Vector2 pos1 = {
+            startPosition.x + localX1 * cosR - localY * sinR,
+            startPosition.y + localX1 * sinR + localY * cosR
+        };
+        Rectangle rec1 = { pos1.x, pos1.y, (float)FINISH_LINE_BLOCK_SIZE, (float)FINISH_LINE_BLOCK_SIZE };
+        DrawRectanglePro(rec1, {0, 0}, startRotation, Fade((i % 2 == 0) ? WHITE : BLACK, alpha));
+        
+        float localX2 = FINISH_LINE_BLOCK_SIZE;
+        Vector2 pos2 = {
+            startPosition.x + localX2 * cosR - localY * sinR,
+            startPosition.y + localX2 * sinR + localY * cosR
+        };
+        Rectangle rec2 = { pos2.x, pos2.y, (float)FINISH_LINE_BLOCK_SIZE, (float)FINISH_LINE_BLOCK_SIZE };
+        DrawRectanglePro(rec2, {0, 0}, startRotation, Fade((i % 2 == 0) ? BLACK : WHITE, alpha));
     }
+}
+
+void Simulation::DrawMenu() {
+    DrawFinishLine(0.3f);
     
     for (auto wall : trackWalls) {
         DrawLineEx(wall.first, wall.second, 6.0f, Fade(WHITE, 0.3f));
@@ -274,10 +297,7 @@ void Simulation::DrawMenu() {
 }
 
 void Simulation::DrawTraining() {
-    for(int i=0; i<FINISH_LINE_BLOCK_COUNT; i++) {
-        DrawRectangle(FINISH_LINE_X, FINISH_LINE_START_Y + i * FINISH_LINE_BLOCK_SIZE, FINISH_LINE_BLOCK_SIZE, FINISH_LINE_BLOCK_SIZE, (i % 2 == 0) ? WHITE : BLACK);
-        DrawRectangle(FINISH_LINE_X + FINISH_LINE_BLOCK_SIZE, FINISH_LINE_START_Y + i * FINISH_LINE_BLOCK_SIZE, FINISH_LINE_BLOCK_SIZE, FINISH_LINE_BLOCK_SIZE, (i % 2 == 0) ? BLACK : WHITE);
-    }
+    DrawFinishLine(1.0f);
     
     for (auto wall : trackWalls) {
         DrawLineEx(wall.first, wall.second, 6.0f, WHITE);
@@ -329,10 +349,7 @@ void Simulation::DrawTraining() {
 }
 
 void Simulation::DrawExhibition() {
-    for(int i=0; i<FINISH_LINE_BLOCK_COUNT; i++) {
-        DrawRectangle(FINISH_LINE_X, FINISH_LINE_START_Y + i * FINISH_LINE_BLOCK_SIZE, FINISH_LINE_BLOCK_SIZE, FINISH_LINE_BLOCK_SIZE, (i % 2 == 0) ? WHITE : BLACK);
-        DrawRectangle(FINISH_LINE_X + FINISH_LINE_BLOCK_SIZE, FINISH_LINE_START_Y + i * FINISH_LINE_BLOCK_SIZE, FINISH_LINE_BLOCK_SIZE, FINISH_LINE_BLOCK_SIZE, (i % 2 == 0) ? BLACK : WHITE);
-    }
+    DrawFinishLine(1.0f);
     
     for (auto wall : trackWalls) {
         DrawLineEx(wall.first, wall.second, 6.0f, WHITE);
@@ -366,10 +383,7 @@ void Simulation::UpdateTestAI() {
 }
 
 void Simulation::DrawTestAI() {
-    for(int i=0; i<FINISH_LINE_BLOCK_COUNT; i++) {
-        DrawRectangle(FINISH_LINE_X, FINISH_LINE_START_Y + i * FINISH_LINE_BLOCK_SIZE, FINISH_LINE_BLOCK_SIZE, FINISH_LINE_BLOCK_SIZE, (i % 2 == 0) ? WHITE : BLACK);
-        DrawRectangle(FINISH_LINE_X + FINISH_LINE_BLOCK_SIZE, FINISH_LINE_START_Y + i * FINISH_LINE_BLOCK_SIZE, FINISH_LINE_BLOCK_SIZE, FINISH_LINE_BLOCK_SIZE, (i % 2 == 0) ? BLACK : WHITE);
-    }
+    DrawFinishLine(1.0f);
     
     for (auto wall : trackWalls) {
         DrawLineEx(wall.first, wall.second, 6.0f, WHITE);

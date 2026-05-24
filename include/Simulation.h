@@ -55,6 +55,8 @@ private:
     void DrawExhibition();
     void DrawTestAI();
 
+    void DrawFinishLine(float alpha = 1.0f);
+
     GameState currentState;
 
     std::vector<std::string> mapFiles;
