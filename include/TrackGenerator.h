@@ -47,7 +47,7 @@ namespace TrackGenerator {
                 punto.y = GetRandomValue(minY, maxY);
                 valido = true;
                 
-                for(int j = 0; j < points.size(); j++){
+                for(size_t j = 0; j < points.size(); j++){
                     float dist_cuadrada = (punto.x - points[j].x)*(punto.x - points[j].x) + (punto.y - points[j].y)*(punto.y - points[j].y);
                     
                     // Utilizamos la distancia al cuadrado para evitar el coste computacional
@@ -103,13 +103,11 @@ namespace TrackGenerator {
 
         std::vector<Vector2> tour;
         tour.reserve(n);
-        int total_cost = 0;
 
         std::vector<bool> visited(n, false);
 
-        Vector2 current_point = points[0];
-        tour.push_back(current_point);
-        visited[0]=true;
+        tour.push_back(points[0]);
+        visited[0] = true;
 
         for(int i = 1; i < n; i++){
             Vector2 next_point;
@@ -127,8 +125,6 @@ namespace TrackGenerator {
             }
             tour.push_back(next_point);
             visited[pos_point] = true;
-            total_cost += min_dist;
-            current_point = next_point;
         }
 
         return tour;

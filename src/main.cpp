@@ -1,6 +1,6 @@
 #include "Simulation.h"
 
-int main(int argc, char* argv[]) {
+int main() {
     Simulation sim;
     sim.Run();
 
