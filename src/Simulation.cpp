@@ -53,6 +53,7 @@ void Simulation::Run() {
 }
 
 void Simulation::Update() {
+    // Máquina de estados principal: delega la actualización lógica según el modo actual
     if (currentState == MENU) UpdateMenu();
     else if (currentState == TRAINING) UpdateTraining();
     else if (currentState == EXHIBITION) UpdateExhibition();
@@ -120,20 +121,29 @@ constexpr float PROCEDURAL_TRACK_WIDTH = 65.0f;
 constexpr int FAST_FORWARD_MULTIPLIER = 50;
 
 void Simulation::UpdateTraining() {
+    // Permite acelerar la simulación para entrenar más rápido
     if (IsKeyPressed(KEY_SPACE)) simSpeed = (simSpeed == 1) ? FAST_FORWARD_MULTIPLIER : 1;
     if (IsKeyPressed(KEY_M)) currentState = MENU;
 
+    // Ejecutamos la lógica varias veces por frame si estamos en modo cámara rápida
     for (int s = 0; s < simSpeed; s++) {
         bool allCrashed = true;
         for (auto& car : population) {
             if (!car.isCrashed) {
                 allCrashed = false;
+                
+                // 1. El cerebro decide qué hacer basándose en los sensores
                 float inputAcelerar = 0.0f, inputGiro = 0.0f;
                 car.brain.Evaluate(car.sensorDistances, car.speed, inputAcelerar, inputGiro);
+                
+                // 2. El coche se mueve según la decisión y comprueba si ha chocado
                 car.UpdatePhysics(inputAcelerar, inputGiro, trackWalls, generationTimer);
             }
         }
+        
         generationTimer++;
+        
+        // Si todos los coches han muerto o se acabó el tiempo máximo por generación
         if (allCrashed || generationTimer >= Config::MAX_GENERATION_TIME) {
             Evolution::EvolvePopulation(population, startPosition, startRotation);
             generationTimer = 0;

@@ -7,12 +7,23 @@ const int NODOS_OCULTOS = 8;
 const int NODOS_ENTRADA = 6;
 const int NODOS_SALIDA = 2;
 
+/**
+ * @brief Estructura que representa el cerebro (Red Neuronal) de un coche.
+ * 
+ * Implementa una red neuronal feedforward simple con una capa oculta.
+ * Utilizada para evaluar las lecturas de los sensores y decidir la aceleración y giro.
+ */
 struct Brain {
     float peso_entrada_oculta[NODOS_OCULTOS][NODOS_ENTRADA];
     float sesgos_oculta[NODOS_OCULTOS];
     float peso_oculta_salida[NODOS_SALIDA][NODOS_OCULTOS];
     float sesgos_salida[NODOS_SALIDA];
     
+    /**
+     * @brief Constructor por defecto que inicializa los pesos y sesgos aleatoriamente.
+     * 
+     * Se utiliza un generador de números aleatorios para asignar valores iniciales entre -1.0 y 1.0.
+     */
     Brain() {
         static std::random_device rd; 
         static std::mt19937 generador(rd()); 
@@ -32,7 +43,14 @@ struct Brain {
         }
     }
 
-    // Función de feedforward
+    /**
+     * @brief Evalúa los inputs de los sensores mediante feedforward para obtener los outputs de control.
+     * 
+     * @param sensorDistances Arreglo de distancias de los sensores.
+     * @param velocidad La velocidad actual del coche.
+     * @param outAcelerar Referencia donde se almacenará el valor de aceleración calculado.
+     * @param outGiro Referencia donde se almacenará el valor de giro calculado.
+     */
     void Evaluate(float sensorDistances[5], float velocidad, float &outAcelerar, float &outGiro) {
         float entrada[6] = {sensorDistances[0], sensorDistances[1], sensorDistances[2], sensorDistances[3], sensorDistances[4], velocidad};
         
@@ -43,6 +61,9 @@ struct Brain {
                 valores_ocultos[i] += entrada[j] * peso_entrada_oculta[i][j];
             }
             valores_ocultos[i] += sesgos_oculta[i];
+            
+            // Empleamos tangente hiperbólica para normalizar los valores entre -1 y 1
+            // dado que el coche requiere rangos negativos (ej. marcha atrás o girar izquierda)
             valores_ocultos[i] = tanh(valores_ocultos[i]);
         }
 
@@ -60,6 +81,11 @@ struct Brain {
         outGiro = valores_salida[1]; 
     }
     
+    /**
+     * @brief Genera un valor de mutación gaussiana.
+     * 
+     * @return float Un valor mutado basado en una distribución normal (media 0, desviación estándar 0.1).
+     */
     float MutateGaussian() {
         static std::random_device rd; 
         static std::mt19937 generador(rd()); 

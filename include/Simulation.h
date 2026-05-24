@@ -6,16 +6,43 @@
 #include <string>
 #include <utility>
 
+/**
+ * @brief Representa el estado global de la aplicación (máquina de estados finitos).
+ */
 enum GameState { MENU, TRAINING, EXHIBITION };
 
+/**
+ * @brief Controlador principal de la simulación gráfica y lógica.
+ * 
+ * Orquesta los menús, las fases de entrenamiento y las carreras de exhibición.
+ * Es responsable de mantener el bucle principal de la aplicación y la gestión de estado.
+ */
 class Simulation {
 public:
+    /**
+     * @brief Constructor de la clase Simulation.
+     */
     Simulation();
+
+    /**
+     * @brief Inicia y mantiene el ciclo de vida principal de la simulación.
+     */
     void Run();
 
 private:
+    /**
+     * @brief Inicializa los recursos visuales y las lógicas base necesarias.
+     */
     void Init();
+
+    /**
+     * @brief Actualiza la lógica de negocio dependiendo del GameState actual.
+     */
     void Update();
+
+    /**
+     * @brief Dibuja por pantalla según el estado activo de GameState.
+     */
     void Draw();
 
     void UpdateMenu();
@@ -44,5 +71,5 @@ private:
 
     Car playerCar;
     Car aiCar;
-    int exhibitionResult; // 0=jugando, 1=player gana, 2=ai gana
+    int exhibitionResult;
 };

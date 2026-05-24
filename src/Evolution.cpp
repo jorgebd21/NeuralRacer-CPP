@@ -33,7 +33,8 @@ bool CargarMejoresCerebros(std::vector<Car>& population) {
     std::ifstream file("data/mejores.txt");
     if (!file.is_open()) return false;
 
-    // 1. Cargamos los mejores directamente del txt
+    // La primera fase de la carga inyecta directamente los cerebros élite de la generación anterior.
+    // Esto asegura que no perdemos el progreso ("elitismo").
     for(int n = 0; n < Config::NUM_MEJORES && n < (int)population.size(); n++) {
         for(int i = 0; i < NODOS_OCULTOS; i++) {
             for(int j = 0; j < NODOS_ENTRADA; j++) {
@@ -53,7 +54,8 @@ bool CargarMejoresCerebros(std::vector<Car>& population) {
         }
     }
 
-    // 2. Generamos el "Frankenstein" para los restantes basándonos en los que acabamos de leer.
+    // El resto de la población se genera copiando aleatoriamente genomas de los élites y aplicando mutación.
+    // Esto introduce diversidad genética mientras se apoya en características exitosas probadas.
     static std::random_device rd;
     static std::mt19937 generador(rd());
     std::uniform_int_distribution<int> distMejores(0, Config::NUM_MEJORES - 1);

@@ -1,15 +1,20 @@
 #pragma once
 
+/**
+ * @brief Contiene todos los parámetros de configuración globales de la aplicación.
+ * 
+ * Agrupa constantes que ajustan la física, la simulación genética y las 
+ * configuraciones de ventana. Se encapsulan en un namespace para evitar polución.
+ */
 namespace Config {
     constexpr int SCREEN_WIDTH = 1280;
     constexpr int SCREEN_HEIGHT = 768;
-    constexpr int POPULATION_SIZE = 100; // Número de coches por generación
-    constexpr int NUM_MEJORES = 10; // Número de coches mejores para la siguiente generación
-    constexpr int MUTACION = 10; // %10 de mutacion
+    constexpr int POPULATION_SIZE = 100;
+    constexpr int NUM_MEJORES = 10;
+    constexpr int MUTACION = 10;
     constexpr int MAX_GENERATION_TIME = 3000;
     constexpr float SENSOR_ANGLES[5] = {-90.0f, -45.0f, 0.0f, 45.0f, 90.0f};
 
-    // --- Físicas del Coche ---
     constexpr float CAR_MAX_SPEED_FORWARD = 4.0f;
     constexpr float CAR_MAX_SPEED_BACKWARD = -1.5f;
     constexpr float CAR_ACCEL_RATE = 0.04f;
@@ -22,7 +27,6 @@ namespace Config {
     constexpr int CAR_STALL_TIME_THRESHOLD = 100;
     constexpr float CAR_STALL_SPEED_THRESHOLD = -0.2f;
     
-    // --- Simulación Global ---
     constexpr float SIM_START_POS_X = 400.0f;
     constexpr float SIM_START_POS_Y = 650.0f;
 }
