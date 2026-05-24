@@ -1,5 +1,11 @@
 cmake_minimum_required(VERSION 3.10)
 
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_BINARY_DIR)
+    message(FATAL_ERROR "¡Error! No se permite compilar en la carpeta raíz. Por favor, crea una carpeta 'build' (mkdir build), entra en ella (cd build) y ejecuta 'cmake ..'")
+endif()
+
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 # 1. Ponle un nombre al proyecto
 project(NeuralRacer)
 

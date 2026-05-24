@@ -8,7 +8,8 @@
 #include <fstream>
 #include <string>
 
-Simulation::Simulation() : 
+Simulation::Simulation(bool isHeadless) : 
+    isHeadless(isHeadless),
     currentState(MENU),
     currentMapIndex(0),
     startPosition{Config::SIM_START_POS_X, Config::SIM_START_POS_Y},
@@ -28,8 +29,10 @@ constexpr int PROCEDURAL_SPLINE_SEGMENTS = 50;
 constexpr float PROCEDURAL_TRACK_WIDTH = 65.0f;
 
 void Simulation::Init() {
-    InitWindow(Config::SCREEN_WIDTH, Config::SCREEN_HEIGHT, "Simulador Genético - IA Autónoma");
-    SetTargetFPS(SIM_TARGET_FPS);
+    if(!isHeadless){
+        InitWindow(Config::SCREEN_WIDTH, Config::SCREEN_HEIGHT, "Simulador Genético - IA Autónoma");
+        SetTargetFPS(SIM_TARGET_FPS);
+    }
 
     mapFiles = TrackManager::ScanMapFiles();
     trackFile = mapFiles[currentMapIndex];
@@ -49,11 +52,18 @@ void Simulation::Init() {
 
 void Simulation::Run() {
     Init();
-    while (!WindowShouldClose()) {
-        Update();
-        Draw();
-    }
-    CloseWindow();
+    if(isHeadless){
+        currentState = TRAINING;
+        while(true){
+            Update();
+        }
+    }else{
+        while (!WindowShouldClose()) {
+            Update();
+            Draw();
+        }
+        CloseWindow();
+}   
 }
 
 void Simulation::Update() {
@@ -144,8 +154,10 @@ constexpr int FAST_FORWARD_MULTIPLIER = 50;
 
 void Simulation::UpdateTraining() {
     // Permite acelerar la simulación para entrenar más rápido
-    if (IsKeyPressed(KEY_SPACE)) simSpeed = (simSpeed == 1) ? FAST_FORWARD_MULTIPLIER : 1;
-    if (IsKeyPressed(KEY_M)) currentState = MENU;
+    if(!isHeadless){
+        if (IsKeyPressed(KEY_SPACE)) simSpeed = (simSpeed == 1) ? FAST_FORWARD_MULTIPLIER : 1;
+        if (IsKeyPressed(KEY_M)) currentState = MENU;
+    }
 
     // Ejecutamos la lógica varias veces por frame si estamos en modo cámara rápida
     for (int s = 0; s < simSpeed; s++) {
@@ -167,8 +179,12 @@ void Simulation::UpdateTraining() {
         
         // Si todos los coches han muerto o se acabó el tiempo máximo por generación
         if (allCrashed || generationTimer >= Config::MAX_GENERATION_TIME) {
+            std::cout << "Generacion " << generationCount << " (Pista " << currentEvaluationTrack + 1 << "/3)" << std::endl;
             currentEvaluationTrack++;
             if (currentEvaluationTrack >= 3) {
+                std::vector<Car> sortedPop = population;
+                std::sort(sortedPop.begin(), sortedPop.end(), [](const Car& a, const Car& b) { return a.fitness > b.fitness; });
+                std::cout << "Mejor fitness: " << sortedPop[0].fitness << std::endl;
                 Evolution::EvolvePopulation(population, startPosition, startRotation);
                 generationTimer = 0;
                 generationCount++;

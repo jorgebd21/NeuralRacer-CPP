@@ -22,7 +22,7 @@ public:
     /**
      * @brief Constructor de la clase Simulation.
      */
-    Simulation();
+    Simulation(bool isHeadless = false);
 
     /**
      * @brief Inicia y mantiene el ciclo de vida principal de la simulación.
@@ -58,6 +58,8 @@ private:
     void DrawFinishLine(float alpha = 1.0f);
 
     GameState currentState;
+
+    bool isHeadless;
 
     std::vector<std::string> mapFiles;
     int currentMapIndex;
