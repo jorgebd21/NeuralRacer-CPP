@@ -68,3 +68,6 @@ vcpkg_installed/
 Testing/
 .cache/
 app
+
+# roadmap
+roadmap.md
