@@ -43,7 +43,8 @@ void Simulation::Init() {
     Evolution::CargarMejoresCerebros(population);
     
     playerCar = Car(startPosition.x, startPosition.y, startRotation);
-    aiCar = Car(startPosition.x, startPosition.y, startRotation);
+    aiCar = population.empty() ? Car(startPosition.x, startPosition.y, startRotation) : population[0];
+    aiCar.Reset(startPosition.x, startPosition.y, startRotation);
 }
 
 void Simulation::Run() {
@@ -64,6 +65,15 @@ void Simulation::Update() {
 }
 
 void Simulation::UpdateMenu() {
+    if (aiCar.isCrashed) {
+        aiCar.Reset(startPosition.x, startPosition.y, startRotation);
+    }
+    if (!aiCar.isCrashed) {
+        float aiAcelerar = 0.0f, aiGiro = 0.0f;
+        aiCar.brain.Evaluate(aiCar.sensorDistances, aiCar.speed, aiAcelerar, aiGiro);
+        aiCar.UpdatePhysics(aiAcelerar, aiGiro, trackWalls, 0);
+    }
+
     if (IsKeyPressed(KEY_T)) currentState = TRAINING;
     if (IsKeyPressed(KEY_E)) {
         playerCar.Reset(startPosition.x, startPosition.y, startRotation);
@@ -104,6 +114,7 @@ void Simulation::UpdateMenu() {
         trackWalls.clear();
         TrackManager::LoadTrackFromFile(trackFile, trackWalls, startPosition, startRotation);
         for (auto& car : population) car.Reset(startPosition.x, startPosition.y, startRotation);
+        aiCar.Reset(startPosition.x, startPosition.y, startRotation);
     }
     if (IsKeyPressed(KEY_RIGHT)) {
         currentMapIndex++;
@@ -112,6 +123,7 @@ void Simulation::UpdateMenu() {
         trackWalls.clear();
         TrackManager::LoadTrackFromFile(trackFile, trackWalls, startPosition, startRotation);
         for (auto& car : population) car.Reset(startPosition.x, startPosition.y, startRotation);
+        aiCar.Reset(startPosition.x, startPosition.y, startRotation);
     }
     if (IsKeyPressed(KEY_G)) {
         if (!puntosProcedurales.empty()) {
@@ -219,7 +231,33 @@ void Simulation::Draw() {
     EndDrawing();
 }
 
+constexpr int FINISH_LINE_X = 450;
+constexpr int FINISH_LINE_START_Y = 600;
+constexpr int FINISH_LINE_BLOCK_SIZE = 10;
+constexpr int FINISH_LINE_BLOCK_COUNT = 10;
+
 void Simulation::DrawMenu() {
+    for(int i=0; i<FINISH_LINE_BLOCK_COUNT; i++) {
+        DrawRectangle(FINISH_LINE_X, FINISH_LINE_START_Y + i * FINISH_LINE_BLOCK_SIZE, FINISH_LINE_BLOCK_SIZE, FINISH_LINE_BLOCK_SIZE, Fade((i % 2 == 0) ? WHITE : BLACK, 0.3f));
+        DrawRectangle(FINISH_LINE_X + FINISH_LINE_BLOCK_SIZE, FINISH_LINE_START_Y + i * FINISH_LINE_BLOCK_SIZE, FINISH_LINE_BLOCK_SIZE, FINISH_LINE_BLOCK_SIZE, Fade((i % 2 == 0) ? BLACK : WHITE, 0.3f));
+    }
+    
+    for (auto wall : trackWalls) {
+        DrawLineEx(wall.first, wall.second, 6.0f, Fade(WHITE, 0.3f));
+    }
+
+    if (!aiCar.isCrashed) {
+        DrawRectanglePro({ aiCar.position.x, aiCar.position.y, 20.0f, 10.0f }, { 10.0f, 5.0f }, aiCar.rotation, Fade(RED, 0.3f));
+        for (int i = 0; i < 5; i++) {
+            float rayAngle = (aiCar.rotation + Config::SENSOR_ANGLES[i]) * DEG2RAD;
+            Vector2 actualRayEnd = { aiCar.position.x + cos(rayAngle) * aiCar.sensorDistances[i], aiCar.position.y + sin(rayAngle) * aiCar.sensorDistances[i] };
+            DrawLineV(aiCar.position, actualRayEnd, Fade(GREEN, 0.15f));
+            DrawCircleV(actualRayEnd, 3.0f, Fade(GREEN, 0.15f));
+        }
+    }
+
+    DrawRectangle(0, 0, Config::SCREEN_WIDTH, Config::SCREEN_HEIGHT, Fade(BLACK, 0.7f));
+
     std::string displayName = mapFiles[currentMapIndex];
     size_t pos = displayName.find_last_of('/');
     if(pos != std::string::npos) displayName = displayName.substr(pos+1);
@@ -234,11 +272,6 @@ void Simulation::DrawMenu() {
         DrawText("[ G ] GUARDAR PISTA ACTUAL", Config::SCREEN_WIDTH/2 - 200, 550, 20, GREEN);
     }
 }
-
-constexpr int FINISH_LINE_X = 450;
-constexpr int FINISH_LINE_START_Y = 600;
-constexpr int FINISH_LINE_BLOCK_SIZE = 10;
-constexpr int FINISH_LINE_BLOCK_COUNT = 10;
 
 void Simulation::DrawTraining() {
     for(int i=0; i<FINISH_LINE_BLOCK_COUNT; i++) {
