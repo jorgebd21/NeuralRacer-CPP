@@ -54,26 +54,31 @@ bool CargarMejoresCerebros(std::vector<Car>& population) {
     }
 
     // 2. Generamos el "Frankenstein" para los restantes basándonos en los que acabamos de leer.
+    static std::random_device rd;
+    static std::mt19937 generador(rd());
+    std::uniform_int_distribution<int> distMejores(0, Config::NUM_MEJORES - 1);
+    std::uniform_int_distribution<int> distMutacion(0, 99);
+
     for(int n = Config::NUM_MEJORES; n < Config::POPULATION_SIZE && n < (int)population.size(); n++) {
         for(int i = 0; i < NODOS_OCULTOS; i++) {
             for(int j = 0; j < NODOS_ENTRADA; j++) {
-                population[n].brain.peso_entrada_oculta[i][j] = population[rand()%Config::NUM_MEJORES].brain.peso_entrada_oculta[i][j];
-                if(rand()%100 < Config::MUTACION) population[n].brain.peso_entrada_oculta[i][j] += population[n].brain.MutateGaussian();
+                population[n].brain.peso_entrada_oculta[i][j] = population[distMejores(generador)].brain.peso_entrada_oculta[i][j];
+                if(distMutacion(generador) < Config::MUTACION) population[n].brain.peso_entrada_oculta[i][j] += population[n].brain.MutateGaussian();
             }
         }
         for(int i = 0; i < NODOS_OCULTOS; i++) {
-            population[n].brain.sesgos_oculta[i] = population[rand()%Config::NUM_MEJORES].brain.sesgos_oculta[i];
-            if(rand()%100 < Config::MUTACION) population[n].brain.sesgos_oculta[i] += population[n].brain.MutateGaussian();
+            population[n].brain.sesgos_oculta[i] = population[distMejores(generador)].brain.sesgos_oculta[i];
+            if(distMutacion(generador) < Config::MUTACION) population[n].brain.sesgos_oculta[i] += population[n].brain.MutateGaussian();
         }
         for(int i = 0; i < NODOS_SALIDA; i++) {
             for(int j = 0; j < NODOS_OCULTOS; j++) {
-                population[n].brain.peso_oculta_salida[i][j] = population[rand()%Config::NUM_MEJORES].brain.peso_oculta_salida[i][j];
-                if(rand()%100 < Config::MUTACION) population[n].brain.peso_oculta_salida[i][j] += population[n].brain.MutateGaussian();
+                population[n].brain.peso_oculta_salida[i][j] = population[distMejores(generador)].brain.peso_oculta_salida[i][j];
+                if(distMutacion(generador) < Config::MUTACION) population[n].brain.peso_oculta_salida[i][j] += population[n].brain.MutateGaussian();
             }
         }
         for(int i = 0; i < NODOS_SALIDA; i++) {
-            population[n].brain.sesgos_salida[i] = population[rand()%Config::NUM_MEJORES].brain.sesgos_salida[i];
-            if(rand()%100 < Config::MUTACION) population[n].brain.sesgos_salida[i] += population[n].brain.MutateGaussian();
+            population[n].brain.sesgos_salida[i] = population[distMejores(generador)].brain.sesgos_salida[i];
+            if(distMutacion(generador) < Config::MUTACION) population[n].brain.sesgos_salida[i] += population[n].brain.MutateGaussian();
         }
     }
     
@@ -87,32 +92,37 @@ void EvolvePopulation(std::vector<Car>& population, Vector2 startPosition, float
 
     GuardarMejoresCerebros(population);
     
+    static std::random_device rd;
+    static std::mt19937 generador(rd());
+    std::uniform_int_distribution<int> distMejores(0, Config::NUM_MEJORES - 1);
+    std::uniform_int_distribution<int> distMutacion(0, 99);
+
     for(int n = Config::NUM_MEJORES; n < Config::POPULATION_SIZE; n++) {
         for(int i = 0; i < NODOS_OCULTOS; i++) {
             for(int j = 0; j < NODOS_ENTRADA; j++) {
-                population[n].brain.peso_entrada_oculta[i][j] = population[rand()%Config::NUM_MEJORES].brain.peso_entrada_oculta[i][j];
-                if(rand()%100 < Config::MUTACION){
+                population[n].brain.peso_entrada_oculta[i][j] = population[distMejores(generador)].brain.peso_entrada_oculta[i][j];
+                if(distMutacion(generador) < Config::MUTACION){
                     population[n].brain.peso_entrada_oculta[i][j] += population[n].brain.MutateGaussian();
                 }
             }
         }
         for(int i = 0; i < NODOS_OCULTOS; i++) {
-            population[n].brain.sesgos_oculta[i] = population[rand()%Config::NUM_MEJORES].brain.sesgos_oculta[i];
-            if(rand()%100 < Config::MUTACION){
+            population[n].brain.sesgos_oculta[i] = population[distMejores(generador)].brain.sesgos_oculta[i];
+            if(distMutacion(generador) < Config::MUTACION){
                 population[n].brain.sesgos_oculta[i] += population[n].brain.MutateGaussian();
             }
         }
         for(int i = 0; i < NODOS_SALIDA; i++) {
             for(int j = 0; j < NODOS_OCULTOS; j++) {
-                population[n].brain.peso_oculta_salida[i][j] = population[rand()%Config::NUM_MEJORES].brain.peso_oculta_salida[i][j];
-                if(rand()%100 < Config::MUTACION){
+                population[n].brain.peso_oculta_salida[i][j] = population[distMejores(generador)].brain.peso_oculta_salida[i][j];
+                if(distMutacion(generador) < Config::MUTACION){
                     population[n].brain.peso_oculta_salida[i][j] += population[n].brain.MutateGaussian();
                 }
             }
         }
         for(int i = 0; i < NODOS_SALIDA; i++) {
-            population[n].brain.sesgos_salida[i] = population[rand()%Config::NUM_MEJORES].brain.sesgos_salida[i];
-            if(rand()%100 < Config::MUTACION){
+            population[n].brain.sesgos_salida[i] = population[distMejores(generador)].brain.sesgos_salida[i];
+            if(distMutacion(generador) < Config::MUTACION){
                 population[n].brain.sesgos_salida[i] += population[n].brain.MutateGaussian();
             }
         }

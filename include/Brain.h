@@ -14,16 +14,20 @@ struct Brain {
     float sesgos_salida[NODOS_SALIDA];
     
     Brain() {
+        static std::random_device rd; 
+        static std::mt19937 generador(rd()); 
+        std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
+
         for(int i = 0; i < NODOS_OCULTOS; i++) {
-            sesgos_oculta[i] = ((float)rand() / RAND_MAX) * 2.0f - 1.0f;
+            sesgos_oculta[i] = dist(generador);
             for(int j = 0; j < NODOS_ENTRADA; j++) {
-                peso_entrada_oculta[i][j] = ((float)rand() / RAND_MAX) * 2.0f - 1.0f;
+                peso_entrada_oculta[i][j] = dist(generador);
             }
         }
         for(int i = 0; i < NODOS_SALIDA; i++) {
-            sesgos_salida[i] = ((float)rand() / RAND_MAX) * 2.0f - 1.0f;
+            sesgos_salida[i] = dist(generador);
             for(int j = 0; j < NODOS_OCULTOS; j++) {
-                peso_oculta_salida[i][j] = ((float)rand() / RAND_MAX) * 2.0f - 1.0f;
+                peso_oculta_salida[i][j] = dist(generador);
             }
         }
     }

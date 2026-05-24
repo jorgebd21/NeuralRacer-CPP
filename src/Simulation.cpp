@@ -11,7 +11,7 @@
 Simulation::Simulation() : 
     currentState(MENU),
     currentMapIndex(0),
-    startPosition{400.0f, 650.0f},
+    startPosition{Config::SIM_START_POS_X, Config::SIM_START_POS_Y},
     startRotation(0.0f),
     generationTimer(0),
     generationCount(0),
@@ -22,9 +22,11 @@ Simulation::Simulation() :
 {
 }
 
+constexpr int SIM_TARGET_FPS = 60;
+
 void Simulation::Init() {
     InitWindow(Config::SCREEN_WIDTH, Config::SCREEN_HEIGHT, "Simulador Genético - IA Autónoma");
-    SetTargetFPS(60);
+    SetTargetFPS(SIM_TARGET_FPS);
 
     mapFiles = TrackManager::ScanMapFiles();
     trackFile = mapFiles[currentMapIndex];
@@ -70,11 +72,14 @@ void Simulation::UpdateMenu() {
         exhibitionResult = 0;
         currentState = EXHIBITION;
     }
+constexpr int PROCEDURAL_SPLINE_SEGMENTS = 50;
+constexpr float PROCEDURAL_TRACK_WIDTH = 65.0f;
+
     if (IsKeyPressed(KEY_P)) {
         puntosProcedurales = TrackGenerator::GenerateProceduralCenterPoints();
-        std::vector<Vector2> denseCenterLine = TrackManager::GenerateSplinePoints(puntosProcedurales, 50);
+        std::vector<Vector2> denseCenterLine = TrackManager::GenerateSplinePoints(puntosProcedurales, PROCEDURAL_SPLINE_SEGMENTS);
         trackWalls.clear();
-        TrackManager::GenerateBordersFromCenterLine(denseCenterLine, 65.0f, trackWalls);
+        TrackManager::GenerateBordersFromCenterLine(denseCenterLine, PROCEDURAL_TRACK_WIDTH, trackWalls);
         TrackManager::CalculateStartGrid(puntosProcedurales, startPosition, startRotation);
         
         for (auto& car : population) car.Reset(startPosition.x, startPosition.y, startRotation);
@@ -112,8 +117,10 @@ void Simulation::UpdateMenu() {
     }
 }
 
+constexpr int FAST_FORWARD_MULTIPLIER = 50;
+
 void Simulation::UpdateTraining() {
-    if (IsKeyPressed(KEY_SPACE)) simSpeed = (simSpeed == 1) ? 50 : 1;
+    if (IsKeyPressed(KEY_SPACE)) simSpeed = (simSpeed == 1) ? FAST_FORWARD_MULTIPLIER : 1;
     if (IsKeyPressed(KEY_M)) currentState = MENU;
 
     for (int s = 0; s < simSpeed; s++) {
@@ -187,10 +194,15 @@ void Simulation::DrawMenu() {
     }
 }
 
+constexpr int FINISH_LINE_X = 450;
+constexpr int FINISH_LINE_START_Y = 600;
+constexpr int FINISH_LINE_BLOCK_SIZE = 10;
+constexpr int FINISH_LINE_BLOCK_COUNT = 10;
+
 void Simulation::DrawTraining() {
-    for(int i=0; i<10; i++) {
-        DrawRectangle(450, 600 + i * 10, 10, 10, (i % 2 == 0) ? WHITE : BLACK);
-        DrawRectangle(460, 600 + i * 10, 10, 10, (i % 2 == 0) ? BLACK : WHITE);
+    for(int i=0; i<FINISH_LINE_BLOCK_COUNT; i++) {
+        DrawRectangle(FINISH_LINE_X, FINISH_LINE_START_Y + i * FINISH_LINE_BLOCK_SIZE, FINISH_LINE_BLOCK_SIZE, FINISH_LINE_BLOCK_SIZE, (i % 2 == 0) ? WHITE : BLACK);
+        DrawRectangle(FINISH_LINE_X + FINISH_LINE_BLOCK_SIZE, FINISH_LINE_START_Y + i * FINISH_LINE_BLOCK_SIZE, FINISH_LINE_BLOCK_SIZE, FINISH_LINE_BLOCK_SIZE, (i % 2 == 0) ? BLACK : WHITE);
     }
     
     for (auto wall : trackWalls) {
@@ -223,29 +235,29 @@ void Simulation::DrawTraining() {
         }
     }
 
-    int panelWidth = 250;
-    DrawRectangle(Config::SCREEN_WIDTH - panelWidth, 0, panelWidth, Config::SCREEN_HEIGHT, Fade(BLACK, 0.85f));
-    DrawText(TextFormat("Generacion: %d", generationCount), Config::SCREEN_WIDTH - panelWidth + 15, 20, 20, WHITE);
-    DrawText(TextFormat("Tiempo: %d / %d", generationTimer, Config::MAX_GENERATION_TIME), Config::SCREEN_WIDTH - panelWidth + 15, 50, 20, WHITE);
-    DrawText(TextFormat("Vivos: %d / %d", aliveCount, Config::POPULATION_SIZE), Config::SCREEN_WIDTH - panelWidth + 15, 80, 20, WHITE);
-    DrawText(TextFormat("Velocidad: %s", (simSpeed == 1) ? "NORMAL" : "MAX (x50)"), Config::SCREEN_WIDTH - panelWidth + 15, 110, 15, (simSpeed == 1) ? GREEN : RED);
-    DrawText("[ESPACIO] Cambiar vel", Config::SCREEN_WIDTH - panelWidth + 15, 130, 10, LIGHTGRAY);
-    DrawText("[M] Volver al Menu", Config::SCREEN_WIDTH - panelWidth + 15, 145, 10, LIGHTGRAY);
+    constexpr int UI_PANEL_WIDTH = 250;
+    DrawRectangle(Config::SCREEN_WIDTH - UI_PANEL_WIDTH, 0, UI_PANEL_WIDTH, Config::SCREEN_HEIGHT, Fade(BLACK, 0.85f));
+    DrawText(TextFormat("Generacion: %d", generationCount), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 20, 20, WHITE);
+    DrawText(TextFormat("Tiempo: %d / %d", generationTimer, Config::MAX_GENERATION_TIME), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 50, 20, WHITE);
+    DrawText(TextFormat("Vivos: %d / %d", aliveCount, Config::POPULATION_SIZE), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 80, 20, WHITE);
+    DrawText(TextFormat("Velocidad: %s", (simSpeed == 1) ? "NORMAL" : "MAX (x50)"), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 110, 15, (simSpeed == 1) ? GREEN : RED);
+    DrawText("[ESPACIO] Cambiar vel", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 130, 10, LIGHTGRAY);
+    DrawText("[M] Volver al Menu", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 145, 10, LIGHTGRAY);
 
-    DrawText("TOP 10 FITNESS", Config::SCREEN_WIDTH - panelWidth + 15, 180, 20, YELLOW);
+    DrawText("TOP 10 FITNESS", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 180, 20, YELLOW);
     std::vector<Car> sortedPop = population;
     std::sort(sortedPop.begin(), sortedPop.end(), [](const Car& a, const Car& b) { return a.fitness > b.fitness; });
     for (int i = 0; i < 10 && i < (int)sortedPop.size(); i++) {
         Color rowColor = (sortedPop[i].isCrashed) ? GRAY : WHITE;
         if (i == 0) rowColor = GOLD;
-        DrawText(TextFormat("%d. Fit: %.1f", i + 1, sortedPop[i].fitness), Config::SCREEN_WIDTH - panelWidth + 15, 210 + (i * 25), 18, rowColor);
+        DrawText(TextFormat("%d. Fit: %.1f", i + 1, sortedPop[i].fitness), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 210 + (i * 25), 18, rowColor);
     }
 }
 
 void Simulation::DrawExhibition() {
-    for(int i=0; i<10; i++) {
-        DrawRectangle(450, 600 + i * 10, 10, 10, (i % 2 == 0) ? WHITE : BLACK);
-        DrawRectangle(460, 600 + i * 10, 10, 10, (i % 2 == 0) ? BLACK : WHITE);
+    for(int i=0; i<FINISH_LINE_BLOCK_COUNT; i++) {
+        DrawRectangle(FINISH_LINE_X, FINISH_LINE_START_Y + i * FINISH_LINE_BLOCK_SIZE, FINISH_LINE_BLOCK_SIZE, FINISH_LINE_BLOCK_SIZE, (i % 2 == 0) ? WHITE : BLACK);
+        DrawRectangle(FINISH_LINE_X + FINISH_LINE_BLOCK_SIZE, FINISH_LINE_START_Y + i * FINISH_LINE_BLOCK_SIZE, FINISH_LINE_BLOCK_SIZE, FINISH_LINE_BLOCK_SIZE, (i % 2 == 0) ? BLACK : WHITE);
     }
     
     for (auto wall : trackWalls) {

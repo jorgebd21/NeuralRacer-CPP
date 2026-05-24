@@ -8,11 +8,18 @@
 #include "raylib.h"
 
 namespace TrackGenerator {
+    constexpr int MAX_INTENTS = 2000;
+    constexpr float MIN_DIST_SQ = 22500.0f; // 150 * 150
+    constexpr int PROCEDURAL_POINTS = 25;
+    constexpr int BOUNDS_MIN_X = 150;
+    constexpr int BOUNDS_MAX_X = 800;
+    constexpr int BOUNDS_MIN_Y = 150;
+    constexpr int BOUNDS_MAX_Y = 600;
 
     // 1. Genera 'count' puntos aleatorios dentro de los limites pasados.
     inline std::vector<Vector2> GenerateRandomPoints(int count, int minX, int maxX, int minY, int maxY) {
         std::vector<Vector2> points;
-        int max_intentos = 2000; // Evitar bucles infinitos
+        int max_intentos = MAX_INTENTS; // Evitar bucles infinitos
         
         for(int i = 0; i < count; i++){
             Vector2 punto;
@@ -28,7 +35,7 @@ namespace TrackGenerator {
                 for(int j = 0; j < points.size(); j++){
                     float dist_cuadrada = (punto.x - points[j].x)*(punto.x - points[j].x) + (punto.y - points[j].y)*(punto.y - points[j].y);
                     // Distancia mínima de 150 píxeles (150 * 150 = 22500)
-                    if(dist_cuadrada < 22500.0f){
+                    if(dist_cuadrada < MIN_DIST_SQ){
                         valido = false;
                         break;
                     }
@@ -130,7 +137,7 @@ namespace TrackGenerator {
     // 4. Une todo el pipeline procedural
     inline std::vector<Vector2> GenerateProceduralCenterPoints() {
         // Reducimos maxX a 800 para compensar el "overshoot" de la curva Spline y el ancho de la pista (65px)
-        auto randomPoints = GenerateRandomPoints(25, 150, 800, 150, 600);
+        auto randomPoints = GenerateRandomPoints(PROCEDURAL_POINTS, BOUNDS_MIN_X, BOUNDS_MAX_X, BOUNDS_MIN_Y, BOUNDS_MAX_Y);
         auto tour_feo = SolveTSPNearestNeighbor(randomPoints);
         auto tour_bonito = Optimize2Opt(tour_feo);
         

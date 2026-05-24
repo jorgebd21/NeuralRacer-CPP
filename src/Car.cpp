@@ -28,40 +28,32 @@ void Car::UpdatePhysics(float inputAcelerar, float inputGiro, const std::vector<
     if (isCrashed) return;
     timeAlive++;
     
-    float maxSpeedForward = 4.0f;
-    float maxSpeedBackward = -1.5f;
-    float accelRate = 0.04f;
-    float brakeRate = 0.1f;
-    float friction = 0.015f;
-
-    if (inputAcelerar > 0) speed += accelRate;
-    else if (inputAcelerar < 0) speed -= brakeRate;
+    if (inputAcelerar > 0) speed += Config::CAR_ACCEL_RATE;
+    else if (inputAcelerar < 0) speed -= Config::CAR_BRAKE_RATE;
     else {
-        if (speed > 0) { speed -= friction; if (speed < 0) speed = 0; }
-        else if (speed < 0) { speed += friction; if (speed > 0) speed = 0; }
+        if (speed > 0) { speed -= Config::CAR_FRICTION; if (speed < 0) speed = 0; }
+        else if (speed < 0) { speed += Config::CAR_FRICTION; if (speed > 0) speed = 0; }
     }
 
-    if (speed > maxSpeedForward) speed = maxSpeedForward;
-    if (speed < maxSpeedBackward) speed = maxSpeedBackward;
+    if (speed > Config::CAR_MAX_SPEED_FORWARD) speed = Config::CAR_MAX_SPEED_FORWARD;
+    if (speed < Config::CAR_MAX_SPEED_BACKWARD) speed = Config::CAR_MAX_SPEED_BACKWARD;
 
-    float turnSpeed = 3.5f;
     if (speed != 0) {
         float direction = (speed > 0) ? 1.0f : -1.0f;
-        rotation += inputGiro * turnSpeed * direction * (std::abs(speed) / maxSpeedForward); 
+        rotation += inputGiro * Config::CAR_TURN_SPEED * direction * (std::abs(speed) / Config::CAR_MAX_SPEED_FORWARD); 
     } 
 
     position.x += cos(rotation * DEG2RAD) * speed;
     position.y += sin(rotation * DEG2RAD) * speed;
 
     if (speed > 0) {
-        distanceTraveled += speed - (std::abs(inputGiro) * 0.5f); 
+        distanceTraveled += speed - (std::abs(inputGiro) * Config::CAR_TURN_PENALTY); 
     }
 
-    float maxSensorDist = 150.0f;
     for (int i = 0; i < 5; i++) {
-        sensorDistances[i] = maxSensorDist;
+        sensorDistances[i] = Config::CAR_MAX_SENSOR_DIST;
         float rayAngle = (rotation + Config::SENSOR_ANGLES[i]) * DEG2RAD;
-        Vector2 rayEnd = { position.x + cos(rayAngle) * maxSensorDist, position.y + sin(rayAngle) * maxSensorDist };
+        Vector2 rayEnd = { position.x + cos(rayAngle) * Config::CAR_MAX_SENSOR_DIST, position.y + sin(rayAngle) * Config::CAR_MAX_SENSOR_DIST };
 
         for (auto wall : trackWalls) {
             float dist;
@@ -71,7 +63,7 @@ void Car::UpdatePhysics(float inputAcelerar, float inputGiro, const std::vector<
         }
         
         fitness = distanceTraveled - timeAlive;
-        if (sensorDistances[i] < 5.0f || (timer > 100 && fitness < 0) || speed < -0.2f) {
+        if (sensorDistances[i] < Config::CAR_CRASH_DIST_THRESHOLD || (timer > Config::CAR_STALL_TIME_THRESHOLD && fitness < 0) || speed < Config::CAR_STALL_SPEED_THRESHOLD) {
             isCrashed = true; 
         }
     }

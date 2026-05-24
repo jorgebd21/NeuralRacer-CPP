@@ -12,6 +12,14 @@
 
 namespace TrackManager {
 
+constexpr int MAX_INTERSECTION_ITER = 5000;
+constexpr int MAX_INTERSECTION_SEARCH = 150;
+constexpr int BORDER_STEP = 8;
+constexpr int SMOOTH_RADIUS = 4;
+constexpr int SMOOTH_PASSES = 5;
+constexpr int TRACK_SPLINE_SEGMENTS = 50;
+constexpr float TRACK_WIDTH = 65.0f;
+
 bool GetLineIntersectionDist(Vector2 p1, Vector2 p2, Vector2 p3, Vector2 p4, float &outDist) {
     float den = (p1.x - p2.x) * (p3.y - p4.y) - (p1.y - p2.y) * (p3.x - p4.x);
     if (den == 0) return false;
@@ -87,7 +95,7 @@ void RemoveSelfIntersections(std::vector<Vector2>& pts) {
     int n = pts.size();
     if (n < 4) return;
     bool foundIntersection = true;
-    int maxIterations = 5000;
+    int maxIterations = MAX_INTERSECTION_ITER;
     int iterations = 0;
     while (foundIntersection && iterations++ < maxIterations) {
         foundIntersection = false;
@@ -95,7 +103,7 @@ void RemoveSelfIntersections(std::vector<Vector2>& pts) {
         for (int i = 0; i < n; i++) {
             Vector2 p1 = pts[i];
             Vector2 p2 = pts[(i + 1) % n];
-            int maxSearch = std::min(n - 1, 150); 
+            int maxSearch = std::min(n - 1, MAX_INTERSECTION_SEARCH); 
             for (int k = 2; k < maxSearch; k++) {
                 int j = (i + k) % n;
                 Vector2 p3 = pts[j];
@@ -128,7 +136,7 @@ void GenerateBordersFromCenterLine(const std::vector<Vector2>& centerPoints, flo
     float halfWidth = trackWidth / 2.0f;
     std::vector<Vector2> outerPoints(n);
     std::vector<Vector2> innerPoints(n);
-    int step = 8;
+    int step = BORDER_STEP;
     for (int i = 0; i < n; i++) {
         Vector2 prev = centerPoints[(i - step + n) % n];
         Vector2 next = centerPoints[(i + step) % n];
@@ -142,8 +150,8 @@ void GenerateBordersFromCenterLine(const std::vector<Vector2>& centerPoints, flo
     }
     RemoveSelfIntersections(outerPoints);
     RemoveSelfIntersections(innerPoints);
-    SmoothPoints(outerPoints, 4, 5);
-    SmoothPoints(innerPoints, 4, 5);
+    SmoothPoints(outerPoints, SMOOTH_RADIUS, SMOOTH_PASSES);
+    SmoothPoints(innerPoints, SMOOTH_RADIUS, SMOOTH_PASSES);
     RemoveSelfIntersections(outerPoints);
     RemoveSelfIntersections(innerPoints);
     for (size_t i = 0; i < outerPoints.size(); i++) {
@@ -195,8 +203,8 @@ void LoadTrackFromFile(const std::string& filename, std::vector<std::pair<Vector
     }
     if (centerPoints.size() >= 3) {
         CalculateStartGrid(centerPoints, outStartPos, outStartRot);
-        std::vector<Vector2> denseCenterLine = GenerateSplinePoints(centerPoints, 50);
-        GenerateBordersFromCenterLine(denseCenterLine, 65.0f, outWalls);
+        std::vector<Vector2> denseCenterLine = GenerateSplinePoints(centerPoints, TRACK_SPLINE_SEGMENTS);
+        GenerateBordersFromCenterLine(denseCenterLine, TRACK_WIDTH, outWalls);
     }
 }
 

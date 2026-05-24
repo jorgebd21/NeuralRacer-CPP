@@ -8,4 +8,21 @@ namespace Config {
     constexpr int MUTACION = 10; // %10 de mutacion
     constexpr int MAX_GENERATION_TIME = 3000;
     constexpr float SENSOR_ANGLES[5] = {-90.0f, -45.0f, 0.0f, 45.0f, 90.0f};
+
+    // --- Físicas del Coche ---
+    constexpr float CAR_MAX_SPEED_FORWARD = 4.0f;
+    constexpr float CAR_MAX_SPEED_BACKWARD = -1.5f;
+    constexpr float CAR_ACCEL_RATE = 0.04f;
+    constexpr float CAR_BRAKE_RATE = 0.1f;
+    constexpr float CAR_FRICTION = 0.015f;
+    constexpr float CAR_TURN_SPEED = 3.5f;
+    constexpr float CAR_TURN_PENALTY = 0.5f;
+    constexpr float CAR_MAX_SENSOR_DIST = 150.0f;
+    constexpr float CAR_CRASH_DIST_THRESHOLD = 5.0f;
+    constexpr int CAR_STALL_TIME_THRESHOLD = 100;
+    constexpr float CAR_STALL_SPEED_THRESHOLD = -0.2f;
+    
+    // --- Simulación Global ---
+    constexpr float SIM_START_POS_X = 400.0f;
+    constexpr float SIM_START_POS_Y = 650.0f;
 }
