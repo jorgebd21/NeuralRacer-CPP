@@ -25,4 +25,4 @@ add_executable(app ${SOURCES})
 
 # 6. Vincula las librerías necesarias
 # (Sustituye los ??? con GL, m, pthread, dl, rt, X11 tal como estaban en LDFLAGS)
-target_link_libraries(app raylib GL m pthread dl rt X11)
+target_link_libraries(app raylib GL m pthread dl rt X11 tbb)

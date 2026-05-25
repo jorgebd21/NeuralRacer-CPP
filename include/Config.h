@@ -12,7 +12,7 @@ namespace Config {
     constexpr int POPULATION_SIZE = 100;
     constexpr int NUM_MEJORES = 10;
     constexpr int MUTACION = 10;
-    constexpr int MAX_GENERATION_TIME = 3000;
+    constexpr int MAX_GENERATION_TIME = 2000;
     constexpr float SENSOR_ANGLES[5] = {-90.0f, -45.0f, 0.0f, 45.0f, 90.0f};
 
     constexpr float CAR_MAX_SPEED_FORWARD = 4.0f;

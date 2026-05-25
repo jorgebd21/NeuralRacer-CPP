@@ -7,6 +7,8 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <execution>
+#include <atomic>
 
 Simulation::Simulation(bool isHeadless) : 
     isHeadless(isHeadless),
@@ -161,10 +163,10 @@ void Simulation::UpdateTraining() {
 
     // Ejecutamos la lógica varias veces por frame si estamos en modo cámara rápida
     for (int s = 0; s < simSpeed; s++) {
-        bool allCrashed = true;
-        for (auto& car : population) {
+        std::atomic<int> carsAlive{0};
+        std::for_each(std::execution::par_unseq, population.begin(), population.end(), [&](Car& car) {
             if (!car.isCrashed) {
-                allCrashed = false;
+                carsAlive++;
                 
                 // 1. El cerebro decide qué hacer basándose en los sensores
                 float inputAcelerar = 0.0f, inputGiro = 0.0f;
@@ -173,8 +175,9 @@ void Simulation::UpdateTraining() {
                 // 2. El coche se mueve según la decisión y comprueba si ha chocado
                 car.UpdatePhysics(inputAcelerar, inputGiro, trackWalls, generationTimer);
             }
-        }
+        });
         
+        bool allCrashed = (carsAlive == 0);
         generationTimer++;
         
         // Si todos los coches han muerto o se acabó el tiempo máximo por generación
@@ -182,9 +185,13 @@ void Simulation::UpdateTraining() {
             std::cout << "Generacion " << generationCount << " (Pista " << currentEvaluationTrack + 1 << "/3)" << std::endl;
             currentEvaluationTrack++;
             if (currentEvaluationTrack >= 3) {
-                std::vector<Car> sortedPop = population;
-                std::sort(sortedPop.begin(), sortedPop.end(), [](const Car& a, const Car& b) { return a.fitness > b.fitness; });
-                std::cout << "Mejor fitness: " << sortedPop[0].fitness << std::endl;
+                std::vector<Car*> sortedPop;
+                sortedPop.reserve(population.size());
+                for (auto& car : population) {
+                    sortedPop.push_back(&car);
+                }
+                std::sort(sortedPop.begin(), sortedPop.end(), [](const Car* a, const Car* b) { return a->fitness > b->fitness; });
+                std::cout << "Mejor fitness: " << sortedPop[0]->fitness << std::endl;
                 Evolution::EvolvePopulation(population, startPosition, startRotation);
                 generationTimer = 0;
                 generationCount++;
@@ -355,12 +362,16 @@ void Simulation::DrawTraining() {
     DrawText("[M] Volver al Menu", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 145, 10, LIGHTGRAY);
 
     DrawText("TOP 10 FITNESS", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 180, 20, YELLOW);
-    std::vector<Car> sortedPop = population;
-    std::sort(sortedPop.begin(), sortedPop.end(), [](const Car& a, const Car& b) { return a.fitness > b.fitness; });
+    std::vector<Car*> sortedPop;
+    sortedPop.reserve(population.size());
+    for (auto& car : population) {
+        sortedPop.push_back(&car);
+    }
+    std::sort(sortedPop.begin(), sortedPop.end(), [](const Car* a, const Car* b) { return a->fitness > b->fitness; });
     for (int i = 0; i < 10 && i < (int)sortedPop.size(); i++) {
-        Color rowColor = (sortedPop[i].isCrashed) ? GRAY : WHITE;
+        Color rowColor = (sortedPop[i]->isCrashed) ? GRAY : WHITE;
         if (i == 0) rowColor = GOLD;
-        DrawText(TextFormat("%d. Fit: %.1f", i + 1, sortedPop[i].fitness), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 210 + (i * 25), 18, rowColor);
+        DrawText(TextFormat("%d. Fit: %.1f", i + 1, sortedPop[i]->fitness), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 210 + (i * 25), 18, rowColor);
     }
 }
 
