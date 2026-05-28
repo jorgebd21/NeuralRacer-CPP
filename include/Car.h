@@ -8,10 +8,10 @@
 #include <cmath>
 
 /**
- * @brief Estructura que representa la entidad de un coche en la simulación.
+ * @brief Structure representing a car entity in the simulation.
  * 
- * Contiene tanto los componentes físicos (posición, velocidad) como 
- * los elementos necesarios para el algoritmo genético (brain, fitness).
+ * Contains both physical components (position, velocity) and 
+ * elements necessary for the genetic algorithm (brain, fitness).
  */
 struct Car {
     Vector2 position;
@@ -37,35 +37,35 @@ struct Car {
     Brain brain;
 
     /**
-     * @brief Constructor que inicializa el coche en una posición y rotación inicial.
+     * @brief Constructor that initializes the car at an initial position and rotation.
      * 
-     * @param startX Posición inicial en el eje X.
-     * @param startY Posición inicial en el eje Y.
-     * @param startRot Rotación inicial en grados (por defecto 0.0f).
+     * @param startX Initial position on the X axis.
+     * @param startY Initial position on the Y axis.
+     * @param startRot Initial rotation in degrees (default 0.0f).
      */
     Car(float startX, float startY, float startRot = 0.0f);
     
     /**
-     * @brief Reinicia el estado físico del coche y resetea las métricas genéticas.
+     * @brief Resets the physical state of the car and resets genetic metrics.
      * 
-     * @param startX Nueva posición inicial en el eje X.
-     * @param startY Nueva posición inicial en el eje Y.
-     * @param startRot Nueva rotación inicial en grados (por defecto 0.0f).
+     * @param startX New initial position on the X axis.
+     * @param startY New initial position on the Y axis.
+     * @param startRot New initial rotation in degrees (default 0.0f).
      */
     void Reset(float startX, float startY, float startRot = 0.0f, bool fullReset = true);
     
     /**
-     * @brief Calcula la magnitud escalar de la velocidad actual (Teorema de Pitágoras).
+     * @brief Calculates the scalar magnitude of the current velocity (Pythagorean Theorem).
      */
     float GetSpeed() const { return std::sqrt(velocity.x * velocity.x + velocity.y * velocity.y); }
 
     /**
-     * @brief Actualiza la física del coche según sus entradas y calcula las colisiones.
+     * @brief Updates the physics of the car according to its inputs and calculates collisions.
      * 
-     * @param inputAcelerar Valor de aceleración (-1.0 a 1.0).
-     * @param inputGiro Valor de giro (-1.0 a 1.0).
-     * @param spatialGrid Grid espacial que contiene las paredes del circuito para detección de colisión y sensores.
-     * @param timer El tiempo de vida actual del coche en la simulación.
+     * @param inputAccelerate Acceleration value (-1.0 to 1.0).
+     * @param inputTurn Turn value (-1.0 to 1.0).
+     * @param spatialGrid Spatial grid containing the track walls for collision detection and sensors.
+     * @param timer The current lifetime of the car in the simulation.
      */
-    void UpdatePhysics(float inputAcelerar, float inputGiro, const std::unordered_map<uint64_t, std::vector<std::pair<Vector2, Vector2>>> &spatialGrid, int timer, const std::vector<Vector2>& trackCheckpoints);
+    void UpdatePhysics(float inputAccelerate, float inputTurn, const std::unordered_map<uint64_t, std::vector<std::pair<Vector2, Vector2>>> &spatialGrid, int timer, const std::vector<Vector2>& trackCheckpoints);
 };

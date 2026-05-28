@@ -32,20 +32,20 @@ float Telemetry::CalculateWeightVariance(const std::vector<Car>& population) {
     int count = 0;
 
     for (const auto& car : population) {
-        for (int i = 0; i < NODOS_OCULTOS; i++) {
-            for (int j = 0; j < NODOS_ENTRADA; j++) {
-                sum += car.brain.peso_entrada_oculta[i][j];
+        for (int i = 0; i < HIDDEN_NODES; i++) {
+            for (int j = 0; j < INPUT_NODES; j++) {
+                sum += car.brain.weights_input_hidden[i][j];
                 count++;
             }
-            sum += car.brain.sesgos_oculta[i];
+            sum += car.brain.biases_hidden[i];
             count++;
         }
-        for (int i = 0; i < NODOS_SALIDA; i++) {
-            for (int j = 0; j < NODOS_OCULTOS; j++) {
-                sum += car.brain.peso_oculta_salida[i][j];
+        for (int i = 0; i < OUTPUT_NODES; i++) {
+            for (int j = 0; j < HIDDEN_NODES; j++) {
+                sum += car.brain.weights_hidden_output[i][j];
                 count++;
             }
-            sum += car.brain.sesgos_salida[i];
+            sum += car.brain.biases_output[i];
             count++;
         }
     }
@@ -54,20 +54,20 @@ float Telemetry::CalculateWeightVariance(const std::vector<Car>& population) {
     double varSum = 0.0;
 
     for (const auto& car : population) {
-        for (int i = 0; i < NODOS_OCULTOS; i++) {
-            for (int j = 0; j < NODOS_ENTRADA; j++) {
-                double diff = car.brain.peso_entrada_oculta[i][j] - mean;
+        for (int i = 0; i < HIDDEN_NODES; i++) {
+            for (int j = 0; j < INPUT_NODES; j++) {
+                double diff = car.brain.weights_input_hidden[i][j] - mean;
                 varSum += diff * diff;
             }
-            double diff = car.brain.sesgos_oculta[i] - mean;
+            double diff = car.brain.biases_hidden[i] - mean;
             varSum += diff * diff;
         }
-        for (int i = 0; i < NODOS_SALIDA; i++) {
-            for (int j = 0; j < NODOS_OCULTOS; j++) {
-                double diff = car.brain.peso_oculta_salida[i][j] - mean;
+        for (int i = 0; i < OUTPUT_NODES; i++) {
+            for (int j = 0; j < HIDDEN_NODES; j++) {
+                double diff = car.brain.weights_hidden_output[i][j] - mean;
                 varSum += diff * diff;
             }
-            double diff = car.brain.sesgos_salida[i] - mean;
+            double diff = car.brain.biases_output[i] - mean;
             varSum += diff * diff;
         }
     }
@@ -106,7 +106,7 @@ void Telemetry::RecordGeneration(int generation, const std::vector<Car>& populat
 }
 
 void Telemetry::ExportDataAsync(const std::string& filename) {
-    // Copiamos el historial para que el hilo asíncrono no tenga problemas de concurrencia
+    // Copy the history so the asynchronous thread doesn't have concurrency issues
     std::vector<GenerationMetrics> historyCopy = history;
     
     exportFuture = std::async(std::launch::async, [historyCopy, filename]() {
@@ -136,14 +136,14 @@ void Telemetry::DrawDashboard(int screenWidth, int screenHeight) {
     int x = padding;
     int y = screenHeight - panelHeight - padding;
 
-    // Fondo del dashboard
+    // Dashboard background
     DrawRectangle(x, y, panelWidth, panelHeight, Fade(BLACK, 0.85f));
     DrawRectangleLines(x, y, panelWidth, panelHeight, Fade(WHITE, 0.5f));
 
-    DrawText("TELEMETRIA Y CONVERGENCIA", x + 10, y + 10, 20, SKYBLUE);
+    DrawText("TELEMETRY AND CONVERGENCE", x + 10, y + 10, 20, SKYBLUE);
 
-    // Encontrar máximos para escalar la gráfica
-    float maxFit = 0.0001f; // Evitar división por cero
+    // Find maximums to scale the graph
+    float maxFit = 0.0001f; // Avoid division by zero
     for (const auto& m : history) {
         if (m.maxFitness > maxFit) maxFit = m.maxFitness;
     }
@@ -153,49 +153,49 @@ void Telemetry::DrawDashboard(int screenWidth, int screenHeight) {
     int graphW = panelWidth - 60;
     int graphH = 150;
 
-    // Ejes de la gráfica
+    // Graph axes
     DrawLine(graphX, graphY, graphX, graphY + graphH, WHITE);
     DrawLine(graphX, graphY + graphH, graphX + graphW, graphY + graphH, WHITE);
 
-    // Dibujar líneas de fitness
+    // Draw fitness lines
     if (history.size() > 1) {
         float stepX = (float)graphW / (history.size() - 1);
         for (size_t i = 1; i < history.size(); i++) {
             int px1 = graphX + (i - 1) * stepX;
             int px2 = graphX + i * stepX;
 
-            // Fitness Max (Verde)
+            // Max Fitness (Green)
             int pyMax1 = graphY + graphH - (int)((history[i-1].maxFitness / maxFit) * graphH);
             int pyMax2 = graphY + graphH - (int)((history[i].maxFitness / maxFit) * graphH);
             DrawLineEx({(float)px1, (float)pyMax1}, {(float)px2, (float)pyMax2}, 2.0f, GREEN);
 
-            // Fitness Avg (Amarillo)
+            // Avg Fitness (Yellow)
             int pyAvg1 = graphY + graphH - (int)((history[i-1].avgFitness / maxFit) * graphH);
             int pyAvg2 = graphY + graphH - (int)((history[i].avgFitness / maxFit) * graphH);
             DrawLineEx({(float)px1, (float)pyAvg1}, {(float)px2, (float)pyAvg2}, 2.0f, YELLOW);
             
-            // Fitness Min (Rojo)
+            // Min Fitness (Red)
             int pyMin1 = graphY + graphH - (int)((history[i-1].minFitness / maxFit) * graphH);
             int pyMin2 = graphY + graphH - (int)((history[i].minFitness / maxFit) * graphH);
             DrawLineEx({(float)px1, (float)pyMin1}, {(float)px2, (float)pyMin2}, 2.0f, RED);
         }
     }
 
-    // Leyenda de la gráfica
+    // Graph legend
     DrawText(TextFormat("Max Fit: %.1f", history.back().maxFitness), x + 10, graphY + graphH + 10, 15, GREEN);
     DrawText(TextFormat("Avg Fit: %.1f", history.back().avgFitness), x + 10, graphY + graphH + 30, 15, YELLOW);
     DrawText(TextFormat("Min Fit: %.1f", history.back().minFitness), x + 10, graphY + graphH + 50, 15, RED);
 
-    // Otras métricas
+    // Other metrics
     int rightCol = x + 200;
-    DrawText(TextFormat("Supervivencia: %.1f%%", history.back().survivalRate * 100.0f), rightCol, graphY + graphH + 10, 15, WHITE);
-    DrawText(TextFormat("Vida Media: %.0f t", history.back().avgLifeTime), rightCol, graphY + graphH + 30, 15, WHITE);
-    DrawText(TextFormat("Var. Genética: %.4f", history.back().weightVariance), rightCol, graphY + graphH + 50, 15, ORANGE);
+    DrawText(TextFormat("Survival: %.1f%%", history.back().survivalRate * 100.0f), rightCol, graphY + graphH + 10, 15, WHITE);
+    DrawText(TextFormat("Avg Life: %.0f t", history.back().avgLifeTime), rightCol, graphY + graphH + 30, 15, WHITE);
+    DrawText(TextFormat("Gen. Var.: %.4f", history.back().weightVariance), rightCol, graphY + graphH + 50, 15, ORANGE);
 }
 
 void Telemetry::DrawHeatmap() {
-    // Dibujamos los puntos donde han chocado los coches
+    // Draw the points where cars have crashed
     for (const auto& cp : crashPoints) {
-        DrawCircleV(cp, 4.0f, Fade(RED, 0.2f)); // Semitransparente para que la acumulación se vea más brillante
+        DrawCircleV(cp, 4.0f, Fade(RED, 0.2f)); // Semi-transparent so accumulation looks brighter
     }
 }

@@ -18,7 +18,7 @@ int main(int argc, char* argv[]) {
                     return 0;
             }else{
                     cout << "Unknown argument: " << argv[i] << endl;
-                    cout << "Usage: ./app [--help] to show arguments";
+                    cout << "Usage: ./app [--help] to show arguments" << endl;
                     return 1;
             }
         }

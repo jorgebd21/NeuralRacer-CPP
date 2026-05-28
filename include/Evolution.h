@@ -4,34 +4,37 @@
 #include <vector>
 
 /**
- * @brief Algoritmos genéticos y persistencia para la evolución de la red neuronal.
+ * @brief Genetic algorithms and persistence for neural network evolution.
  * 
- * Gestiona la selección natural, mutaciones y cruces de la población de coches,
- * además de manejar la carga y guardado de los genomas (pesos y sesgos).
+ * Manages natural selection, mutations, and crossovers of the car population,
+ * as well as loading and saving genomes (weights and biases).
  */
 namespace Evolution {
     /**
-     * @brief Guarda en disco los cerebros de los mejores coches de la generación actual.
+     * @brief Saves the brains of the best cars from the current generation to disk.
      * 
-     * @param population La población completa de coches evaluada.
+     * @param population The complete evaluated population of cars.
+     * @param generation The current generation number.
      */
-    void GuardarMejoresCerebros(const std::vector<Car>& population, int generacion);
+    void SaveBestBrains(const std::vector<Car>& population, int generation);
 
     /**
-     * @brief Carga desde el disco los mejores cerebros previamente guardados para la nueva generación.
+     * @brief Loads the best previously saved brains from disk for the new generation.
      * 
-     * @param population La población a la que se le inyectarán los cerebros cargados.
-     * @return true Si la carga fue exitosa.
-     * @return false Si ocurrió un error en la carga o no se encontró el archivo.
+     * @param population The population into which the loaded brains will be injected.
+     * @param generation Reference to store the loaded generation number.
+     * @return true If loading was successful.
+     * @return false If an error occurred during loading or the file was not found.
      */
-    bool CargarMejoresCerebros(std::vector<Car>& population, int &generacion);
+    bool LoadBestBrains(std::vector<Car>& population, int &generation);
 
     /**
-     * @brief Evalúa la población actual y aplica algoritmos genéticos para generar la próxima generación.
+     * @brief Evaluates the current population and applies genetic algorithms to generate the next generation.
      * 
-     * @param population Referencia a la población actual, que será mutada y reemplazada.
-     * @param startPosition Posición inicial para resetear los coches.
-     * @param startRotation Rotación inicial para resetear los coches.
+     * @param population Reference to the current population, which will be mutated and replaced.
+     * @param startPosition Initial position to reset the cars.
+     * @param startRotation Initial rotation to reset the cars.
+     * @param genCount The current generation count.
      */
     void EvolvePopulation(std::vector<Car>& population, Vector2 startPosition, float startRotation, int genCount);
 }

@@ -22,18 +22,18 @@ constexpr int TRACK_SPLINE_SEGMENTS = 50;
 constexpr float TRACK_WIDTH = 65.0f;
 
 bool GetLineIntersectionDist(Vector2 p1, Vector2 p2, Vector2 p3, Vector2 p4, float &outDist) {
-    // Calculamos el denominador con el determinante de las rectas
+    // Calculate the denominator with the determinant of the lines
     float den = (p1.x - p2.x) * (p3.y - p4.y) - (p1.y - p2.y) * (p3.x - p4.x);
-    if (den == 0) return false; // Son paralelas o coincidentes
+    if (den == 0) return false; // They are parallel or coincident
     
-    // t y u representan el punto de corte relativo en ambos segmentos
+    // t and u represent the relative intersection point on both segments
     float t = ((p1.x - p3.x) * (p3.y - p4.y) - (p1.y - p3.y) * (p3.x - p4.x)) / den;
     float u = -((p1.x - p2.x) * (p1.y - p3.y) - (p1.y - p2.y) * (p1.x - p3.x)) / den;
     
-    // Si t y u están entre 0 y 1, la intersección ocurre dentro de los propios segmentos
+    // If t and u are between 0 and 1, the intersection occurs within the segments themselves
     if (t > 0 && t < 1 && u > 0 && u < 1) {
         Vector2 pt = { p1.x + t * (p2.x - p1.x), p1.y + t * (p2.y - p1.y) };
-        outDist = sqrt(pow(pt.x - p1.x, 2) + pow(pt.y - p1.y, 2)); // Guardamos la distancia desde p1 hasta el cruce
+        outDist = sqrt(pow(pt.x - p1.x, 2) + pow(pt.y - p1.y, 2)); // Save the distance from p1 to the intersection
         return true;
     }
     return false;
@@ -54,14 +54,14 @@ std::vector<Vector2> GenerateSplinePoints(const std::vector<Vector2>& points, in
     
     int n = points.size();
     for (int i = 0; i < n; i++) {
-        // Tomamos 4 puntos consecutivos para el Spline Catmull-Rom. 
-        // Usamos módulo para cerrar la pista en un bucle continuo.
+        // Take 4 consecutive points for the Catmull-Rom Spline. 
+        // Use modulo to close the track in a continuous loop.
         Vector2 p0 = points[(i - 1 + n) % n];
         Vector2 p1 = points[i];
         Vector2 p2 = points[(i + 1) % n];
         Vector2 p3 = points[(i + 2) % n];
         
-        // Interpolamos 'segmentsPerCurve' puntos a lo largo de este segmento de la curva
+        // Interpolate 'segmentsPerCurve' points along this curve segment
         for (int j = 0; j < segmentsPerCurve; j++) {
             float t = (float)j / segmentsPerCurve;
             Vector2 pt = GetCatmullRomPoint(p0, p1, p2, p3, t);
@@ -149,21 +149,21 @@ void GenerateBordersFromCenterLine(const std::vector<Vector2>& centerPoints, flo
     std::vector<Vector2> innerPoints(n);
     int step = BORDER_STEP;
     for (int i = 0; i < n; i++) {
-        // Obtenemos un punto "anterior" y "siguiente" más alejados (dado por 'step')
-        // para calcular una tangente suavizada, en lugar de usar los puntos inmediatamente adyacentes.
+        // We get an "earlier" and "later" point further away (given by 'step')
+        // to calculate a smoothed tangent, instead of using immediately adjacent points.
         Vector2 prev = centerPoints[(i - step + n) % n];
         Vector2 next = centerPoints[(i + step) % n];
         
-        // Calculamos la dirección del vector
+        // Calculate the vector direction
         Vector2 dir = {next.x - prev.x, next.y - prev.y};
         float length = sqrt(dir.x * dir.x + dir.y * dir.y);
-        if (length < 0.0001f) dir = {1.0f, 0.0f}; // Fallback si los puntos coinciden por accidente
+        if (length < 0.0001f) dir = {1.0f, 0.0f}; // Fallback if points accidentally coincide
         else { dir.x /= length; dir.y /= length; }
         
-        // Rotamos 90 grados la tangente para obtener la Normal (perpendicular)
+        // Rotate the tangent 90 degrees to get the Normal (perpendicular)
         Vector2 normal = {-dir.y, dir.x};
         
-        // Extruimos hacia afuera e iterior aplicando la anchura definida
+        // Extrude outwards and inwards applying the defined width
         outerPoints[i] = {centerPoints[i].x + normal.x * halfWidth, centerPoints[i].y + normal.y * halfWidth};
         innerPoints[i] = {centerPoints[i].x - normal.x * halfWidth, centerPoints[i].y - normal.y * halfWidth};
     }
@@ -232,43 +232,51 @@ void GenerateBordersFromCenterLine(const std::vector<Vector2>& centerPoints, flo
     }
 }
 
-void CalculateStartGrid(const std::vector<Vector2>& puntosProcedurales, Vector2& startPosition, float& startRotation) {
-    if (puntosProcedurales.empty()) return;
-    int n = puntosProcedurales.size();
+void CalculateStartGrid(const std::vector<Vector2>& proceduralPoints, Vector2& startPosition, float& startRotation) {
+    if (proceduralPoints.empty()) return;
+    int n = proceduralPoints.size();
     float maxDist = 0;
     int bestIdx = 0;
     for (int i = 0; i < n; i++) {
-        Vector2 p1 = puntosProcedurales[i];
-        Vector2 p2 = puntosProcedurales[(i+1)%n];
+        Vector2 p1 = proceduralPoints[i];
+        Vector2 p2 = proceduralPoints[(i+1)%n];
         float d = (p1.x - p2.x)*(p1.x - p2.x) + (p1.y - p2.y)*(p1.y - p2.y);
         
-        // Guardamos el segmento más largo encontrado
+        // Save the longest segment found
         if (d > maxDist) {
             maxDist = d;
             bestIdx = i;
         }
     }
     
-    // Posicionamos los coches justo a la mitad del segmento más recto para darles margen para acelerar
-    Vector2 p1 = puntosProcedurales[bestIdx];
-    Vector2 p2 = puntosProcedurales[(bestIdx+1)%n];
+    // Position the cars right in the middle of the straightest segment to give them room to accelerate
+    Vector2 p1 = proceduralPoints[bestIdx];
+    Vector2 p2 = proceduralPoints[(bestIdx+1)%n];
     startPosition.x = (p1.x + p2.x) / 2.0f;
     startPosition.y = (p1.y + p2.y) / 2.0f;
     
-    // Calculamos el ángulo para que el coche mire en la dirección del segmento
+    // Calculate the angle so the car faces the direction of the segment
     startRotation = atan2(p2.y - p1.y, p2.x - p1.x) * (180.0f / PI);
 }
 
 void LoadTrackFromFile(const std::string& filename, std::vector<std::pair<Vector2, Vector2>>& outWalls, Vector2& outStartPos, float& outStartRot, std::vector<Vector2>& outCheckpoints) {
     std::ifstream file(filename);
     if (!file.is_open()) {
-        std::cerr << "Error: No se pudo abrir " << filename << std::endl;
+        std::cerr << "Error: Could not open " << filename << std::endl;
         return;
     }
     std::vector<Vector2> centerPoints;
     nlohmann::json j = nlohmann::json::parse(file);
-    for (const auto& point : j["puntos_centrales"]) {
-        centerPoints.push_back({point["x"], point["y"]});
+    
+    // Support both old and new keys for loading track files
+    if (j.contains("puntos_centrales")) {
+        for (const auto& point : j["puntos_centrales"]) {
+            centerPoints.push_back({point["x"], point["y"]});
+        }
+    } else if (j.contains("center_points")) {
+        for (const auto& point : j["center_points"]) {
+            centerPoints.push_back({point["x"], point["y"]});
+        }
     }
     
     if (centerPoints.size() >= 3) {
@@ -283,12 +291,18 @@ std::vector<std::string> ScanMapFiles() {
     for (const auto& entry : std::filesystem::directory_iterator("data/tracks")) {
         if (entry.path().extension() == ".json") {
             std::string name = entry.path().filename().string();
-            if (name.rfind("pista_", 0) == 0) {
+            if (name.rfind("pista_", 0) == 0 || name.rfind("procedural_track_", 0) == 0) {
                 mapFiles.push_back("data/tracks/" + name);
             }
         }
     }
-    if (mapFiles.empty()) mapFiles.push_back("data/tracks/pista_facil.json");
+    if (mapFiles.empty()) {
+        // Fallback or default
+        std::ifstream defaultCheck("data/tracks/pista_facil.json");
+        if (defaultCheck.is_open()) {
+            mapFiles.push_back("data/tracks/pista_facil.json");
+        }
+    }
     std::sort(mapFiles.begin(), mapFiles.end());
     return mapFiles;
 }

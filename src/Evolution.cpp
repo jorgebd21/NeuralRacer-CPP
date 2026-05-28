@@ -9,91 +9,114 @@
 
 namespace Evolution {
 
-void GuardarMejoresCerebros(const std::vector<Car>& population, int generacion) {
-    std::ofstream mejoresFile("data/mejores.json", std::ios::out);
-    nlohmann::json datos;
-    datos["generacion"] = generacion;
-    for(int n = 0; n < Config::NUM_MEJORES; n++) {
-        nlohmann::json coche;
-        coche["id"] = n;
-        coche["pesos_entrada_oculta"] = population[n].brain.peso_entrada_oculta;
-        coche["sesgos_oculta"] = population[n].brain.sesgos_oculta;
-        coche["pesos_oculta_salida"] = population[n].brain.peso_oculta_salida;
-        coche["sesgos_salida"] = population[n].brain.sesgos_salida;
-        datos["elite"].push_back(coche);
+void SaveBestBrains(const std::vector<Car>& population, int generation) {
+    std::ofstream bestFile("data/best.json", std::ios::out);
+    nlohmann::json data;
+    data["generation"] = generation;
+    for(int n = 0; n < Config::NUM_BEST; n++) {
+        nlohmann::json car;
+        car["id"] = n;
+        car["weights_input_hidden"] = population[n].brain.weights_input_hidden;
+        car["biases_hidden"] = population[n].brain.biases_hidden;
+        car["weights_hidden_output"] = population[n].brain.weights_hidden_output;
+        car["biases_output"] = population[n].brain.biases_output;
+        data["elite"].push_back(car);
     }
-    mejoresFile << datos.dump(4);
+    bestFile << data.dump(4);
 }
 
-bool CargarMejoresCerebros(std::vector<Car>& population, int &generacion) {
-    std::ifstream file("data/mejores.json");
-    if (!file.is_open()) return false;
+bool LoadBestBrains(std::vector<Car>& population, int &generation) {
+    std::ifstream file("data/best.json");
+    // Fallback to old name if best.json doesn't exist yet, but only read it, we will save to best.json later.
+    if (!file.is_open()) {
+        file.open("data/mejores.json");
+        if (!file.is_open()) return false;
+    }
     
-    nlohmann::json datos = nlohmann::json::parse(file);
-    generacion = datos["generacion"];
-    Config::MUTACION = std::max(1, (int)(Config::MAX_MUTACION / (1.0f + (Config::TASA_CAIDA * generacion))));
+    nlohmann::json data = nlohmann::json::parse(file);
+    // Support for old json keys for backward compatibility initially, though saving uses new ones
+    if (data.contains("generacion")) generation = data["generacion"];
+    else if (data.contains("generation")) generation = data["generation"];
 
-    // La primera fase de la carga inyecta directamente los cerebros élite de la generacion anterior.
-    // Esto asegura que no perdemos el progreso ("elitismo").
-    for(int n = 0; n < Config::NUM_MEJORES && n < (int)population.size(); n++) {
-        for(int i = 0; i < NODOS_OCULTOS; i++) {
-            for(int j = 0; j < NODOS_ENTRADA; j++) {
-                population[n].brain.peso_entrada_oculta[i][j] = datos["elite"][n]["pesos_entrada_oculta"][i][j];
+    Config::MUTATION = std::max(1, (int)(Config::MAX_MUTATION / (1.0f + (Config::DROP_RATE * generation))));
+
+    // The first phase of loading directly injects the elite brains from the previous generation.
+    // This ensures we do not lose progress ("elitism").
+    for(int n = 0; n < Config::NUM_BEST && n < (int)population.size(); n++) {
+        for(int i = 0; i < HIDDEN_NODES; i++) {
+            for(int j = 0; j < INPUT_NODES; j++) {
+                if (data["elite"][n].contains("pesos_entrada_oculta")) {
+                    population[n].brain.weights_input_hidden[i][j] = data["elite"][n]["pesos_entrada_oculta"][i][j];
+                } else {
+                    population[n].brain.weights_input_hidden[i][j] = data["elite"][n]["weights_input_hidden"][i][j];
+                }
             }
         }
-        for(int i = 0; i < NODOS_OCULTOS; i++) {
-            population[n].brain.sesgos_oculta[i] = datos["elite"][n]["sesgos_oculta"][i];
-        }
-        for(int i = 0; i < NODOS_SALIDA; i++) {
-            for(int j = 0; j < NODOS_OCULTOS; j++) {
-                population[n].brain.peso_oculta_salida[i][j] = datos["elite"][n]["pesos_oculta_salida"][i][j];
+        for(int i = 0; i < HIDDEN_NODES; i++) {
+            if (data["elite"][n].contains("sesgos_oculta")) {
+                population[n].brain.biases_hidden[i] = data["elite"][n]["sesgos_oculta"][i];
+            } else {
+                population[n].brain.biases_hidden[i] = data["elite"][n]["biases_hidden"][i];
             }
         }
-        for(int i = 0; i < NODOS_SALIDA; i++) {
-            population[n].brain.sesgos_salida[i] = datos["elite"][n]["sesgos_salida"][i];
+        for(int i = 0; i < OUTPUT_NODES; i++) {
+            for(int j = 0; j < HIDDEN_NODES; j++) {
+                if (data["elite"][n].contains("pesos_oculta_salida")) {
+                    population[n].brain.weights_hidden_output[i][j] = data["elite"][n]["pesos_oculta_salida"][i][j];
+                } else {
+                    population[n].brain.weights_hidden_output[i][j] = data["elite"][n]["weights_hidden_output"][i][j];
+                }
+            }
+        }
+        for(int i = 0; i < OUTPUT_NODES; i++) {
+            if (data["elite"][n].contains("sesgos_salida")) {
+                population[n].brain.biases_output[i] = data["elite"][n]["sesgos_salida"][i];
+            } else {
+                population[n].brain.biases_output[i] = data["elite"][n]["biases_output"][i];
+            }
         }
     }
 
-    // El resto de la población se genera copiando aleatoriamente genomas de los élites y aplicando mutación.
-    // Esto introduce diversidad genética mientras se apoya en características exitosas probadas.
+    // The rest of the population is generated by randomly copying genomes from the elites and applying mutation.
+    // This introduces genetic diversity while relying on proven successful traits.
     static std::random_device rd;
-    static std::mt19937 generador(rd());
-    std::uniform_int_distribution<int> distMejores(0, Config::NUM_MEJORES - 1);
-    std::uniform_int_distribution<int> distMutacion(0, 99);
+    static std::mt19937 generator(rd());
+    std::uniform_int_distribution<int> distBest(0, Config::NUM_BEST - 1);
+    std::uniform_int_distribution<int> distMutation(0, 99);
 
-    int referente;
-    int padre, madre;
-    std::pair<int, int> padres;
+    int reference;
+    int father, mother;
+    std::pair<int, int> parents;
     
-    for(int n = Config::NUM_MEJORES; n < Config::POPULATION_SIZE && n < (int)population.size(); n++) {
-        padre = distMejores(generador);
+    for(int n = Config::NUM_BEST; n < Config::POPULATION_SIZE && n < (int)population.size(); n++) {
+        father = distBest(generator);
         do{
-            madre = distMejores(generador);
-        }while(madre == padre);
-        padres = {padre, madre};
-        for(int i = 0; i < NODOS_OCULTOS; i++) {
-            for(int j = 0; j < NODOS_ENTRADA; j++) {
-                referente = distMutacion(generador) < 50 ? padres.first : padres.second;
-                population[n].brain.peso_entrada_oculta[i][j] = population[referente].brain.peso_entrada_oculta[i][j];
-                if(distMutacion(generador) < Config::MUTACION) population[n].brain.peso_entrada_oculta[i][j] += population[n].brain.MutateGaussian();
+            mother = distBest(generator);
+        }while(mother == father);
+        parents = {father, mother};
+        for(int i = 0; i < HIDDEN_NODES; i++) {
+            for(int j = 0; j < INPUT_NODES; j++) {
+                reference = distMutation(generator) < 50 ? parents.first : parents.second;
+                population[n].brain.weights_input_hidden[i][j] = population[reference].brain.weights_input_hidden[i][j];
+                if(distMutation(generator) < Config::MUTATION) population[n].brain.weights_input_hidden[i][j] += population[n].brain.MutateGaussian();
             }
         }
-        for(int i = 0; i < NODOS_OCULTOS; i++) {
-            referente = distMutacion(generador) < 50 ? padres.first : padres.second;
-            population[n].brain.sesgos_oculta[i] = population[referente].brain.sesgos_oculta[i];
-            if(distMutacion(generador) < Config::MUTACION) population[n].brain.sesgos_oculta[i] += population[n].brain.MutateGaussian();
+        for(int i = 0; i < HIDDEN_NODES; i++) {
+            reference = distMutation(generator) < 50 ? parents.first : parents.second;
+            population[n].brain.biases_hidden[i] = population[reference].brain.biases_hidden[i];
+            if(distMutation(generator) < Config::MUTATION) population[n].brain.biases_hidden[i] += population[n].brain.MutateGaussian();
         }
-        for(int i = 0; i < NODOS_SALIDA; i++) {
-            for(int j = 0; j < NODOS_OCULTOS; j++) {
-                referente = distMutacion(generador) < 50 ? padres.first : padres.second;
-                population[n].brain.peso_oculta_salida[i][j] = population[referente].brain.peso_oculta_salida[i][j];
-                if(distMutacion(generador) < Config::MUTACION) population[n].brain.peso_oculta_salida[i][j] += population[n].brain.MutateGaussian();
+        for(int i = 0; i < OUTPUT_NODES; i++) {
+            for(int j = 0; j < HIDDEN_NODES; j++) {
+                reference = distMutation(generator) < 50 ? parents.first : parents.second;
+                population[n].brain.weights_hidden_output[i][j] = population[reference].brain.weights_hidden_output[i][j];
+                if(distMutation(generator) < Config::MUTATION) population[n].brain.weights_hidden_output[i][j] += population[n].brain.MutateGaussian();
             }
         }
-        for(int i = 0; i < NODOS_SALIDA; i++) {
-            referente = distMutacion(generador) < 50 ? padres.first : padres.second;
-            population[n].brain.sesgos_salida[i] = population[referente].brain.sesgos_salida[i];
-            if(distMutacion(generador) < Config::MUTACION) population[n].brain.sesgos_salida[i] += population[n].brain.MutateGaussian();
+        for(int i = 0; i < OUTPUT_NODES; i++) {
+            reference = distMutation(generator) < 50 ? parents.first : parents.second;
+            population[n].brain.biases_output[i] = population[reference].brain.biases_output[i];
+            if(distMutation(generator) < Config::MUTATION) population[n].brain.biases_output[i] += population[n].brain.MutateGaussian();
         }
     }
     
@@ -101,58 +124,58 @@ bool CargarMejoresCerebros(std::vector<Car>& population, int &generacion) {
 }
 
 void EvolvePopulation(std::vector<Car>& population, Vector2 startPosition, float startRotation, int genCount) {
-    Config::MUTACION = std::max(1, (int)(Config::MAX_MUTACION / (1.0f + (Config::TASA_CAIDA * genCount))));
+    Config::MUTATION = std::max(1, (int)(Config::MAX_MUTATION / (1.0f + (Config::DROP_RATE * genCount))));
     
     std::sort(population.begin(), population.end(), [](const Car& a, const Car& b) {
         return a.fitness > b.fitness;
     });
 
-    GuardarMejoresCerebros(population, genCount);
+    SaveBestBrains(population, genCount);
     
     static std::random_device rd;
-    static std::mt19937 generador(rd());
-    std::uniform_int_distribution<int> distMejores(0, Config::NUM_MEJORES - 1);
-    std::uniform_int_distribution<int> distMutacion(0, 99);
+    static std::mt19937 generator(rd());
+    std::uniform_int_distribution<int> distBest(0, Config::NUM_BEST - 1);
+    std::uniform_int_distribution<int> distMutation(0, 99);
 
-    int referente;
-    int padre, madre;
-    std::pair<int, int> padres;
-    for(int n = Config::NUM_MEJORES; n < Config::POPULATION_SIZE && n < (int)population.size(); n++) {
-        padre = distMejores(generador);
+    int reference;
+    int father, mother;
+    std::pair<int, int> parents;
+    for(int n = Config::NUM_BEST; n < Config::POPULATION_SIZE && n < (int)population.size(); n++) {
+        father = distBest(generator);
         do{
-            madre = distMejores(generador);
-        }while(madre == padre);
-        padres = {padre, madre};
-        for(int i = 0; i < NODOS_OCULTOS; i++) {
-            for(int j = 0; j < NODOS_ENTRADA; j++) {
-                referente = distMutacion(generador) < 50 ? padres.first : padres.second;
-                population[n].brain.peso_entrada_oculta[i][j] = population[referente].brain.peso_entrada_oculta[i][j];
-                if(distMutacion(generador) < Config::MUTACION){
-                    population[n].brain.peso_entrada_oculta[i][j] += population[n].brain.MutateGaussian();
+            mother = distBest(generator);
+        }while(mother == father);
+        parents = {father, mother};
+        for(int i = 0; i < HIDDEN_NODES; i++) {
+            for(int j = 0; j < INPUT_NODES; j++) {
+                reference = distMutation(generator) < 50 ? parents.first : parents.second;
+                population[n].brain.weights_input_hidden[i][j] = population[reference].brain.weights_input_hidden[i][j];
+                if(distMutation(generator) < Config::MUTATION){
+                    population[n].brain.weights_input_hidden[i][j] += population[n].brain.MutateGaussian();
                 }
             }
         }
-        for(int i = 0; i < NODOS_OCULTOS; i++) {
-            referente = distMutacion(generador) < 50 ? padres.first : padres.second;
-            population[n].brain.sesgos_oculta[i] = population[referente].brain.sesgos_oculta[i];
-            if(distMutacion(generador) < Config::MUTACION){
-                population[n].brain.sesgos_oculta[i] += population[n].brain.MutateGaussian();
+        for(int i = 0; i < HIDDEN_NODES; i++) {
+            reference = distMutation(generator) < 50 ? parents.first : parents.second;
+            population[n].brain.biases_hidden[i] = population[reference].brain.biases_hidden[i];
+            if(distMutation(generator) < Config::MUTATION){
+                population[n].brain.biases_hidden[i] += population[n].brain.MutateGaussian();
             }
         }
-        for(int i = 0; i < NODOS_SALIDA; i++) {
-            for(int j = 0; j < NODOS_OCULTOS; j++) {
-                referente = distMutacion(generador) < 50 ? padres.first : padres.second;
-                population[n].brain.peso_oculta_salida[i][j] = population[referente].brain.peso_oculta_salida[i][j];
-                if(distMutacion(generador) < Config::MUTACION){
-                    population[n].brain.peso_oculta_salida[i][j] += population[n].brain.MutateGaussian();
+        for(int i = 0; i < OUTPUT_NODES; i++) {
+            for(int j = 0; j < HIDDEN_NODES; j++) {
+                reference = distMutation(generator) < 50 ? parents.first : parents.second;
+                population[n].brain.weights_hidden_output[i][j] = population[reference].brain.weights_hidden_output[i][j];
+                if(distMutation(generator) < Config::MUTATION){
+                    population[n].brain.weights_hidden_output[i][j] += population[n].brain.MutateGaussian();
                 }
             }
         }
-        for(int i = 0; i < NODOS_SALIDA; i++) {
-            referente = distMutacion(generador) < 50 ? padres.first : padres.second;
-            population[n].brain.sesgos_salida[i] = population[referente].brain.sesgos_salida[i];
-            if(distMutacion(generador) < Config::MUTACION){
-                population[n].brain.sesgos_salida[i] += population[n].brain.MutateGaussian();
+        for(int i = 0; i < OUTPUT_NODES; i++) {
+            reference = distMutation(generator) < 50 ? parents.first : parents.second;
+            population[n].brain.biases_output[i] = population[reference].brain.biases_output[i];
+            if(distMutation(generator) < Config::MUTATION){
+                population[n].brain.biases_output[i] += population[n].brain.MutateGaussian();
             }
         }
     }
@@ -160,7 +183,7 @@ void EvolvePopulation(std::vector<Car>& population, Vector2 startPosition, float
     for (auto& car : population) {
         car.Reset(startPosition.x, startPosition.y, startRotation);
     }
-    std::cout << "Generación terminada. ¡Evolucionando población!" << std::endl;
+    std::cout << "Generation finished. Evolving population!" << std::endl;
 }
 
 } // namespace Evolution

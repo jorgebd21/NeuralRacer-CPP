@@ -8,41 +8,41 @@
 #include <unordered_map>
 
 /**
- * @brief Representa el estado global de la aplicación (máquina de estados finitos).
+ * @brief Represents the global state of the application (finite state machine).
  */
 enum GameState { MENU, TRAINING, EXHIBITION, TEST_AI };
 
 /**
- * @brief Controlador principal de la simulación gráfica y lógica.
+ * @brief Main controller for graphical and logical simulation.
  * 
- * Orquesta los menús, las fases de entrenamiento y las carreras de exhibición.
- * Es responsable de mantener el bucle principal de la aplicación y la gestión de estado.
+ * Orchestrates menus, training phases, and exhibition races.
+ * Responsible for maintaining the main application loop and state management.
  */
 class Simulation {
 public:
     /**
-     * @brief Constructor de la clase Simulation.
+     * @brief Constructor for the Simulation class.
      */
     Simulation(bool isHeadless = false);
 
     /**
-     * @brief Inicia y mantiene el ciclo de vida principal de la simulación.
+     * @brief Starts and maintains the main lifecycle of the simulation.
      */
     void Run();
 
 private:
     /**
-     * @brief Inicializa los recursos visuales y las lógicas base necesarias.
+     * @brief Initializes visual resources and necessary base logic.
      */
     void Init();
 
     /**
-     * @brief Actualiza la lógica de negocio dependiendo del GameState actual.
+     * @brief Updates business logic depending on the current GameState.
      */
     void Update();
 
     /**
-     * @brief Dibuja por pantalla según el estado activo de GameState.
+     * @brief Draws to the screen according to the active GameState.
      */
     void Draw();
 
@@ -76,7 +76,7 @@ private:
     std::vector<std::pair<Vector2, Vector2>> trackWalls;
     std::vector<Vector2> trackCheckpoints;
     std::unordered_map<uint64_t, std::vector<std::pair<Vector2, Vector2>>> spatialGrid;
-    std::vector<Vector2> puntosProcedurales;
+    std::vector<Vector2> proceduralPoints;
 
     std::vector<Car> population;
     int generationTimer;

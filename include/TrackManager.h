@@ -8,10 +8,10 @@
 #include <unordered_map>
 
 /**
- * @brief Espacio de nombres para utilidades de generación, procesamiento y carga de circuitos.
+ * @brief Namespace for utilities relating to track generation, processing, and loading.
  * 
- * Contiene funciones matemáticas para interpolación (Catmull-Rom), detección de colisiones, 
- * y lectura/escritura de archivos de mapa.
+ * Contains mathematical functions for interpolation (Catmull-Rom), collision detection, 
+ * and reading/writing map files.
  */
 namespace TrackManager {
     const int GRID_CELL_SIZE = 100;
@@ -21,101 +21,103 @@ namespace TrackManager {
     }
 
     /**
-     * @brief Calcula la distancia a la intersección de dos segmentos de línea.
+     * @brief Calculates the distance to the intersection of two line segments.
      * 
-     * @param p1 Inicio del primer segmento.
-     * @param p2 Fin del primer segmento.
-     * @param p3 Inicio del segundo segmento.
-     * @param p4 Fin del segundo segmento.
-     * @param outDist Distancia resultante si existe intersección.
-     * @return true Si existe intersección.
-     * @return false Si no hay intersección.
+     * @param p1 Start of the first segment.
+     * @param p2 End of the first segment.
+     * @param p3 Start of the second segment.
+     * @param p4 End of the second segment.
+     * @param outDist Resulting distance if an intersection exists.
+     * @return true If an intersection exists.
+     * @return false If there is no intersection.
      */
     bool GetLineIntersectionDist(Vector2 p1, Vector2 p2, Vector2 p3, Vector2 p4, float &outDist);
 
     /**
-     * @brief Interpola un punto utilizando una curva spline Catmull-Rom.
+     * @brief Interpolates a point using a Catmull-Rom spline curve.
      * 
-     * @param p0 Punto de control anterior.
-     * @param p1 Punto de inicio del segmento.
-     * @param p2 Punto de fin del segmento.
-     * @param p3 Punto de control siguiente.
-     * @param t Valor de interpolación [0.0, 1.0].
-     * @return Vector2 El punto interpolado en la curva.
+     * @param p0 Previous control point.
+     * @param p1 Start point of the segment.
+     * @param p2 End point of the segment.
+     * @param p3 Next control point.
+     * @param t Interpolation value [0.0, 1.0].
+     * @return Vector2 The interpolated point on the curve.
      */
     Vector2 GetCatmullRomPoint(Vector2 p0, Vector2 p1, Vector2 p2, Vector2 p3, float t);
 
     /**
-     * @brief Genera puntos intermedios a lo largo de una lista de puntos utilizando splines.
+     * @brief Generates intermediate points along a list of points using splines.
      * 
-     * @param points Nodos base del circuito.
-     * @param segmentsPerCurve Resolución de la curva (cuántos puntos generar por segmento base).
-     * @return std::vector<Vector2> El recorrido suavizado.
+     * @param points Base nodes of the circuit.
+     * @param segmentsPerCurve Resolution of the curve (how many points to generate per base segment).
+     * @return std::vector<Vector2> The smoothed path.
      */
     std::vector<Vector2> GenerateSplinePoints(const std::vector<Vector2>& points, int segmentsPerCurve = 15);
 
     /**
-     * @brief Aplica un filtro de suavizado a una serie de puntos para redondear las curvas.
+     * @brief Applies a smoothing filter to a series of points to round the curves.
      * 
-     * @param pts Vector de puntos a suavizar (se modifica in-place).
-     * @param radius Alcance del suavizado hacia adelante y hacia atrás.
-     * @param passes Número de iteraciones del algoritmo de suavizado.
+     * @param pts Vector of points to smooth (modified in-place).
+     * @param radius Reach of smoothing forwards and backwards.
+     * @param passes Number of iterations for the smoothing algorithm.
      */
     void SmoothPoints(std::vector<Vector2>& pts, int radius, int passes);
 
     /**
-     * @brief Comprueba si dos segmentos de línea se cortan y obtiene el punto exacto.
+     * @brief Checks if two line segments intersect and gets the exact point.
      * 
-     * @param p1 Inicio del primer segmento.
-     * @param p2 Fin del primer segmento.
-     * @param p3 Inicio del segundo segmento.
-     * @param p4 Fin del segundo segmento.
-     * @param outIntersection Coordenada exacta de la intersección.
-     * @return true Si los segmentos se cruzan.
-     * @return false Si no se cruzan.
+     * @param p1 Start of the first segment.
+     * @param p2 End of the first segment.
+     * @param p3 Start of the second segment.
+     * @param p4 End of the second segment.
+     * @param outIntersection Exact coordinate of the intersection.
+     * @return true If the segments intersect.
+     * @return false If they do not intersect.
      */
     bool GetSegmentIntersection(Vector2 p1, Vector2 p2, Vector2 p3, Vector2 p4, Vector2& outIntersection);
 
     /**
-     * @brief Detecta y elimina bucles donde el circuito se cruza consigo mismo.
+     * @brief Detects and removes loops where the circuit crosses itself.
      * 
-     * @param pts La lista de puntos que define el circuito.
+     * @param pts The list of points that defines the circuit.
      */
     void RemoveSelfIntersections(std::vector<Vector2>& pts);
 
     /**
-     * @brief Genera las paredes exteriores e interiores del circuito a partir de su línea central.
+     * @brief Generates the outer and inner walls of the circuit from its center line.
      * 
-     * @param centerPoints Puntos que definen la ruta óptima del circuito.
-     * @param trackWidth Ancho total de la pista.
-     * @param outCheckpoints Vector donde se almacenarán los checkpoints.
-     * @param startPosition Posición inicial para poder generar los checkpoints adecuadamente.
+     * @param centerPoints Points that define the optimal route of the circuit.
+     * @param trackWidth Total width of the track.
+     * @param outWalls Vector where the track borders will be added.
+     * @param outCheckpoints Vector where the checkpoints will be stored.
+     * @param startPosition Initial position to generate checkpoints appropriately.
      */
     void GenerateBordersFromCenterLine(const std::vector<Vector2>& centerPoints, float trackWidth, std::vector<std::pair<Vector2, Vector2>>& outWalls, std::vector<Vector2>& outCheckpoints, Vector2 startPosition);
 
     /**
-     * @brief Determina la posición y rotación inicial idóneas para los coches.
+     * @brief Determines the optimal initial position and rotation for the cars.
      * 
-     * @param puntosProcedurales Los nodos centrales del circuito.
-     * @param startPosition Parámetro de salida con la posición inicial.
-     * @param startRotation Parámetro de salida con la rotación inicial en grados.
+     * @param proceduralPoints The center nodes of the circuit.
+     * @param startPosition Output parameter for the initial position.
+     * @param startRotation Output parameter for the initial rotation in degrees.
      */
-    void CalculateStartGrid(const std::vector<Vector2>& puntosProcedurales, Vector2& startPosition, float& startRotation);
+    void CalculateStartGrid(const std::vector<Vector2>& proceduralPoints, Vector2& startPosition, float& startRotation);
 
     /**
-     * @brief Carga un circuito completo (paredes y punto de inicio) desde un archivo de texto.
+     * @brief Loads a complete circuit (walls and starting point) from a text file.
      * 
-     * @param filename Ruta al archivo del circuito.
-     * @param outWalls Vector donde se añadirán los bordes del mapa.
-     * @param outStartPos Posición de salida leída del mapa.
-     * @param outStartRot Rotación de salida calculada u obtenida del mapa.
+     * @param filename Path to the circuit file.
+     * @param outWalls Vector where the map borders will be added.
+     * @param outStartPos Output parameter for the starting position read from the map.
+     * @param outStartRot Output parameter for the calculated or obtained starting rotation.
+     * @param outCheckpoints Vector where the checkpoints will be stored.
      */
     void LoadTrackFromFile(const std::string& filename, std::vector<std::pair<Vector2, Vector2>>& outWalls, Vector2& outStartPos, float& outStartRot, std::vector<Vector2>& outCheckpoints);
 
     /**
-     * @brief Explora el directorio de mapas y devuelve una lista de los nombres disponibles.
+     * @brief Explores the maps directory and returns a list of available names.
      * 
-     * @return std::vector<std::string> Nombres de los archivos encontrados en la carpeta de mapas.
+     * @return std::vector<std::string> Names of the files found in the maps folder.
      */
     std::vector<std::string> ScanMapFiles();
 }

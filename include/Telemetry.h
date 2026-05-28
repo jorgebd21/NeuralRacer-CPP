@@ -12,9 +12,9 @@ struct GenerationMetrics {
     float maxFitness;
     float minFitness;
     float avgFitness;
-    float survivalRate;      // Porcentaje que sobrevivió sin chocar
-    float avgLifeTime;       // Tiempo de vida promedio en ticks
-    float weightVariance;    // Medida de diversidad genética
+    float survivalRate;      // Percentage that survived without crashing
+    float avgLifeTime;       // Average lifetime in ticks
+    float weightVariance;    // Measure of genetic diversity
 };
 
 class Telemetry {

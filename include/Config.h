@@ -1,19 +1,19 @@
 #pragma once
 
 /**
- * @brief Contiene todos los parámetros de configuración globales de la aplicación.
+ * @brief Contains all global configuration parameters for the application.
  * 
- * Agrupa constantes que ajustan la física, la simulación genética y las 
- * configuraciones de ventana. Se encapsulan en un namespace para evitar polución.
+ * Groups constants that adjust physics, genetic simulation, and 
+ * window settings. Encapsulated in a namespace to avoid global scope pollution.
  */
 namespace Config {
     constexpr int SCREEN_WIDTH = 1280;
     constexpr int SCREEN_HEIGHT = 768;
     constexpr int POPULATION_SIZE = 100;
-    constexpr int NUM_MEJORES = 10;
-    constexpr int MAX_MUTACION = 50;
-    inline int MUTACION = 50;
-    constexpr float TASA_CAIDA = 0.005f;
+    constexpr int NUM_BEST = 10;
+    constexpr int MAX_MUTATION = 50;
+    inline int MUTATION = 50;
+    constexpr float DROP_RATE = 0.005f;
     constexpr int MAX_GENERATION_TIME = 2000;
     constexpr float SENSOR_ANGLES[5] = {-90.0f, -45.0f, 0.0f, 45.0f, 90.0f};
 

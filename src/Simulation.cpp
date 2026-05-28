@@ -35,7 +35,7 @@ constexpr float PROCEDURAL_TRACK_WIDTH = 65.0f;
 
 void Simulation::Init() {
     if(!isHeadless){
-        InitWindow(Config::SCREEN_WIDTH, Config::SCREEN_HEIGHT, "Simulador Genético - IA Autónoma");
+        InitWindow(Config::SCREEN_WIDTH, Config::SCREEN_HEIGHT, "Genetic Simulator - Autonomous AI");
         SetTargetFPS(SIM_TARGET_FPS);
     }
     
@@ -51,7 +51,7 @@ void Simulation::Init() {
     for (int i = 0; i < Config::POPULATION_SIZE; i++) {
         population.push_back(Car(startPosition.x, startPosition.y, startRotation));
     }
-    Evolution::CargarMejoresCerebros(population, generationCount);
+    Evolution::LoadBestBrains(population, generationCount);
     
     playerCar = Car(startPosition.x, startPosition.y, startRotation);
     aiCar = population.empty() ? Car(startPosition.x, startPosition.y, startRotation) : population[0];
@@ -75,7 +75,7 @@ void Simulation::Run() {
 }
 
 void Simulation::Update() {
-    // Máquina de estados principal: delega la actualización lógica según el modo actual
+    // Main state machine: delegates logical update according to the current mode
     if (currentState == MENU) UpdateMenu();
     else if (currentState == TRAINING) UpdateTraining();
     else if (currentState == EXHIBITION) UpdateExhibition();
@@ -87,9 +87,9 @@ void Simulation::UpdateMenu() {
         aiCar.Reset(startPosition.x, startPosition.y, startRotation);
     }
     if (!aiCar.isCrashed) {
-        float aiAcelerar = 0.0f, aiGiro = 0.0f;
-        aiCar.brain.Evaluate(aiCar.sensorDistances, aiCar.GetSpeed(), aiAcelerar, aiGiro);
-        aiCar.UpdatePhysics(aiAcelerar, aiGiro, spatialGrid, 0, trackCheckpoints);
+        float aiAccelerate = 0.0f, aiTurn = 0.0f;
+        aiCar.brain.Evaluate(aiCar.sensorDistances, aiCar.GetSpeed(), aiAccelerate, aiTurn);
+        aiCar.UpdatePhysics(aiAccelerate, aiTurn, spatialGrid, 0, trackCheckpoints);
     }
 
     if (IsKeyPressed(KEY_T)) currentState = TRAINING;
@@ -98,7 +98,7 @@ void Simulation::UpdateMenu() {
         aiCar.Reset(startPosition.x, startPosition.y, startRotation);
         
         std::vector<Car> temp(1, Car(startPosition.x, startPosition.y, startRotation));
-        if (Evolution::CargarMejoresCerebros(temp, generationCount)) {
+        if (Evolution::LoadBestBrains(temp, generationCount)) {
             aiCar = temp[0];
         }
         aiCar.Reset(startPosition.x, startPosition.y, startRotation);
@@ -107,7 +107,7 @@ void Simulation::UpdateMenu() {
     }
     if (IsKeyPressed(KEY_A)) {
         std::vector<Car> temp(1, Car(startPosition.x, startPosition.y, startRotation));
-        if (Evolution::CargarMejoresCerebros(temp, generationCount)) {
+        if (Evolution::LoadBestBrains(temp, generationCount)) {
             aiCar = temp[0];
         }
         aiCar.Reset(startPosition.x, startPosition.y, startRotation);
@@ -115,9 +115,9 @@ void Simulation::UpdateMenu() {
         currentState = TEST_AI;
     }
     if (IsKeyPressed(KEY_P)) {
-        puntosProcedurales = TrackGenerator::GenerateProceduralCenterPoints();
-        std::vector<Vector2> denseCenterLine = TrackManager::GenerateSplinePoints(puntosProcedurales, PROCEDURAL_SPLINE_SEGMENTS);
-        TrackManager::CalculateStartGrid(puntosProcedurales, startPosition, startRotation);
+        proceduralPoints = TrackGenerator::GenerateProceduralCenterPoints();
+        std::vector<Vector2> denseCenterLine = TrackManager::GenerateSplinePoints(proceduralPoints, PROCEDURAL_SPLINE_SEGMENTS);
+        TrackManager::CalculateStartGrid(proceduralPoints, startPosition, startRotation);
         trackWalls.clear();
         trackCheckpoints.clear();
         Telemetry::ResetHeatmap();
@@ -153,16 +153,16 @@ void Simulation::UpdateMenu() {
         aiCar.Reset(startPosition.x, startPosition.y, startRotation);
     }
     if (IsKeyPressed(KEY_G)) {
-        if (!puntosProcedurales.empty()) {
+        if (!proceduralPoints.empty()) {
             int counter = 1;
             std::string filename;
             while (true) {
-                filename = "data/tracks/pista_procedural" + std::to_string(counter) + ".json";
+                filename = "data/tracks/procedural_track_" + std::to_string(counter) + ".json";
                 std::ifstream f(filename.c_str());
                 if (!f.good()) break;
                 counter++;
             }
-            TrackGenerator::SaveTrackToFile(puntosProcedurales, filename);
+            TrackGenerator::SaveTrackToFile(proceduralPoints, filename);
         }
     }
 }
@@ -170,7 +170,7 @@ void Simulation::UpdateMenu() {
 constexpr int FAST_FORWARD_MULTIPLIER = 50;
 
 void Simulation::UpdateTraining() {
-    // Permite acelerar la simulación para entrenar más rápido
+    // Allows accelerating the simulation to train faster
     if(!isHeadless){
         if (IsKeyPressed(KEY_SPACE)) simSpeed = (simSpeed == 1) ? FAST_FORWARD_MULTIPLIER : 1;
         if (IsKeyPressed(KEY_M)) currentState = MENU;
@@ -178,19 +178,19 @@ void Simulation::UpdateTraining() {
         if (IsKeyPressed(KEY_H)) showTelemetry = !showTelemetry;
     }
 
-    // Ejecutamos la lógica varias veces por frame si estamos en modo cámara rápida
+    // Execute logic multiple times per frame if in fast forward mode
     for (int s = 0; s < simSpeed; s++) {
         std::atomic<int> carsAlive{0};
         std::for_each(std::execution::par_unseq, population.begin(), population.end(), [&](Car& car) {
             if (!car.isCrashed) {
                 carsAlive++;
                 
-                // 1. El cerebro decide qué hacer basándose en los sensores
-                float inputAcelerar = 0.0f, inputGiro = 0.0f;
-                car.brain.Evaluate(car.sensorDistances, car.GetSpeed(), inputAcelerar, inputGiro);
+                // 1. The brain decides what to do based on the sensors
+                float inputAccelerate = 0.0f, inputTurn = 0.0f;
+                car.brain.Evaluate(car.sensorDistances, car.GetSpeed(), inputAccelerate, inputTurn);
                 
-                // 2. El coche se mueve según la decisión y comprueba si ha chocado
-                car.UpdatePhysics(inputAcelerar, inputGiro, spatialGrid, generationTimer, trackCheckpoints);
+                // 2. The car moves according to the decision and checks if it crashed
+                car.UpdatePhysics(inputAccelerate, inputTurn, spatialGrid, generationTimer, trackCheckpoints);
                 
                 if (car.isCrashed) {
                     Telemetry::RecordCrash(car.position);
@@ -201,9 +201,9 @@ void Simulation::UpdateTraining() {
         bool allCrashed = (carsAlive == 0);
         generationTimer++;
         
-        // Si todos los coches han muerto o se acabó el tiempo máximo por generación
+        // If all cars died or the maximum time per generation is up
         if (allCrashed || generationTimer >= Config::MAX_GENERATION_TIME) {
-            std::cout << "Generacion " << generationCount << " (Pista " << currentEvaluationTrack + 1 << "/3)" << std::endl;
+            std::cout << "Generation " << generationCount << " (Track " << currentEvaluationTrack + 1 << "/3)" << std::endl;
             currentEvaluationTrack++;
             if (currentEvaluationTrack >= 3) {
                 std::vector<Car*> sortedPop;
@@ -212,7 +212,7 @@ void Simulation::UpdateTraining() {
                     sortedPop.push_back(&car);
                 }
                 std::sort(sortedPop.begin(), sortedPop.end(), [](const Car* a, const Car* b) { return a->fitness > b->fitness; });
-                std::cout << "Mejor fitness: " << sortedPop[0]->fitness << std::endl;
+                std::cout << "Best fitness: " << sortedPop[0]->fitness << std::endl;
                 
                 Telemetry::RecordGeneration(generationCount, population, Config::MAX_GENERATION_TIME);
                 Telemetry::ExportDataAsync();
@@ -226,9 +226,9 @@ void Simulation::UpdateTraining() {
                     car.accumulatedFitness = car.fitness;
                 }
                 
-                puntosProcedurales = TrackGenerator::GenerateProceduralCenterPoints();
-                std::vector<Vector2> denseCenterLine = TrackManager::GenerateSplinePoints(puntosProcedurales, PROCEDURAL_SPLINE_SEGMENTS);
-                TrackManager::CalculateStartGrid(puntosProcedurales, startPosition, startRotation);
+                proceduralPoints = TrackGenerator::GenerateProceduralCenterPoints();
+                std::vector<Vector2> denseCenterLine = TrackManager::GenerateSplinePoints(proceduralPoints, PROCEDURAL_SPLINE_SEGMENTS);
+                TrackManager::CalculateStartGrid(proceduralPoints, startPosition, startRotation);
                 trackWalls.clear();
                 trackCheckpoints.clear();
                 Telemetry::ResetHeatmap();
@@ -253,16 +253,16 @@ void Simulation::UpdateExhibition() {
     }
 
     if (exhibitionResult == 0) {
-        float playerAcelerar = 0.0f, playerGiro = 0.0f;
-        if (IsKeyDown(KEY_W) || IsKeyDown(KEY_UP)) playerAcelerar = 1.0f;
-        if (IsKeyDown(KEY_S) || IsKeyDown(KEY_DOWN)) playerAcelerar = -1.0f;
-        if (IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT)) playerGiro = 1.0f;
-        if (IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT)) playerGiro = -1.0f;
-        playerCar.UpdatePhysics(playerAcelerar, playerGiro, spatialGrid, 0, trackCheckpoints);
+        float playerAccelerate = 0.0f, playerTurn = 0.0f;
+        if (IsKeyDown(KEY_W) || IsKeyDown(KEY_UP)) playerAccelerate = 1.0f;
+        if (IsKeyDown(KEY_S) || IsKeyDown(KEY_DOWN)) playerAccelerate = -1.0f;
+        if (IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT)) playerTurn = 1.0f;
+        if (IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT)) playerTurn = -1.0f;
+        playerCar.UpdatePhysics(playerAccelerate, playerTurn, spatialGrid, 0, trackCheckpoints);
 
-        float aiAcelerar = 0.0f, aiGiro = 0.0f;
-        aiCar.brain.Evaluate(aiCar.sensorDistances, aiCar.GetSpeed(), aiAcelerar, aiGiro);
-        aiCar.UpdatePhysics(aiAcelerar, aiGiro, spatialGrid, 0, trackCheckpoints);
+        float aiAccelerate = 0.0f, aiTurn = 0.0f;
+        aiCar.brain.Evaluate(aiCar.sensorDistances, aiCar.GetSpeed(), aiAccelerate, aiTurn);
+        aiCar.UpdatePhysics(aiAccelerate, aiTurn, spatialGrid, 0, trackCheckpoints);
 
         if (playerCar.isCrashed && !aiCar.isCrashed) exhibitionResult = 2;
         else if (aiCar.isCrashed && !playerCar.isCrashed) exhibitionResult = 1;
@@ -346,14 +346,14 @@ void Simulation::DrawMenu() {
     size_t pos = displayName.find_last_of('/');
     if(pos != std::string::npos) displayName = displayName.substr(pos+1);
     
-    DrawText("SIMULADOR GENETICO", Config::SCREEN_WIDTH/2 - 250, 200, 40, WHITE);
-    DrawText(TextFormat("Pista Actual: < %s >", displayName.c_str()), Config::SCREEN_WIDTH/2 - 200, 300, 25, SKYBLUE);
-    DrawText("[ T ] MODO ENTRENAMIENTO (IA vs IA)", Config::SCREEN_WIDTH/2 - 200, 350, 20, LIGHTGRAY);
-    DrawText("[ E ] MODO EXHIBICION (Jugador vs Mejor IA)", Config::SCREEN_WIDTH/2 - 200, 400, 20, LIGHTGRAY);
-    DrawText("[ A ] PROBAR IA (Solo ver mejor IA)", Config::SCREEN_WIDTH/2 - 200, 450, 20, LIGHTGRAY);
-    DrawText("[ P ] GENERAR PISTA PROCEDURAL", Config::SCREEN_WIDTH/2 - 200, 500, 20, YELLOW);
-    if (!puntosProcedurales.empty()) {
-        DrawText("[ G ] GUARDAR PISTA ACTUAL", Config::SCREEN_WIDTH/2 - 200, 550, 20, GREEN);
+    DrawText("GENETIC SIMULATOR", Config::SCREEN_WIDTH/2 - 250, 200, 40, WHITE);
+    DrawText(TextFormat("Current Track: < %s >", displayName.c_str()), Config::SCREEN_WIDTH/2 - 200, 300, 25, SKYBLUE);
+    DrawText("[ T ] TRAINING MODE (AI vs AI)", Config::SCREEN_WIDTH/2 - 200, 350, 20, LIGHTGRAY);
+    DrawText("[ E ] EXHIBITION MODE (Player vs Best AI)", Config::SCREEN_WIDTH/2 - 200, 400, 20, LIGHTGRAY);
+    DrawText("[ A ] TEST AI (Only watch best AI)", Config::SCREEN_WIDTH/2 - 200, 450, 20, LIGHTGRAY);
+    DrawText("[ P ] GENERATE PROCEDURAL TRACK", Config::SCREEN_WIDTH/2 - 200, 500, 20, YELLOW);
+    if (!proceduralPoints.empty()) {
+        DrawText("[ G ] SAVE CURRENT TRACK", Config::SCREEN_WIDTH/2 - 200, 550, 20, GREEN);
     }
 }
 
@@ -399,15 +399,15 @@ void Simulation::DrawTraining() {
 
     constexpr int UI_PANEL_WIDTH = 250;
     DrawRectangle(Config::SCREEN_WIDTH - UI_PANEL_WIDTH, 0, UI_PANEL_WIDTH, Config::SCREEN_HEIGHT, Fade(BLACK, 0.85f));
-    DrawText(TextFormat("Generacion: %d (Pista %d/3)", generationCount, currentEvaluationTrack + 1), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 20, 20, WHITE);
-    DrawText(TextFormat("Tiempo: %d / %d", generationTimer, Config::MAX_GENERATION_TIME), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 50, 20, WHITE);
-    DrawText(TextFormat("Vivos: %d / %d", aliveCount, Config::POPULATION_SIZE), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 80, 20, WHITE);
-    DrawText(TextFormat("Velocidad: %s", (simSpeed == 1) ? "NORMAL" : "MAX (x50)"), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 110, 15, (simSpeed == 1) ? GREEN : RED);
-    DrawText(TextFormat("Mutacion: %d %%", Config::MUTACION), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 130, 15, YELLOW);
-    DrawText("[ESPACIO] Cambiar vel", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 150, 10, LIGHTGRAY);
-    DrawText("[M] Volver al Menu", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 165, 10, LIGHTGRAY);
-    DrawText("[C] Ver/Ocultar Checkpoints", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 180, 10, LIGHTGRAY);
-    DrawText("[H] Telemetria y Heatmap", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 195, 10, LIGHTGRAY);
+    DrawText(TextFormat("Generation: %d (Track %d/3)", generationCount, currentEvaluationTrack + 1), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 20, 20, WHITE);
+    DrawText(TextFormat("Time: %d / %d", generationTimer, Config::MAX_GENERATION_TIME), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 50, 20, WHITE);
+    DrawText(TextFormat("Alive: %d / %d", aliveCount, Config::POPULATION_SIZE), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 80, 20, WHITE);
+    DrawText(TextFormat("Speed: %s", (simSpeed == 1) ? "NORMAL" : "MAX (x50)"), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 110, 15, (simSpeed == 1) ? GREEN : RED);
+    DrawText(TextFormat("Mutation: %d %%", Config::MUTATION), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 130, 15, YELLOW);
+    DrawText("[SPACE] Change speed", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 150, 10, LIGHTGRAY);
+    DrawText("[M] Return to Menu", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 165, 10, LIGHTGRAY);
+    DrawText("[C] Toggle Checkpoints", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 180, 10, LIGHTGRAY);
+    DrawText("[H] Telemetry & Heatmap", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 195, 10, LIGHTGRAY);
 
     DrawText("TOP 10 FITNESS", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 215, 20, YELLOW);
     std::vector<Car*> sortedPop;
@@ -423,7 +423,7 @@ void Simulation::DrawTraining() {
     }
 
     if (!sortedPop.empty()) {
-        DrawText("RED NEURONAL (Lider)", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 490, 15, SKYBLUE);
+        DrawText("NEURAL NETWORK (Leader)", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 490, 15, SKYBLUE);
         
         Brain& bestBrain = sortedPop[0]->brain;
         int startY = 510;
@@ -433,7 +433,7 @@ void Simulation::DrawTraining() {
             Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 125,
             Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 220
         };
-        int nodesPerLayer[3] = { NODOS_ENTRADA, NODOS_OCULTOS, NODOS_SALIDA };
+        int nodesPerLayer[3] = { INPUT_NODES, HIDDEN_NODES, OUTPUT_NODES };
         
         std::vector<Vector2> nodePos[3];
         for (int l = 0; l < 3; l++) {
@@ -444,18 +444,18 @@ void Simulation::DrawTraining() {
             }
         }
         
-        for (int i = 0; i < NODOS_ENTRADA; i++) {
-            for (int j = 0; j < NODOS_OCULTOS; j++) {
-                float weight = bestBrain.peso_entrada_oculta[j][i];
+        for (int i = 0; i < INPUT_NODES; i++) {
+            for (int j = 0; j < HIDDEN_NODES; j++) {
+                float weight = bestBrain.weights_input_hidden[j][i];
                 float alpha = fmin(fabs(weight), 1.0f);
                 Color edgeColor = (weight > 0) ? Fade(GREEN, alpha) : Fade(RED, alpha);
                 DrawLineV(nodePos[0][i], nodePos[1][j], edgeColor);
             }
         }
         
-        for (int i = 0; i < NODOS_OCULTOS; i++) {
-            for (int j = 0; j < NODOS_SALIDA; j++) {
-                float weight = bestBrain.peso_oculta_salida[j][i];
+        for (int i = 0; i < HIDDEN_NODES; i++) {
+            for (int j = 0; j < OUTPUT_NODES; j++) {
+                float weight = bestBrain.weights_hidden_output[j][i];
                 float alpha = fmin(fabs(weight), 1.0f);
                 Color edgeColor = (weight > 0) ? Fade(GREEN, alpha) : Fade(RED, alpha);
                 DrawLineV(nodePos[1][i], nodePos[2][j], edgeColor);
@@ -466,12 +466,12 @@ void Simulation::DrawTraining() {
             for (int n = 0; n < nodesPerLayer[l]; n++) {
                 float val = 0.0f;
                 if (l == 0) {
-                    if (n < 5) val = bestBrain.last_entrada[n] / 250.0f; // SENSOR_MAX_DIST aprox
-                    else val = bestBrain.last_entrada[n] / 10.0f; // max speed aprox
+                    if (n < 5) val = bestBrain.last_input[n] / 250.0f; // SENSOR_MAX_DIST approx
+                    else val = bestBrain.last_input[n] / 10.0f; // max speed approx
                 } else if (l == 1) {
-                    val = bestBrain.last_ocultos[n];
+                    val = bestBrain.last_hidden[n];
                 } else if (l == 2) {
-                    val = bestBrain.last_salida[n];
+                    val = bestBrain.last_output[n];
                 }
                 
                 val = fmax(-1.0f, fmin(1.0f, val));
@@ -501,14 +501,14 @@ void Simulation::DrawExhibition() {
     if (!playerCar.isCrashed) DrawRectanglePro({ playerCar.position.x, playerCar.position.y, 20.0f, 10.0f }, { 10.0f, 5.0f }, playerCar.rotation, BLUE);
 
     if (exhibitionResult == 1) {
-        DrawText("¡HAS GANADO A LA IA!", Config::SCREEN_WIDTH/2 - 200, 200, 40, GREEN);
-        DrawText("Pulsa R para revancha", Config::SCREEN_WIDTH/2 - 150, 250, 20, WHITE);
+        DrawText("YOU BEAT THE AI!", Config::SCREEN_WIDTH/2 - 200, 200, 40, GREEN);
+        DrawText("Press R for revenge", Config::SCREEN_WIDTH/2 - 150, 250, 20, WHITE);
     } else if (exhibitionResult == 2) {
-        DrawText("LA IA TE HA DESTRUIDO", Config::SCREEN_WIDTH/2 - 200, 200, 40, RED);
-        DrawText("Pulsa R para reintentar", Config::SCREEN_WIDTH/2 - 150, 250, 20, WHITE);
+        DrawText("THE AI DESTROYED YOU", Config::SCREEN_WIDTH/2 - 200, 200, 40, RED);
+        DrawText("Press R to retry", Config::SCREEN_WIDTH/2 - 150, 250, 20, WHITE);
     }
 
-    DrawText("[M] Volver al Menú Principal", 20, 20, 20, LIGHTGRAY);
+    DrawText("[M] Return to Main Menu", 20, 20, 20, LIGHTGRAY);
 }
 
 void Simulation::UpdateTestAI() {
@@ -518,9 +518,9 @@ void Simulation::UpdateTestAI() {
     }
 
     if (!aiCar.isCrashed) {
-        float aiAcelerar = 0.0f, aiGiro = 0.0f;
-        aiCar.brain.Evaluate(aiCar.sensorDistances, aiCar.GetSpeed(), aiAcelerar, aiGiro);
-        aiCar.UpdatePhysics(aiAcelerar, aiGiro, spatialGrid, 0, trackCheckpoints);
+        float aiAccelerate = 0.0f, aiTurn = 0.0f;
+        aiCar.brain.Evaluate(aiCar.sensorDistances, aiCar.GetSpeed(), aiAccelerate, aiTurn);
+        aiCar.UpdatePhysics(aiAccelerate, aiTurn, spatialGrid, 0, trackCheckpoints);
     }
 }
 
@@ -541,11 +541,11 @@ void Simulation::DrawTestAI() {
             DrawCircleV(actualRayEnd, 3.0f, Fade(GREEN, 0.5f));
         }
     } else {
-        DrawText("LA IA HA CHOCADO", Config::SCREEN_WIDTH/2 - 150, 200, 30, RED);
-        DrawText("Pulsa R para reiniciar", Config::SCREEN_WIDTH/2 - 100, 250, 20, WHITE);
+        DrawText("THE AI HAS CRASHED", Config::SCREEN_WIDTH/2 - 150, 200, 30, RED);
+        DrawText("Press R to restart", Config::SCREEN_WIDTH/2 - 100, 250, 20, WHITE);
     }
 
-    DrawText("[M] Volver al Menú Principal", 20, 20, 20, LIGHTGRAY);
+    DrawText("[M] Return to Main Menu", 20, 20, 20, LIGHTGRAY);
 }
 
 void Simulation::BuildSpacialGrid(){
@@ -557,13 +557,13 @@ void Simulation::BuildSpacialGrid(){
         int grid2X = trackWalls[i].second.x / TrackManager::GRID_CELL_SIZE;
         int grid2Y = trackWalls[i].second.y / TrackManager::GRID_CELL_SIZE;
         
-        int iniX = std::min(grid1X, grid2X);
-        int iniY = std::min(grid1Y, grid2Y);
+        int startX = std::min(grid1X, grid2X);
+        int startY = std::min(grid1Y, grid2Y);
         int endX = std::max(grid1X, grid2X);
         int endY = std::max(grid1Y, grid2Y);
         
-        for(int x = iniX; x <= endX; x++){
-            for(int y = iniY; y <= endY; y++){
+        for(int x = startX; x <= endX; x++){
+            for(int y = startY; y <= endY; y++){
                 uint64_t key = TrackManager::GetGridKey(x, y);
                 spatialGrid[key].push_back(trackWalls[i]);
             }

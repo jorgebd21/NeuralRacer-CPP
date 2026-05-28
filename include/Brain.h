@@ -4,110 +4,110 @@
 #include <random>
 #include <algorithm>
 
-const int NODOS_OCULTOS = 8;
-const int NODOS_ENTRADA = 6;
-const int NODOS_SALIDA = 2;
+const int HIDDEN_NODES = 8;
+const int INPUT_NODES = 6;
+const int OUTPUT_NODES = 2;
 
 /**
- * @brief Estructura que representa el cerebro (Red Neuronal) de un coche.
+ * @brief Structure representing the brain (Neural Network) of a car.
  * 
- * Implementa una red neuronal feedforward simple con una capa oculta.
- * Utilizada para evaluar las lecturas de los sensores y decidir la aceleración y giro.
+ * Implements a simple feedforward neural network with one hidden layer.
+ * Used to evaluate sensor readings and decide acceleration and turn.
  */
 struct Brain {
-    float peso_entrada_oculta[NODOS_OCULTOS][NODOS_ENTRADA];
-    float sesgos_oculta[NODOS_OCULTOS];
-    float peso_oculta_salida[NODOS_SALIDA][NODOS_OCULTOS];
-    float sesgos_salida[NODOS_SALIDA];
+    float weights_input_hidden[HIDDEN_NODES][INPUT_NODES];
+    float biases_hidden[HIDDEN_NODES];
+    float weights_hidden_output[OUTPUT_NODES][HIDDEN_NODES];
+    float biases_output[OUTPUT_NODES];
     
-    // Almacenamos las últimas activaciones para dibujarlas en la interfaz gráfica
-    float last_entrada[NODOS_ENTRADA];
-    float last_ocultos[NODOS_OCULTOS];
-    float last_salida[NODOS_SALIDA];
+    // Store the last activations to draw them in the graphical interface
+    float last_input[INPUT_NODES];
+    float last_hidden[HIDDEN_NODES];
+    float last_output[OUTPUT_NODES];
     
     /**
-     * @brief Constructor por defecto que inicializa los pesos y sesgos aleatoriamente.
+     * @brief Default constructor that initializes weights and biases randomly.
      * 
-     * Se utiliza un generador de números aleatorios para asignar valores iniciales entre -1.0 y 1.0.
+     * Uses a random number generator to assign initial values between -1.0 and 1.0.
      */
     Brain() {
         static std::random_device rd; 
-        static std::mt19937 generador(rd()); 
+        static std::mt19937 generator(rd()); 
         std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
 
-        for(int i = 0; i < NODOS_OCULTOS; i++) {
-            sesgos_oculta[i] = dist(generador);
-            for(int j = 0; j < NODOS_ENTRADA; j++) {
-                peso_entrada_oculta[i][j] = dist(generador);
+        for(int i = 0; i < HIDDEN_NODES; i++) {
+            biases_hidden[i] = dist(generator);
+            for(int j = 0; j < INPUT_NODES; j++) {
+                weights_input_hidden[i][j] = dist(generator);
             }
         }
-        for(int i = 0; i < NODOS_SALIDA; i++) {
-            sesgos_salida[i] = dist(generador);
-            for(int j = 0; j < NODOS_OCULTOS; j++) {
-                peso_oculta_salida[i][j] = dist(generador);
+        for(int i = 0; i < OUTPUT_NODES; i++) {
+            biases_output[i] = dist(generator);
+            for(int j = 0; j < HIDDEN_NODES; j++) {
+                weights_hidden_output[i][j] = dist(generator);
             }
         }
-        for(int i = 0; i < NODOS_ENTRADA; i++) last_entrada[i] = 0.0f;
-        for(int i = 0; i < NODOS_OCULTOS; i++) last_ocultos[i] = 0.0f;
-        for(int i = 0; i < NODOS_SALIDA; i++) last_salida[i] = 0.0f;
+        for(int i = 0; i < INPUT_NODES; i++) last_input[i] = 0.0f;
+        for(int i = 0; i < HIDDEN_NODES; i++) last_hidden[i] = 0.0f;
+        for(int i = 0; i < OUTPUT_NODES; i++) last_output[i] = 0.0f;
     }
 
     /**
-     * @brief Evalúa los inputs de los sensores mediante feedforward para obtener los outputs de control.
+     * @brief Evaluates sensor inputs via feedforward to obtain control outputs.
      * 
-     * @param sensorDistances Arreglo de distancias de los sensores.
-     * @param velocidad La velocidad actual del coche.
-     * @param outAcelerar Referencia donde se almacenará el valor de aceleración calculado.
-     * @param outGiro Referencia donde se almacenará el valor de giro calculado.
+     * @param sensorDistances Array of sensor distances.
+     * @param speed The current speed of the car.
+     * @param outAccelerate Reference where the calculated acceleration value will be stored.
+     * @param outTurn Reference where the calculated turn value will be stored.
      */
-    void Evaluate(float sensorDistances[5], float velocidad, float &outAcelerar, float &outGiro) {
-        float entrada[6];
+    void Evaluate(float sensorDistances[5], float speed, float &outAccelerate, float &outTurn) {
+        float input[6];
         for(int i=0; i<5; i++){
-            entrada[i] = sensorDistances[i] / 400.0f; // 400 = Config::CAR_MAX_SENSOR_DIST
+            input[i] = sensorDistances[i] / 400.0f; // 400 = Config::CAR_MAX_SENSOR_DIST
         }
-        entrada[5] = std::clamp(velocidad / 20.0f, -1.0f, 1.0f); // Normalizar velocidad (max aprox 20)
+        input[5] = std::clamp(speed / 20.0f, -1.0f, 1.0f); // Normalize speed (max approx 20)
 
-        for(int i=0; i<NODOS_ENTRADA; i++) last_entrada[i] = entrada[i];
+        for(int i=0; i<INPUT_NODES; i++) last_input[i] = input[i];
         
-        float valores_ocultos[NODOS_OCULTOS];
-        for(int i=0; i<NODOS_OCULTOS; i++) {
-            valores_ocultos[i] = 0.0f;
-            for(int j=0; j<NODOS_ENTRADA; j++) {
-                valores_ocultos[i] += entrada[j] * peso_entrada_oculta[i][j];
+        float hidden_values[HIDDEN_NODES];
+        for(int i=0; i<HIDDEN_NODES; i++) {
+            hidden_values[i] = 0.0f;
+            for(int j=0; j<INPUT_NODES; j++) {
+                hidden_values[i] += input[j] * weights_input_hidden[i][j];
             }
-            valores_ocultos[i] += sesgos_oculta[i];
+            hidden_values[i] += biases_hidden[i];
             
-            // Empleamos tangente hiperbólica para normalizar los valores entre -1 y 1
-            // dado que el coche requiere rangos negativos (ej. marcha atrás o girar izquierda)
-            valores_ocultos[i] = tanh(valores_ocultos[i]);
-            last_ocultos[i] = valores_ocultos[i];
+            // Use hyperbolic tangent to normalize values between -1 and 1
+            // since the car requires negative ranges (e.g. reverse or turning left)
+            hidden_values[i] = tanh(hidden_values[i]);
+            last_hidden[i] = hidden_values[i];
         }
 
-        float valores_salida[NODOS_SALIDA];
-        for(int i=0; i<NODOS_SALIDA; i++) {
-            valores_salida[i] = 0.0f;
-            for(int j=0; j<NODOS_OCULTOS; j++) {
-                valores_salida[i] += valores_ocultos[j] * peso_oculta_salida[i][j];
+        float output_values[OUTPUT_NODES];
+        for(int i=0; i<OUTPUT_NODES; i++) {
+            output_values[i] = 0.0f;
+            for(int j=0; j<HIDDEN_NODES; j++) {
+                output_values[i] += hidden_values[j] * weights_hidden_output[i][j];
             }
-            valores_salida[i] += sesgos_salida[i];
-            valores_salida[i] = tanh(valores_salida[i]);
-            last_salida[i] = valores_salida[i];
+            output_values[i] += biases_output[i];
+            output_values[i] = tanh(output_values[i]);
+            last_output[i] = output_values[i];
         }
 
-        outAcelerar = valores_salida[0];
-        outGiro = valores_salida[1]; 
+        outAccelerate = output_values[0];
+        outTurn = output_values[1]; 
     }
     
     /**
-     * @brief Genera un valor de mutación gaussiana.
+     * @brief Generates a Gaussian mutation value.
      * 
-     * @return float Un valor mutado basado en una distribución normal (media 0, desviación estándar 0.1).
+     * @return float A mutated value based on a normal distribution (mean 0, standard deviation 0.1).
      */
     float MutateGaussian() {
         static std::random_device rd; 
-        static std::mt19937 generador(rd()); 
-        std::normal_distribution<float> distribucion(0.0f, 0.1f);
-        return distribucion(generador);
+        static std::mt19937 generator(rd()); 
+        std::normal_distribution<float> distribution(0.0f, 0.1f);
+        return distribution(generator);
     }
 };
 
