@@ -4,6 +4,8 @@
 #include <vector>
 #include <string>
 #include <utility>
+#include <cstdint>
+#include <unordered_map>
 
 /**
  * @brief Espacio de nombres para utilidades de generación, procesamiento y carga de circuitos.
@@ -12,6 +14,12 @@
  * y lectura/escritura de archivos de mapa.
  */
 namespace TrackManager {
+    const int GRID_CELL_SIZE = 100;
+
+    inline uint64_t GetGridKey(int x, int y) {
+        return ((uint64_t)(uint32_t)x << 32) | (uint32_t)y;
+    }
+
     /**
      * @brief Calcula la distancia a la intersección de dos segmentos de línea.
      * 

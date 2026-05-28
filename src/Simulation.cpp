@@ -40,6 +40,7 @@ void Simulation::Init() {
     trackFile = mapFiles[currentMapIndex];
     
     TrackManager::LoadTrackFromFile(trackFile, trackWalls, startPosition, startRotation);
+    BuildSpacialGrid();
     if (trackWalls.empty()) trackWalls.push_back({{100, 100}, {900, 100}});
 
     for (int i = 0; i < Config::POPULATION_SIZE; i++) {
@@ -83,7 +84,7 @@ void Simulation::UpdateMenu() {
     if (!aiCar.isCrashed) {
         float aiAcelerar = 0.0f, aiGiro = 0.0f;
         aiCar.brain.Evaluate(aiCar.sensorDistances, aiCar.speed, aiAcelerar, aiGiro);
-        aiCar.UpdatePhysics(aiAcelerar, aiGiro, trackWalls, 0);
+        aiCar.UpdatePhysics(aiAcelerar, aiGiro, spatialGrid, 0);
     }
 
     if (IsKeyPressed(KEY_T)) currentState = TRAINING;
@@ -113,6 +114,7 @@ void Simulation::UpdateMenu() {
         std::vector<Vector2> denseCenterLine = TrackManager::GenerateSplinePoints(puntosProcedurales, PROCEDURAL_SPLINE_SEGMENTS);
         trackWalls.clear();
         TrackManager::GenerateBordersFromCenterLine(denseCenterLine, PROCEDURAL_TRACK_WIDTH, trackWalls);
+        BuildSpacialGrid();
         TrackManager::CalculateStartGrid(puntosProcedurales, startPosition, startRotation);
         
         for (auto& car : population) car.Reset(startPosition.x, startPosition.y, startRotation);
@@ -125,6 +127,7 @@ void Simulation::UpdateMenu() {
         trackFile = mapFiles[currentMapIndex];
         trackWalls.clear();
         TrackManager::LoadTrackFromFile(trackFile, trackWalls, startPosition, startRotation);
+        BuildSpacialGrid();
         for (auto& car : population) car.Reset(startPosition.x, startPosition.y, startRotation);
         aiCar.Reset(startPosition.x, startPosition.y, startRotation);
     }
@@ -134,6 +137,7 @@ void Simulation::UpdateMenu() {
         trackFile = mapFiles[currentMapIndex];
         trackWalls.clear();
         TrackManager::LoadTrackFromFile(trackFile, trackWalls, startPosition, startRotation);
+        BuildSpacialGrid();
         for (auto& car : population) car.Reset(startPosition.x, startPosition.y, startRotation);
         aiCar.Reset(startPosition.x, startPosition.y, startRotation);
     }
@@ -173,7 +177,7 @@ void Simulation::UpdateTraining() {
                 car.brain.Evaluate(car.sensorDistances, car.speed, inputAcelerar, inputGiro);
                 
                 // 2. El coche se mueve según la decisión y comprueba si ha chocado
-                car.UpdatePhysics(inputAcelerar, inputGiro, trackWalls, generationTimer);
+                car.UpdatePhysics(inputAcelerar, inputGiro, spatialGrid, generationTimer);
             }
         });
         
@@ -205,6 +209,7 @@ void Simulation::UpdateTraining() {
                 std::vector<Vector2> denseCenterLine = TrackManager::GenerateSplinePoints(puntosProcedurales, PROCEDURAL_SPLINE_SEGMENTS);
                 trackWalls.clear();
                 TrackManager::GenerateBordersFromCenterLine(denseCenterLine, PROCEDURAL_TRACK_WIDTH, trackWalls);
+                BuildSpacialGrid();
                 TrackManager::CalculateStartGrid(puntosProcedurales, startPosition, startRotation);
                 
                 for (auto& car : population) {
@@ -230,11 +235,11 @@ void Simulation::UpdateExhibition() {
         if (IsKeyDown(KEY_S) || IsKeyDown(KEY_DOWN)) playerAcelerar = -1.0f;
         if (IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT)) playerGiro = 1.0f;
         if (IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT)) playerGiro = -1.0f;
-        playerCar.UpdatePhysics(playerAcelerar, playerGiro, trackWalls, 0);
+        playerCar.UpdatePhysics(playerAcelerar, playerGiro, spatialGrid, 0);
 
         float aiAcelerar = 0.0f, aiGiro = 0.0f;
         aiCar.brain.Evaluate(aiCar.sensorDistances, aiCar.speed, aiAcelerar, aiGiro);
-        aiCar.UpdatePhysics(aiAcelerar, aiGiro, trackWalls, 0);
+        aiCar.UpdatePhysics(aiAcelerar, aiGiro, spatialGrid, 0);
 
         if (playerCar.isCrashed && !aiCar.isCrashed) exhibitionResult = 2;
         else if (aiCar.isCrashed && !playerCar.isCrashed) exhibitionResult = 1;
@@ -405,7 +410,7 @@ void Simulation::UpdateTestAI() {
     if (!aiCar.isCrashed) {
         float aiAcelerar = 0.0f, aiGiro = 0.0f;
         aiCar.brain.Evaluate(aiCar.sensorDistances, aiCar.speed, aiAcelerar, aiGiro);
-        aiCar.UpdatePhysics(aiAcelerar, aiGiro, trackWalls, 0);
+        aiCar.UpdatePhysics(aiAcelerar, aiGiro, spatialGrid, 0);
     }
 }
 
@@ -430,4 +435,27 @@ void Simulation::DrawTestAI() {
     }
 
     DrawText("[M] Volver al Menú Principal", 20, 20, 20, LIGHTGRAY);
+}
+
+void Simulation::BuildSpacialGrid(){
+    spatialGrid.clear();
+
+    for(int i = 0; i < trackWalls.size(); i++){
+        int grid1X = trackWalls[i].first.x / TrackManager::GRID_CELL_SIZE;
+        int grid1Y = trackWalls[i].first.y / TrackManager::GRID_CELL_SIZE;
+        int grid2X = trackWalls[i].second.x / TrackManager::GRID_CELL_SIZE;
+        int grid2Y = trackWalls[i].second.y / TrackManager::GRID_CELL_SIZE;
+        
+        int iniX = std::min(grid1X, grid2X);
+        int iniY = std::min(grid1Y, grid2Y);
+        int endX = std::max(grid1X, grid2X);
+        int endY = std::max(grid1Y, grid2Y);
+        
+        for(int x = iniX; x <= endX; x++){
+            for(int y = iniY; y <= endY; y++){
+                uint64_t key = TrackManager::GetGridKey(x, y);
+                spatialGrid[key].push_back(trackWalls[i]);
+            }
+        }
+    }
 }

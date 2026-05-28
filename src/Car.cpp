@@ -23,7 +23,7 @@ void Car::Reset(float startX, float startY, float startRot, bool fullReset) {
     for(int i=0; i<5; i++) sensorDistances[i] = 100.0f;
 }
 
-void Car::UpdatePhysics(float inputAcelerar, float inputGiro, const std::vector<std::pair<Vector2, Vector2>>& trackWalls, int timer) {
+void Car::UpdatePhysics(float inputAcelerar, float inputGiro, const std::unordered_map<uint64_t, std::vector<std::pair<Vector2, Vector2>>> &spatialGrid, int timer) {
     if (isCrashed) return;
     timeAlive++;
     
@@ -66,11 +66,20 @@ void Car::UpdatePhysics(float inputAcelerar, float inputGiro, const std::vector<
         Vector2 rayEnd = { position.x + cos(rayAngle) * Config::CAR_MAX_SENSOR_DIST, position.y + sin(rayAngle) * Config::CAR_MAX_SENSOR_DIST };
 
         // Comprobamos intersección del rayo con TODAS las paredes de la pista
-        for (auto wall : trackWalls) {
-            float dist;
-            // Si el rayo choca con una pared más cerca de lo que habíamos guardado, actualizamos la distancia mínima
-            if (TrackManager::GetLineIntersectionDist(position, rayEnd, wall.first, wall.second, dist)) {
-                if (dist < sensorDistances[i]) sensorDistances[i] = dist;
+        int miCeldaX = position.x / TrackManager::GRID_CELL_SIZE;
+        int miCeldaY = position.y / TrackManager::GRID_CELL_SIZE;
+
+        for(int gridX = miCeldaX - 2; gridX <= miCeldaX + 2; gridX++){
+            for(int gridY = miCeldaY - 2; gridY<= miCeldaY + 2; gridY++){
+                uint64_t key = TrackManager::GetGridKey(gridX, gridY);
+                if(spatialGrid.find(key) != spatialGrid.end()){
+                    for (auto line : spatialGrid.at(key)){
+                        float dist;
+                        if (TrackManager::GetLineIntersectionDist(position, rayEnd, line.first, line.second, dist)) {
+                            if (dist < sensorDistances[i]) sensorDistances[i] = dist;
+                        }
+                    }
+                }
             }
         }
         

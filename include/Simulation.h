@@ -5,6 +5,7 @@
 #include <vector>
 #include <string>
 #include <utility>
+#include <unordered_map>
 
 /**
  * @brief Representa el estado global de la aplicación (máquina de estados finitos).
@@ -57,6 +58,8 @@ private:
 
     void DrawFinishLine(float alpha = 1.0f);
 
+    void BuildSpacialGrid();
+
     GameState currentState;
 
     bool isHeadless;
@@ -68,6 +71,7 @@ private:
     Vector2 startPosition;
     float startRotation;
     std::vector<std::pair<Vector2, Vector2>> trackWalls;
+    std::unordered_map<uint64_t, std::vector<std::pair<Vector2, Vector2>>> spatialGrid;
     std::vector<Vector2> puntosProcedurales;
 
     std::vector<Car> population;
