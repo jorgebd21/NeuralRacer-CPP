@@ -1,5 +1,6 @@
 #include "Evolution.h"
 #include "Config.h"
+#include "Simulation.h"
 #include <fstream>
 #include <iostream>
 #include <algorithm>
@@ -7,8 +8,9 @@
 
 namespace Evolution {
 
-void GuardarMejoresCerebros(const std::vector<Car>& population) {
+void GuardarMejoresCerebros(const std::vector<Car>& population, int generacion) {
     std::ofstream mejoresFile("data/mejores.txt", std::ios::out);
+    mejoresFile << generacion << " ";
     for(int n = 0; n < Config::NUM_MEJORES; n++) {
         for(int i = 0; i < NODOS_OCULTOS; i++) {
             for(int j = 0; j < NODOS_ENTRADA; j++) {
@@ -30,9 +32,11 @@ void GuardarMejoresCerebros(const std::vector<Car>& population) {
     }
 }
 
-bool CargarMejoresCerebros(std::vector<Car>& population) {
+bool CargarMejoresCerebros(std::vector<Car>& population, int &generación) {
     std::ifstream file("data/mejores.txt");
     if (!file.is_open()) return false;
+
+    if (!(file >> generación)) return false;
 
     // La primera fase de la carga inyecta directamente los cerebros élite de la generación anterior.
     // Esto asegura que no perdemos el progreso ("elitismo").
@@ -101,12 +105,12 @@ bool CargarMejoresCerebros(std::vector<Car>& population) {
     return true;
 }
 
-void EvolvePopulation(std::vector<Car>& population, Vector2 startPosition, float startRotation) {
+void EvolvePopulation(std::vector<Car>& population, Vector2 startPosition, float startRotation, int genCount) {
     std::sort(population.begin(), population.end(), [](const Car& a, const Car& b) {
         return a.fitness > b.fitness;
     });
 
-    GuardarMejoresCerebros(population);
+    GuardarMejoresCerebros(population, genCount);
     
     static std::random_device rd;
     static std::mt19937 generador(rd());

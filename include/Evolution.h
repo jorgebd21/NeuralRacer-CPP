@@ -15,7 +15,7 @@ namespace Evolution {
      * 
      * @param population La población completa de coches evaluada.
      */
-    void GuardarMejoresCerebros(const std::vector<Car>& population);
+    void GuardarMejoresCerebros(const std::vector<Car>& population, int generacion);
 
     /**
      * @brief Carga desde el disco los mejores cerebros previamente guardados para la nueva generación.
@@ -24,7 +24,7 @@ namespace Evolution {
      * @return true Si la carga fue exitosa.
      * @return false Si ocurrió un error en la carga o no se encontró el archivo.
      */
-    bool CargarMejoresCerebros(std::vector<Car>& population);
+    bool CargarMejoresCerebros(std::vector<Car>& population, int &generacion);
 
     /**
      * @brief Evalúa la población actual y aplica algoritmos genéticos para generar la próxima generación.
@@ -33,5 +33,5 @@ namespace Evolution {
      * @param startPosition Posición inicial para resetear los coches.
      * @param startRotation Rotación inicial para resetear los coches.
      */
-    void EvolvePopulation(std::vector<Car>& population, Vector2 startPosition, float startRotation);
+    void EvolvePopulation(std::vector<Car>& population, Vector2 startPosition, float startRotation, int genCount);
 }

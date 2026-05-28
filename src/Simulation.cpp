@@ -47,7 +47,7 @@ void Simulation::Init() {
     for (int i = 0; i < Config::POPULATION_SIZE; i++) {
         population.push_back(Car(startPosition.x, startPosition.y, startRotation));
     }
-    Evolution::CargarMejoresCerebros(population);
+    Evolution::CargarMejoresCerebros(population, generationCount);
     
     playerCar = Car(startPosition.x, startPosition.y, startRotation);
     aiCar = population.empty() ? Car(startPosition.x, startPosition.y, startRotation) : population[0];
@@ -94,7 +94,7 @@ void Simulation::UpdateMenu() {
         aiCar.Reset(startPosition.x, startPosition.y, startRotation);
         
         std::vector<Car> temp(1, Car(startPosition.x, startPosition.y, startRotation));
-        if (Evolution::CargarMejoresCerebros(temp)) {
+        if (Evolution::CargarMejoresCerebros(temp, generationCount)) {
             aiCar = temp[0];
         }
         aiCar.Reset(startPosition.x, startPosition.y, startRotation);
@@ -103,7 +103,7 @@ void Simulation::UpdateMenu() {
     }
     if (IsKeyPressed(KEY_A)) {
         std::vector<Car> temp(1, Car(startPosition.x, startPosition.y, startRotation));
-        if (Evolution::CargarMejoresCerebros(temp)) {
+        if (Evolution::CargarMejoresCerebros(temp, generationCount)) {
             aiCar = temp[0];
         }
         aiCar.Reset(startPosition.x, startPosition.y, startRotation);
@@ -201,7 +201,7 @@ void Simulation::UpdateTraining() {
                 }
                 std::sort(sortedPop.begin(), sortedPop.end(), [](const Car* a, const Car* b) { return a->fitness > b->fitness; });
                 std::cout << "Mejor fitness: " << sortedPop[0]->fitness << std::endl;
-                Evolution::EvolvePopulation(population, startPosition, startRotation);
+                Evolution::EvolvePopulation(population, startPosition, startRotation, generationCount);
                 generationTimer = 0;
                 generationCount++;
                 Config::MUTACION = std::max(1, (int)(Config::MAX_MUTACION / (1.0f + (Config::TASA_CAIDA * generationCount))));
