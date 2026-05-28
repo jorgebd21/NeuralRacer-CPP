@@ -204,7 +204,6 @@ void Simulation::UpdateTraining() {
                 Evolution::EvolvePopulation(population, startPosition, startRotation, generationCount);
                 generationTimer = 0;
                 generationCount++;
-                Config::MUTACION = std::max(1, (int)(Config::MAX_MUTACION / (1.0f + (Config::TASA_CAIDA * generationCount))));
                 currentEvaluationTrack = 0;
             } else {
                 for (auto& car : population) {
