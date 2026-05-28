@@ -57,12 +57,14 @@ private:
     void DrawTestAI();
 
     void DrawFinishLine(float alpha = 1.0f);
+    void DrawCheckpoints(float alpha = 1.0f);
 
     void BuildSpacialGrid();
 
     GameState currentState;
 
     bool isHeadless;
+    bool showCheckpoints;
 
     std::vector<std::string> mapFiles;
     int currentMapIndex;

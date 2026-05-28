@@ -22,6 +22,7 @@ struct Car {
     float fitness;
     float accumulatedFitness;
     int timeAlive;
+    int timeSinceLastCheckpoint;
     float distanceTraveled;
 
     int nextCheckPointIndex;

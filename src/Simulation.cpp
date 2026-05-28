@@ -12,6 +12,7 @@
 
 Simulation::Simulation(bool isHeadless) : 
     isHeadless(isHeadless),
+    showCheckpoints(true),
     currentState(MENU),
     currentMapIndex(0),
     startPosition{Config::SIM_START_POS_X, Config::SIM_START_POS_Y},
@@ -112,11 +113,11 @@ void Simulation::UpdateMenu() {
     if (IsKeyPressed(KEY_P)) {
         puntosProcedurales = TrackGenerator::GenerateProceduralCenterPoints();
         std::vector<Vector2> denseCenterLine = TrackManager::GenerateSplinePoints(puntosProcedurales, PROCEDURAL_SPLINE_SEGMENTS);
+        TrackManager::CalculateStartGrid(puntosProcedurales, startPosition, startRotation);
         trackWalls.clear();
         trackCheckpoints.clear();
-        TrackManager::GenerateBordersFromCenterLine(denseCenterLine, PROCEDURAL_TRACK_WIDTH, trackWalls, trackCheckpoints);
+        TrackManager::GenerateBordersFromCenterLine(denseCenterLine, PROCEDURAL_TRACK_WIDTH, trackWalls, trackCheckpoints, startPosition);
         BuildSpacialGrid();
-        TrackManager::CalculateStartGrid(puntosProcedurales, startPosition, startRotation);
         
         for (auto& car : population) car.Reset(startPosition.x, startPosition.y, startRotation);
         playerCar.Reset(startPosition.x, startPosition.y, startRotation);
@@ -166,6 +167,7 @@ void Simulation::UpdateTraining() {
     if(!isHeadless){
         if (IsKeyPressed(KEY_SPACE)) simSpeed = (simSpeed == 1) ? FAST_FORWARD_MULTIPLIER : 1;
         if (IsKeyPressed(KEY_M)) currentState = MENU;
+        if (IsKeyPressed(KEY_C)) showCheckpoints = !showCheckpoints;
     }
 
     // Ejecutamos la lógica varias veces por frame si estamos en modo cámara rápida
@@ -210,11 +212,11 @@ void Simulation::UpdateTraining() {
                 
                 puntosProcedurales = TrackGenerator::GenerateProceduralCenterPoints();
                 std::vector<Vector2> denseCenterLine = TrackManager::GenerateSplinePoints(puntosProcedurales, PROCEDURAL_SPLINE_SEGMENTS);
+                TrackManager::CalculateStartGrid(puntosProcedurales, startPosition, startRotation);
                 trackWalls.clear();
                 trackCheckpoints.clear();
-                TrackManager::GenerateBordersFromCenterLine(denseCenterLine, PROCEDURAL_TRACK_WIDTH, trackWalls, trackCheckpoints);
+                TrackManager::GenerateBordersFromCenterLine(denseCenterLine, PROCEDURAL_TRACK_WIDTH, trackWalls, trackCheckpoints, startPosition);
                 BuildSpacialGrid();
-                TrackManager::CalculateStartGrid(puntosProcedurales, startPosition, startRotation);
                 
                 for (auto& car : population) {
                     car.Reset(startPosition.x, startPosition.y, startRotation, false);
@@ -266,6 +268,16 @@ void Simulation::Draw() {
 constexpr int FINISH_LINE_BLOCK_SIZE = 10;
 constexpr int FINISH_LINE_BLOCK_COUNT = 10;
 
+void Simulation::DrawCheckpoints(float alpha) {
+    for (size_t i = 0; i < trackCheckpoints.size(); i++) {
+        auto& cp = trackCheckpoints[i];
+        DrawLineEx(cp.first, cp.second, 2.0f, Fade(YELLOW, alpha));
+        
+        Vector2 center = { (cp.first.x + cp.second.x) / 2.0f, (cp.first.y + cp.second.y) / 2.0f };
+        DrawText(TextFormat("%zu", i + 1), center.x - 5, center.y - 10, 20, Fade(ORANGE, alpha));
+    }
+}
+
 void Simulation::DrawFinishLine(float alpha) {
     float rad = startRotation * DEG2RAD;
     float cosR = cos(rad);
@@ -296,6 +308,7 @@ void Simulation::DrawFinishLine(float alpha) {
 
 void Simulation::DrawMenu() {
     DrawFinishLine(0.3f);
+    DrawCheckpoints(0.3f);
     
     for (auto wall : trackWalls) {
         DrawLineEx(wall.first, wall.second, 6.0f, Fade(WHITE, 0.3f));
@@ -330,6 +343,9 @@ void Simulation::DrawMenu() {
 
 void Simulation::DrawTraining() {
     DrawFinishLine(1.0f);
+    if (showCheckpoints) {
+        DrawCheckpoints(0.5f);
+    }
     
     for (auto wall : trackWalls) {
         DrawLineEx(wall.first, wall.second, 6.0f, WHITE);
@@ -369,6 +385,7 @@ void Simulation::DrawTraining() {
     DrawText(TextFormat("Velocidad: %s", (simSpeed == 1) ? "NORMAL" : "MAX (x50)"), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 110, 15, (simSpeed == 1) ? GREEN : RED);
     DrawText("[ESPACIO] Cambiar vel", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 130, 10, LIGHTGRAY);
     DrawText("[M] Volver al Menu", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 145, 10, LIGHTGRAY);
+    DrawText("[C] Ver/Ocultar Checkpoints", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 160, 10, LIGHTGRAY);
 
     DrawText("TOP 10 FITNESS", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 180, 20, YELLOW);
     std::vector<Car*> sortedPop;
@@ -386,6 +403,7 @@ void Simulation::DrawTraining() {
 
 void Simulation::DrawExhibition() {
     DrawFinishLine(1.0f);
+    DrawCheckpoints(0.5f);
     
     for (auto wall : trackWalls) {
         DrawLineEx(wall.first, wall.second, 6.0f, WHITE);
@@ -420,6 +438,7 @@ void Simulation::UpdateTestAI() {
 
 void Simulation::DrawTestAI() {
     DrawFinishLine(1.0f);
+    DrawCheckpoints(0.5f);
     
     for (auto wall : trackWalls) {
         DrawLineEx(wall.first, wall.second, 6.0f, WHITE);

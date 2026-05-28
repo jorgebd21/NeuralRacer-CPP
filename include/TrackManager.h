@@ -88,9 +88,10 @@ namespace TrackManager {
      * 
      * @param centerPoints Puntos que definen la ruta óptima del circuito.
      * @param trackWidth Ancho total de la pista.
-     * @param outWalls Vector de segmentos donde se almacenarán las paredes calculadas.
+     * @param outCheckpoints Vector donde se almacenarán los checkpoints.
+     * @param startPosition Posición inicial para poder generar los checkpoints adecuadamente.
      */
-    void GenerateBordersFromCenterLine(const std::vector<Vector2>& centerPoints, float trackWidth, std::vector<std::pair<Vector2, Vector2>>& outWalls, std::vector<std::pair<Vector2, Vector2>>& outCheckpoints);
+    void GenerateBordersFromCenterLine(const std::vector<Vector2>& centerPoints, float trackWidth, std::vector<std::pair<Vector2, Vector2>>& outWalls, std::vector<std::pair<Vector2, Vector2>>& outCheckpoints, Vector2 startPosition);
 
     /**
      * @brief Determina la posición y rotación inicial idóneas para los coches.

@@ -14,13 +14,14 @@ void Car::Reset(float startX, float startY, float startRot, bool fullReset) {
     rotation = startRot;
     speed = 0.0f;
     isCrashed = false;
-    nextCheckPointIndex = 0;
+    nextCheckPointIndex = -1;
     totalCheckPointsCrossed = 0;
     if (fullReset) {
         accumulatedFitness = 0.0f;
         fitness = 0.0f;
     }
     timeAlive = 0;
+    timeSinceLastCheckpoint = 0;
     distanceTraveled = 0.0f;
     for(int i=0; i<5; i++) sensorDistances[i] = 100.0f;
 }
@@ -28,6 +29,7 @@ void Car::Reset(float startX, float startY, float startRot, bool fullReset) {
 void Car::UpdatePhysics(float inputAcelerar, float inputGiro, const std::unordered_map<uint64_t, std::vector<std::pair<Vector2, Vector2>>> &spatialGrid, int timer, const std::vector<std::pair<Vector2, Vector2>>& trackCheckpoints) {
     if (isCrashed) return;
     timeAlive++;
+    timeSinceLastCheckpoint++;
     
     // Lógica básica de aceleración y frenado
     if (inputAcelerar > 0) speed += Config::CAR_ACCEL_RATE;
@@ -58,11 +60,25 @@ void Car::UpdatePhysics(float inputAcelerar, float inputGiro, const std::unorder
     position.y += sin(rotation * DEG2RAD) * speed;
 
     // Comprobamos si ha pasado por un checkpoint
-    auto cp = trackCheckpoints[nextCheckPointIndex];
-    Vector2 interseccion_basura;
-    if(TrackManager::GetSegmentIntersection(oldPosition, position, cp.first, cp.second, interseccion_basura)){
-        nextCheckPointIndex = (nextCheckPointIndex + 1) % trackCheckpoints.size();
-        totalCheckPointsCrossed++;
+    if (nextCheckPointIndex == -1) {
+        for (size_t i = 0; i < trackCheckpoints.size(); i++) {
+            auto cp = trackCheckpoints[i];
+            Vector2 interseccion_basura;
+            if(TrackManager::GetSegmentIntersection(oldPosition, position, cp.first, cp.second, interseccion_basura)){
+                nextCheckPointIndex = (i + 1) % trackCheckpoints.size();
+                totalCheckPointsCrossed++;
+                timeSinceLastCheckpoint = 0;
+                break;
+            }
+        }
+    } else {
+        auto cp = trackCheckpoints[nextCheckPointIndex];
+        Vector2 interseccion_basura;
+        if(TrackManager::GetSegmentIntersection(oldPosition, position, cp.first, cp.second, interseccion_basura)){
+            nextCheckPointIndex = (nextCheckPointIndex + 1) % trackCheckpoints.size();
+            totalCheckPointsCrossed++;
+            timeSinceLastCheckpoint = 0;
+        }
     }
 
     // Incrementamos fitness: premia la velocidad pero penaliza el girar en exceso
@@ -97,13 +113,13 @@ void Car::UpdatePhysics(float inputAcelerar, float inputGiro, const std::unorder
         }
         
         // El fitness general es la distancia viajada castigada por el tiempo (promueve coches rápidos)
-        fitness = accumulatedFitness + (totalCheckPointsCrossed * 10000) - timeAlive;
+        fitness = accumulatedFitness + distanceTraveled + (totalCheckPointsCrossed * 100) - timeAlive;
         
         // Condiciones de "Muerte" (Crash): 
         // 1. Chocar de frente con pared.
-        // 2. Quedarse atascado por mucho tiempo y tener fitness negativo.
+        // 2. Quedarse atascado por mucho tiempo.
         // 3. Estar yendo demasiado rápido marcha atrás (trampas de IA).
-        if (sensorDistances[i] < Config::CAR_CRASH_DIST_THRESHOLD || (timer > Config::CAR_STALL_TIME_THRESHOLD && fitness < 0) || speed < Config::CAR_STALL_SPEED_THRESHOLD) {
+        if (sensorDistances[i] < Config::CAR_CRASH_DIST_THRESHOLD || timeSinceLastCheckpoint > Config::CAR_MAX_TIME_WITHOUT_CHECKPOINT || speed < Config::CAR_STALL_SPEED_THRESHOLD) {
             isCrashed = true; 
         }
     }
