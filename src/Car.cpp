@@ -2,6 +2,7 @@
 #include "Config.h"
 #include "raymath.h"
 #include <cmath>
+#include <algorithm>
 
 #include "TrackManager.h"
 
@@ -41,20 +42,26 @@ void Car::UpdatePhysics(float inputAcelerar, float inputGiro, const std::unorder
     if(inputAcelerar > 0.0f) {
         fuerzaMotor = inputAcelerar * Config::ENGINE_POWER;
     }else{
-        fuerzaMotor = -inputAcelerar * Config::BRAKING_POWER;
+        fuerzaMotor = inputAcelerar * Config::BRAKING_POWER;
     }
     float fuerzaDrag = -velocidadLongitudinal * std::abs(velocidadLongitudinal) * Config::DRAG_MULTIPLIER;
-    float aceleracionLong = (fuerzaMotor + fuerzaDrag) / Config::CAR_MASS;
+    float fuerzaTotal = fuerzaMotor + fuerzaDrag;
+    float aceleracionLong = (fuerzaTotal / Config::CAR_MASS);
+    float multiplicadorGiro = 1.0f - (aceleracionLong * Config::WEIGHT_TRANSFER_FACTOR);
+    multiplicadorGiro = std::clamp(multiplicadorGiro, 0.5f, 1.5f);
     velocidadLongitudinal += aceleracionLong;
-    
-    float fuerzaLateral = -velocidadLateral * Config::CORNERING_STIFFNESS;
+
+    float multiplicadorTraccion = 1.0f + (aceleracionLong * Config::WEIGHT_TRANSFER_FACTOR);
+    multiplicadorTraccion = std::clamp(multiplicadorTraccion, 0.5f, 1.5f);
+
+    float fuerzaLateral = -velocidadLateral * (Config::CORNERING_STIFFNESS * multiplicadorTraccion);
     float aceleracionLateral = fuerzaLateral / Config::CAR_MASS;
     if(std::abs(aceleracionLateral) > std::abs(velocidadLateral)) {
         aceleracionLateral = 0.0f;
     }
     velocidadLateral += aceleracionLateral;
 
-    rotation += inputGiro * Config::CAR_TURN_SPEED * (velocidadLongitudinal > 0 ? 1.0f : -1.0f);
+    rotation += inputGiro * multiplicadorGiro * Config::CAR_TURN_SPEED * (velocidadLongitudinal > 0 ? 1.0f : -1.0f);
 
     velocity.x = velocidadLongitudinal * cos(rotation * DEG2RAD) + velocidadLateral * sin(rotation * DEG2RAD);
     velocity.y = velocidadLongitudinal * sin(rotation * DEG2RAD) - velocidadLateral * cos(rotation * DEG2RAD);
@@ -88,46 +95,60 @@ void Car::UpdatePhysics(float inputAcelerar, float inputGiro, const std::unorder
         }
     }
 
-    // Incrementamos fitness: premia la velocidad pero penaliza el girar en exceso
-    if (GetSpeed() > 0) {
-        distanceTraveled += GetSpeed() - (std::abs(inputGiro) * Config::CAR_TURN_PENALTY); 
+    // 1. Pre-calculamos las flechas direccionales base
+    float morroX = cos(rotation * DEG2RAD) * Config::CAR_HALF_LENGTH;
+    float morroY = sin(rotation * DEG2RAD) * Config::CAR_HALF_LENGTH;
+    float derechaX = -sin(rotation * DEG2RAD) * Config::CAR_HALF_WIDTH;
+    float derechaY = cos(rotation * DEG2RAD) * Config::CAR_HALF_WIDTH;
+    // 2. Calculamos las 4 esquinas combinando esas flechas
+    Vector2 esq_DD = { position.x + morroX + derechaX, position.y + morroY + derechaY }; // Delantera Derecha
+    Vector2 esq_DI = { position.x + morroX - derechaX, position.y + morroY - derechaY }; // Delantera Izquierda
+    Vector2 esq_TD = { position.x - morroX + derechaX, position.y - morroY + derechaY }; // Trasera Derecha
+    Vector2 esq_TI = { position.x - morroX - derechaX, position.y - morroY - derechaY }; // Trasera Izquierda
+
+    float rayAngle = (rotation + Config::SENSOR_ANGLES[0]) * DEG2RAD;
+    Vector2 rayEnd[5];
+    for (int i = 0; i < 5; i++) {
+        sensorDistances[i] = Config::CAR_MAX_SENSOR_DIST; // Reseteamos la memoria de impactos aquí arriba
+        float anguloRayo = (rotation + Config::SENSOR_ANGLES[i]) * DEG2RAD;
+        rayEnd[i] = { position.x + cos(anguloRayo) * Config::CAR_MAX_SENSOR_DIST, position.y + sin(anguloRayo) * Config::CAR_MAX_SENSOR_DIST };
     }
 
-    // Cálculo de Raycasting para los 5 sensores (ojos del coche)
-    for (int i = 0; i < 5; i++) {
-        sensorDistances[i] = Config::CAR_MAX_SENSOR_DIST;
-        
-        // Calculamos el final teórico del rayo según su ángulo fijo
-        float rayAngle = (rotation + Config::SENSOR_ANGLES[i]) * DEG2RAD;
-        Vector2 rayEnd = { position.x + cos(rayAngle) * Config::CAR_MAX_SENSOR_DIST, position.y + sin(rayAngle) * Config::CAR_MAX_SENSOR_DIST };
-
-        // Comprobamos intersección del rayo con TODAS las paredes de la pista
-        int miCeldaX = position.x / TrackManager::GRID_CELL_SIZE;
-        int miCeldaY = position.y / TrackManager::GRID_CELL_SIZE;
-
-        for(int gridX = miCeldaX - 2; gridX <= miCeldaX + 2; gridX++){
-            for(int gridY = miCeldaY - 2; gridY<= miCeldaY + 2; gridY++){
-                uint64_t key = TrackManager::GetGridKey(gridX, gridY);
-                if(spatialGrid.find(key) != spatialGrid.end()){
-                    for (auto line : spatialGrid.at(key)){
+    int miCeldaX = position.x / TrackManager::GRID_CELL_SIZE;
+    int miCeldaY = position.y / TrackManager::GRID_CELL_SIZE;
+    for(int gridX = miCeldaX - 2; gridX <= miCeldaX + 2; gridX++){
+        for(int gridY = miCeldaY - 2; gridY <= miCeldaY + 2; gridY++){
+            uint64_t key = TrackManager::GetGridKey(gridX, gridY);
+            if(spatialGrid.find(key) != spatialGrid.end()){
+                for (auto lineaPared : spatialGrid.at(key)){
+                    if (!isCrashed) {
+                        Vector2 basura;
+                        bool morro = TrackManager::GetSegmentIntersection(esq_DI, esq_DD, lineaPared.first, lineaPared.second, basura);
+                        bool culo  = TrackManager::GetSegmentIntersection(esq_TI, esq_TD, lineaPared.first, lineaPared.second, basura);
+                        bool der   = TrackManager::GetSegmentIntersection(esq_TD, esq_DD, lineaPared.first, lineaPared.second, basura);
+                        bool izq   = TrackManager::GetSegmentIntersection(esq_TI, esq_DI, lineaPared.first, lineaPared.second, basura);
+                        if (morro || culo || der || izq) isCrashed = true;
+                    }
+              
+                    for (int i = 0; i < 5; i++) {
                         float dist;
-                        if (TrackManager::GetLineIntersectionDist(position, rayEnd, line.first, line.second, dist)) {
-                            if (dist < sensorDistances[i]) sensorDistances[i] = dist;
+                        // Fíjate cómo pasamos el rayEnd[i] del array que calculamos arriba
+                        if (TrackManager::GetLineIntersectionDist(position, rayEnd[i], lineaPared.first, lineaPared.second, dist)) {
+                            if (dist < sensorDistances[i]) sensorDistances[i] = dist; // Nos quedamos con el choque más cercano
                         }
                     }
                 }
             }
         }
-        
-        // El fitness general es la distancia viajada castigada por el tiempo (promueve coches rápidos)
-        fitness = accumulatedFitness + distanceTraveled + (totalCheckPointsCrossed * 100) - timeAlive;
-        
-        // Condiciones de "Muerte" (Crash): 
-        // 1. Chocar de frente con pared.
-        // 2. Quedarse atascado por mucho tiempo.
-        // 3. Estar yendo demasiado rápido marcha atrás (trampas de IA).
-        if (sensorDistances[i] < Config::CAR_HALF_WIDTH || timeSinceLastCheckpoint > Config::CAR_MAX_TIME_WITHOUT_CHECKPOINT || GetSpeed() < Config::CAR_STALL_SPEED_THRESHOLD) {
-            isCrashed = true; 
-        }
+    }
+
+    // Incrementamos fitness: premia la velocidad pero penaliza el girar en exceso
+    if (GetSpeed() > 0){
+        distanceTraveled += GetSpeed() - (std::abs(inputGiro) * Config::CAR_TURN_PENALTY); 
+    }
+    fitness = accumulatedFitness + distanceTraveled + (totalCheckPointsCrossed * 1000);
+
+    if (timeSinceLastCheckpoint > Config::CAR_MAX_TIME_WITHOUT_CHECKPOINT || GetSpeed() < Config::CAR_STALL_SPEED_THRESHOLD) {
+        isCrashed = true; 
     }
 }

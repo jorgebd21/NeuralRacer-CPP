@@ -293,7 +293,7 @@ void Simulation::DrawFinishLine(float alpha) {
             startPosition.x + localX1 * cosR - localY * sinR,
             startPosition.y + localX1 * sinR + localY * cosR
         };
-        Rectangle rec1 = { pos1.x, pos1.y, (float)FINISH_LINE_BLOCK_SIZE, (float)FINISH_LINE_BLOCK_SIZE };
+        Rectangle rec1 = { pos1.x, pos1.y, Config::CAR_HALF_WIDTH * 2, Config::CAR_HALF_LENGTH * 2 };
         DrawRectanglePro(rec1, {0, 0}, startRotation, Fade((i % 2 == 0) ? WHITE : BLACK, alpha));
         
         float localX2 = FINISH_LINE_BLOCK_SIZE;

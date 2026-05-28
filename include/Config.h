@@ -29,6 +29,7 @@ namespace Config {
     constexpr float BRAKING_POWER = 45.0f;
     constexpr float DRAG_MULTIPLIER = 0.35f;
     constexpr float CORNERING_STIFFNESS = 1000.0f;
+    constexpr float WEIGHT_TRANSFER_FACTOR = 0.15f;
 
     constexpr float CAR_HALF_WIDTH = 10.0f;
     constexpr float CAR_HALF_LENGTH = 20.0f;
