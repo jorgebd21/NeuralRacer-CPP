@@ -11,7 +11,9 @@ namespace Config {
     constexpr int SCREEN_HEIGHT = 768;
     constexpr int POPULATION_SIZE = 100;
     constexpr int NUM_MEJORES = 10;
-    constexpr int MUTACION = 10;
+    constexpr int MAX_MUTACION = 50;
+    inline int MUTACION = 50;
+    constexpr float TASA_CAIDA = 0.05f;
     constexpr int MAX_GENERATION_TIME = 2000;
     constexpr float SENSOR_ANGLES[5] = {-90.0f, -45.0f, 0.0f, 45.0f, 90.0f};
 
