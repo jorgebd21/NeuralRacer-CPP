@@ -13,13 +13,13 @@ namespace Config {
     constexpr int NUM_MEJORES = 10;
     constexpr int MAX_MUTACION = 50;
     inline int MUTACION = 50;
-    constexpr float TASA_CAIDA = 0.05f;
+    constexpr float TASA_CAIDA = 0.005f;
     constexpr int MAX_GENERATION_TIME = 2000;
     constexpr float SENSOR_ANGLES[5] = {-90.0f, -45.0f, 0.0f, 45.0f, 90.0f};
 
     constexpr float CAR_TURN_SPEED = 1.5f;
     constexpr float CAR_TURN_PENALTY = 0.05f;
-    constexpr float CAR_MAX_SENSOR_DIST = 250.0f;
+    constexpr float CAR_MAX_SENSOR_DIST = 400.0f;
     constexpr int CAR_STALL_TIME_THRESHOLD = 100;
     constexpr float CAR_STALL_SPEED_THRESHOLD = -0.2f;
     constexpr int CAR_MAX_TIME_WITHOUT_CHECKPOINT = 300;
