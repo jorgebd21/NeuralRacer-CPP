@@ -146,9 +146,10 @@ void Car::UpdatePhysics(float inputAcelerar, float inputGiro, const std::unorder
     if (GetSpeed() > 0){
         distanceTraveled += GetSpeed() - (std::abs(inputGiro) * Config::CAR_TURN_PENALTY); 
     }
-    fitness = accumulatedFitness + distanceTraveled + (totalCheckPointsCrossed * 1000);
+    fitness = accumulatedFitness + (distanceTraveled * 0.1f) + (totalCheckPointsCrossed * 100.0f);
 
-    if (timeSinceLastCheckpoint > Config::CAR_MAX_TIME_WITHOUT_CHECKPOINT || velocity.x < Config::CAR_STALL_SPEED_THRESHOLD) {
+    float velLongActual = (velocity.x * cos(rotation * DEG2RAD)) + (velocity.y * sin(rotation * DEG2RAD));
+    if (timeSinceLastCheckpoint > Config::CAR_MAX_TIME_WITHOUT_CHECKPOINT || velLongActual < Config::CAR_STALL_SPEED_THRESHOLD) {
         isCrashed = true; 
     }
 }

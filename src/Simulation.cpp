@@ -3,6 +3,7 @@
 #include "Evolution.h"
 #include "TrackManager.h"
 #include "TrackGenerator.h"
+#include "Telemetry.h"
 #include <algorithm>
 #include <iostream>
 #include <fstream>
@@ -13,6 +14,7 @@
 Simulation::Simulation(bool isHeadless) : 
     isHeadless(isHeadless),
     showCheckpoints(false),
+    showTelemetry(false),
     currentState(MENU),
     currentMapIndex(0),
     startPosition{Config::SIM_START_POS_X, Config::SIM_START_POS_Y},
@@ -36,6 +38,8 @@ void Simulation::Init() {
         InitWindow(Config::SCREEN_WIDTH, Config::SCREEN_HEIGHT, "Simulador Genético - IA Autónoma");
         SetTargetFPS(SIM_TARGET_FPS);
     }
+    
+    Telemetry::Init();
 
     mapFiles = TrackManager::ScanMapFiles();
     trackFile = mapFiles[currentMapIndex];
@@ -116,6 +120,7 @@ void Simulation::UpdateMenu() {
         TrackManager::CalculateStartGrid(puntosProcedurales, startPosition, startRotation);
         trackWalls.clear();
         trackCheckpoints.clear();
+        Telemetry::ResetHeatmap();
         TrackManager::GenerateBordersFromCenterLine(denseCenterLine, PROCEDURAL_TRACK_WIDTH, trackWalls, trackCheckpoints, startPosition);
         BuildSpacialGrid();
         
@@ -129,6 +134,7 @@ void Simulation::UpdateMenu() {
         trackFile = mapFiles[currentMapIndex];
         trackWalls.clear();
         trackCheckpoints.clear();
+        Telemetry::ResetHeatmap();
         TrackManager::LoadTrackFromFile(trackFile, trackWalls, startPosition, startRotation, trackCheckpoints);
         BuildSpacialGrid();
         for (auto& car : population) car.Reset(startPosition.x, startPosition.y, startRotation);
@@ -140,6 +146,7 @@ void Simulation::UpdateMenu() {
         trackFile = mapFiles[currentMapIndex];
         trackWalls.clear();
         trackCheckpoints.clear();
+        Telemetry::ResetHeatmap();
         TrackManager::LoadTrackFromFile(trackFile, trackWalls, startPosition, startRotation, trackCheckpoints);
         BuildSpacialGrid();
         for (auto& car : population) car.Reset(startPosition.x, startPosition.y, startRotation);
@@ -168,6 +175,7 @@ void Simulation::UpdateTraining() {
         if (IsKeyPressed(KEY_SPACE)) simSpeed = (simSpeed == 1) ? FAST_FORWARD_MULTIPLIER : 1;
         if (IsKeyPressed(KEY_M)) currentState = MENU;
         if (IsKeyPressed(KEY_C)) showCheckpoints = !showCheckpoints;
+        if (IsKeyPressed(KEY_H)) showTelemetry = !showTelemetry;
     }
 
     // Ejecutamos la lógica varias veces por frame si estamos en modo cámara rápida
@@ -183,6 +191,10 @@ void Simulation::UpdateTraining() {
                 
                 // 2. El coche se mueve según la decisión y comprueba si ha chocado
                 car.UpdatePhysics(inputAcelerar, inputGiro, spatialGrid, generationTimer, trackCheckpoints);
+                
+                if (car.isCrashed) {
+                    Telemetry::RecordCrash(car.position);
+                }
             }
         });
         
@@ -201,6 +213,10 @@ void Simulation::UpdateTraining() {
                 }
                 std::sort(sortedPop.begin(), sortedPop.end(), [](const Car* a, const Car* b) { return a->fitness > b->fitness; });
                 std::cout << "Mejor fitness: " << sortedPop[0]->fitness << std::endl;
+                
+                Telemetry::RecordGeneration(generationCount, population, Config::MAX_GENERATION_TIME);
+                Telemetry::ExportDataAsync();
+                
                 Evolution::EvolvePopulation(population, startPosition, startRotation, generationCount);
                 generationTimer = 0;
                 generationCount++;
@@ -215,6 +231,7 @@ void Simulation::UpdateTraining() {
                 TrackManager::CalculateStartGrid(puntosProcedurales, startPosition, startRotation);
                 trackWalls.clear();
                 trackCheckpoints.clear();
+                Telemetry::ResetHeatmap();
                 TrackManager::GenerateBordersFromCenterLine(denseCenterLine, PROCEDURAL_TRACK_WIDTH, trackWalls, trackCheckpoints, startPosition);
                 BuildSpacialGrid();
                 
@@ -346,6 +363,10 @@ void Simulation::DrawTraining() {
         DrawCheckpoints(0.5f);
     }
     
+    if (showTelemetry) {
+        Telemetry::DrawHeatmap();
+    }
+    
     for (auto wall : trackWalls) {
         DrawLineEx(wall.first, wall.second, 6.0f, WHITE);
         Vector2 dir = {wall.second.x - wall.first.x, wall.second.y - wall.first.y};
@@ -460,6 +481,10 @@ void Simulation::DrawTraining() {
                 DrawCircleLines(nodePos[l][n].x, nodePos[l][n].y, 6.0f, LIGHTGRAY);
             }
         }
+    }
+    
+    if (showTelemetry) {
+        Telemetry::DrawDashboard(Config::SCREEN_WIDTH, Config::SCREEN_HEIGHT);
     }
 }
 

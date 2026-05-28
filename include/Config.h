@@ -22,7 +22,7 @@ namespace Config {
     constexpr float CAR_MAX_SENSOR_DIST = 400.0f;
     constexpr int CAR_STALL_TIME_THRESHOLD = 100;
     constexpr float CAR_STALL_SPEED_THRESHOLD = -0.2f;
-    constexpr int CAR_MAX_TIME_WITHOUT_CHECKPOINT = 300;
+    constexpr int CAR_MAX_TIME_WITHOUT_CHECKPOINT = 800;
 
     constexpr float CAR_MASS = 1200.0f;
     constexpr float ENGINE_POWER = 35.0f;
