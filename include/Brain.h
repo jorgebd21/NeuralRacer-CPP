@@ -2,6 +2,7 @@
 #define BRAIN_H
 
 #include <random>
+#include <algorithm>
 
 const int NODOS_OCULTOS = 8;
 const int NODOS_ENTRADA = 6;
@@ -60,7 +61,12 @@ struct Brain {
      * @param outGiro Referencia donde se almacenará el valor de giro calculado.
      */
     void Evaluate(float sensorDistances[5], float velocidad, float &outAcelerar, float &outGiro) {
-        float entrada[6] = {sensorDistances[0], sensorDistances[1], sensorDistances[2], sensorDistances[3], sensorDistances[4], velocidad};
+        float entrada[6];
+        for(int i=0; i<5; i++){
+            entrada[i] = sensorDistances[i] / 400.0f; // 400 = Config::CAR_MAX_SENSOR_DIST
+        }
+        entrada[5] = std::clamp(velocidad / 20.0f, -1.0f, 1.0f); // Normalizar velocidad (max aprox 20)
+
         for(int i=0; i<NODOS_ENTRADA; i++) last_entrada[i] = entrada[i];
         
         float valores_ocultos[NODOS_OCULTOS];

@@ -407,8 +407,9 @@ void Simulation::DrawTraining() {
     DrawText("[ESPACIO] Cambiar vel", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 150, 10, LIGHTGRAY);
     DrawText("[M] Volver al Menu", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 165, 10, LIGHTGRAY);
     DrawText("[C] Ver/Ocultar Checkpoints", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 180, 10, LIGHTGRAY);
+    DrawText("[H] Telemetria y Heatmap", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 195, 10, LIGHTGRAY);
 
-    DrawText("TOP 10 FITNESS", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 200, 20, YELLOW);
+    DrawText("TOP 10 FITNESS", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 215, 20, YELLOW);
     std::vector<Car*> sortedPop;
     sortedPop.reserve(population.size());
     for (auto& car : population) {
@@ -418,7 +419,7 @@ void Simulation::DrawTraining() {
     for (int i = 0; i < 10 && i < (int)sortedPop.size(); i++) {
         Color rowColor = (sortedPop[i]->isCrashed) ? GRAY : WHITE;
         if (i == 0) rowColor = GOLD;
-        DrawText(TextFormat("%d. Fit: %.1f", i + 1, sortedPop[i]->fitness), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 230 + (i * 25), 18, rowColor);
+        DrawText(TextFormat("%d. Fit: %.1f", i + 1, sortedPop[i]->fitness), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 245 + (i * 25), 18, rowColor);
     }
 
     if (!sortedPop.empty()) {
