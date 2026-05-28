@@ -90,7 +90,7 @@ namespace TrackManager {
      * @param trackWidth Ancho total de la pista.
      * @param outWalls Vector de segmentos donde se almacenarán las paredes calculadas.
      */
-    void GenerateBordersFromCenterLine(const std::vector<Vector2>& centerPoints, float trackWidth, std::vector<std::pair<Vector2, Vector2>>& outWalls);
+    void GenerateBordersFromCenterLine(const std::vector<Vector2>& centerPoints, float trackWidth, std::vector<std::pair<Vector2, Vector2>>& outWalls, std::vector<std::pair<Vector2, Vector2>>& outCheckpoints);
 
     /**
      * @brief Determina la posición y rotación inicial idóneas para los coches.
@@ -109,7 +109,7 @@ namespace TrackManager {
      * @param outStartPos Posición de salida leída del mapa.
      * @param outStartRot Rotación de salida calculada u obtenida del mapa.
      */
-    void LoadTrackFromFile(const std::string& filename, std::vector<std::pair<Vector2, Vector2>>& outWalls, Vector2& outStartPos, float& outStartRot);
+    void LoadTrackFromFile(const std::string& filename, std::vector<std::pair<Vector2, Vector2>>& outWalls, Vector2& outStartPos, float& outStartRot, std::vector<std::pair<Vector2, Vector2>>& outCheckpoints);
 
     /**
      * @brief Explora el directorio de mapas y devuelve una lista de los nombres disponibles.

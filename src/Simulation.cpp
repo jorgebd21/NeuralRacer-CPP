@@ -39,7 +39,7 @@ void Simulation::Init() {
     mapFiles = TrackManager::ScanMapFiles();
     trackFile = mapFiles[currentMapIndex];
     
-    TrackManager::LoadTrackFromFile(trackFile, trackWalls, startPosition, startRotation);
+    TrackManager::LoadTrackFromFile(trackFile, trackWalls, startPosition, startRotation, trackCheckpoints);
     BuildSpacialGrid();
     if (trackWalls.empty()) trackWalls.push_back({{100, 100}, {900, 100}});
 
@@ -113,7 +113,8 @@ void Simulation::UpdateMenu() {
         puntosProcedurales = TrackGenerator::GenerateProceduralCenterPoints();
         std::vector<Vector2> denseCenterLine = TrackManager::GenerateSplinePoints(puntosProcedurales, PROCEDURAL_SPLINE_SEGMENTS);
         trackWalls.clear();
-        TrackManager::GenerateBordersFromCenterLine(denseCenterLine, PROCEDURAL_TRACK_WIDTH, trackWalls);
+        trackCheckpoints.clear();
+        TrackManager::GenerateBordersFromCenterLine(denseCenterLine, PROCEDURAL_TRACK_WIDTH, trackWalls, trackCheckpoints);
         BuildSpacialGrid();
         TrackManager::CalculateStartGrid(puntosProcedurales, startPosition, startRotation);
         
@@ -126,7 +127,8 @@ void Simulation::UpdateMenu() {
         if (currentMapIndex < 0) currentMapIndex = mapFiles.size() - 1;
         trackFile = mapFiles[currentMapIndex];
         trackWalls.clear();
-        TrackManager::LoadTrackFromFile(trackFile, trackWalls, startPosition, startRotation);
+        trackCheckpoints.clear();
+        TrackManager::LoadTrackFromFile(trackFile, trackWalls, startPosition, startRotation, trackCheckpoints);
         BuildSpacialGrid();
         for (auto& car : population) car.Reset(startPosition.x, startPosition.y, startRotation);
         aiCar.Reset(startPosition.x, startPosition.y, startRotation);
@@ -136,7 +138,8 @@ void Simulation::UpdateMenu() {
         if (currentMapIndex >= (int)mapFiles.size()) currentMapIndex = 0;
         trackFile = mapFiles[currentMapIndex];
         trackWalls.clear();
-        TrackManager::LoadTrackFromFile(trackFile, trackWalls, startPosition, startRotation);
+        trackCheckpoints.clear();
+        TrackManager::LoadTrackFromFile(trackFile, trackWalls, startPosition, startRotation, trackCheckpoints);
         BuildSpacialGrid();
         for (auto& car : population) car.Reset(startPosition.x, startPosition.y, startRotation);
         aiCar.Reset(startPosition.x, startPosition.y, startRotation);
@@ -208,7 +211,8 @@ void Simulation::UpdateTraining() {
                 puntosProcedurales = TrackGenerator::GenerateProceduralCenterPoints();
                 std::vector<Vector2> denseCenterLine = TrackManager::GenerateSplinePoints(puntosProcedurales, PROCEDURAL_SPLINE_SEGMENTS);
                 trackWalls.clear();
-                TrackManager::GenerateBordersFromCenterLine(denseCenterLine, PROCEDURAL_TRACK_WIDTH, trackWalls);
+                trackCheckpoints.clear();
+                TrackManager::GenerateBordersFromCenterLine(denseCenterLine, PROCEDURAL_TRACK_WIDTH, trackWalls, trackCheckpoints);
                 BuildSpacialGrid();
                 TrackManager::CalculateStartGrid(puntosProcedurales, startPosition, startRotation);
                 

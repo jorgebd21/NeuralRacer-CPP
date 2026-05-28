@@ -23,6 +23,9 @@ struct Car {
     float accumulatedFitness;
     int timeAlive;
     float distanceTraveled;
+
+    int nextCheckPointIndex;
+    int totalCheckPointsCrossed;
     
     Brain brain;
 
@@ -52,5 +55,5 @@ struct Car {
      * @param spatialGrid Grid espacial que contiene las paredes del circuito para detección de colisión y sensores.
      * @param timer El tiempo de vida actual del coche en la simulación.
      */
-    void UpdatePhysics(float inputAcelerar, float inputGiro, const std::unordered_map<uint64_t, std::vector<std::pair<Vector2, Vector2>>> &spatialGrid, int timer);
+    void UpdatePhysics(float inputAcelerar, float inputGiro, const std::unordered_map<uint64_t, std::vector<std::pair<Vector2, Vector2>>> &spatialGrid, int timer, const std::vector<std::pair<Vector2, Vector2>>& trackCheckpoints);
 };

@@ -140,7 +140,7 @@ void RemoveSelfIntersections(std::vector<Vector2>& pts) {
     }
 }
 
-void GenerateBordersFromCenterLine(const std::vector<Vector2>& centerPoints, float trackWidth, std::vector<std::pair<Vector2, Vector2>>& outWalls) {
+void GenerateBordersFromCenterLine(const std::vector<Vector2>& centerPoints, float trackWidth, std::vector<std::pair<Vector2, Vector2>>& outWalls, std::vector<std::pair<Vector2, Vector2>>& outCheckpoints) {
     int n = centerPoints.size();
     if (n < 2) return;
     float halfWidth = trackWidth / 2.0f;
@@ -166,6 +166,14 @@ void GenerateBordersFromCenterLine(const std::vector<Vector2>& centerPoints, flo
         outerPoints[i] = {centerPoints[i].x + normal.x * halfWidth, centerPoints[i].y + normal.y * halfWidth};
         innerPoints[i] = {centerPoints[i].x - normal.x * halfWidth, centerPoints[i].y - normal.y * halfWidth};
     }
+
+    for (int i = 0; i < n; i++) {
+        // Ponemos un checkpoint cada 5 vértices de la curva spline
+        if (i % 5 == 0) { 
+            outCheckpoints.push_back({innerPoints[i], outerPoints[i]});
+        }
+    }
+
     RemoveSelfIntersections(outerPoints);
     RemoveSelfIntersections(innerPoints);
     SmoothPoints(outerPoints, SMOOTH_RADIUS, SMOOTH_PASSES);
@@ -209,7 +217,7 @@ void CalculateStartGrid(const std::vector<Vector2>& puntosProcedurales, Vector2&
     startRotation = atan2(p2.y - p1.y, p2.x - p1.x) * (180.0f / PI);
 }
 
-void LoadTrackFromFile(const std::string& filename, std::vector<std::pair<Vector2, Vector2>>& outWalls, Vector2& outStartPos, float& outStartRot) {
+void LoadTrackFromFile(const std::string& filename, std::vector<std::pair<Vector2, Vector2>>& outWalls, Vector2& outStartPos, float& outStartRot, std::vector<std::pair<Vector2, Vector2>>& outCheckpoints) {
     std::ifstream file(filename);
     if (!file.is_open()) {
         std::cerr << "Error: No se pudo abrir " << filename << std::endl;
@@ -228,7 +236,7 @@ void LoadTrackFromFile(const std::string& filename, std::vector<std::pair<Vector
     if (centerPoints.size() >= 3) {
         CalculateStartGrid(centerPoints, outStartPos, outStartRot);
         std::vector<Vector2> denseCenterLine = GenerateSplinePoints(centerPoints, TRACK_SPLINE_SEGMENTS);
-        GenerateBordersFromCenterLine(denseCenterLine, TRACK_WIDTH, outWalls);
+        GenerateBordersFromCenterLine(denseCenterLine, TRACK_WIDTH, outWalls, outCheckpoints);
     }
 }
 

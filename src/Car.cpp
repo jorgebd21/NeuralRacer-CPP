@@ -14,6 +14,8 @@ void Car::Reset(float startX, float startY, float startRot, bool fullReset) {
     rotation = startRot;
     speed = 0.0f;
     isCrashed = false;
+    nextCheckPointIndex = 0;
+    totalCheckPointsCrossed = 0;
     if (fullReset) {
         accumulatedFitness = 0.0f;
         fitness = 0.0f;
@@ -23,7 +25,7 @@ void Car::Reset(float startX, float startY, float startRot, bool fullReset) {
     for(int i=0; i<5; i++) sensorDistances[i] = 100.0f;
 }
 
-void Car::UpdatePhysics(float inputAcelerar, float inputGiro, const std::unordered_map<uint64_t, std::vector<std::pair<Vector2, Vector2>>> &spatialGrid, int timer) {
+void Car::UpdatePhysics(float inputAcelerar, float inputGiro, const std::unordered_map<uint64_t, std::vector<std::pair<Vector2, Vector2>>> &spatialGrid, int timer, const std::vector<std::pair<Vector2, Vector2>>& trackCheckpoints) {
     if (isCrashed) return;
     timeAlive++;
     
@@ -48,9 +50,20 @@ void Car::UpdatePhysics(float inputAcelerar, float inputGiro, const std::unorder
         rotation += inputGiro * Config::CAR_TURN_SPEED * direction * (std::abs(speed) / Config::CAR_MAX_SPEED_FORWARD); 
     } 
 
+    // Guardamos la posicion antigua para comprobar si ha pasado por un checkpoint
+    Vector2 oldPosition;
+    oldPosition = position;
     // Actualizamos posición usando trigonometría simple basándonos en la velocidad y el ángulo actual
     position.x += cos(rotation * DEG2RAD) * speed;
     position.y += sin(rotation * DEG2RAD) * speed;
+
+    // Comprobamos si ha pasado por un checkpoint
+    auto cp = trackCheckpoints[nextCheckPointIndex];
+    Vector2 interseccion_basura;
+    if(TrackManager::GetSegmentIntersection(oldPosition, position, cp.first, cp.second, interseccion_basura)){
+        nextCheckPointIndex = (nextCheckPointIndex + 1) % trackCheckpoints.size();
+        totalCheckPointsCrossed++;
+    }
 
     // Incrementamos fitness: premia la velocidad pero penaliza el girar en exceso
     if (speed > 0) {
@@ -84,7 +97,7 @@ void Car::UpdatePhysics(float inputAcelerar, float inputGiro, const std::unorder
         }
         
         // El fitness general es la distancia viajada castigada por el tiempo (promueve coches rápidos)
-        fitness = accumulatedFitness + distanceTraveled - timeAlive;
+        fitness = accumulatedFitness + (totalCheckPointsCrossed * 10000) - timeAlive;
         
         // Condiciones de "Muerte" (Crash): 
         // 1. Chocar de frente con pared.
