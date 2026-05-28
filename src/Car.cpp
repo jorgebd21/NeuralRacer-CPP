@@ -12,7 +12,10 @@ Car::Car(float startX, float startY, float startRot) {
 void Car::Reset(float startX, float startY, float startRot, bool fullReset) {
     position = {startX, startY};
     rotation = startRot;
-    speed = 0.0f;
+    velocity = {0.0f, 0.0f};
+    acceleration = {0.0f, 0.0f};
+    width = Config::CAR_HALF_WIDTH*2.0f;
+    height = Config::CAR_HALF_LENGTH*2.0f;
     isCrashed = false;
     nextCheckPointIndex = -1;
     totalCheckPointsCrossed = 0;
@@ -30,34 +33,38 @@ void Car::UpdatePhysics(float inputAcelerar, float inputGiro, const std::unorder
     if (isCrashed) return;
     timeAlive++;
     timeSinceLastCheckpoint++;
-    
-    // Lógica básica de aceleración y frenado
-    if (inputAcelerar > 0) speed += Config::CAR_ACCEL_RATE;
-    else if (inputAcelerar < 0) speed -= Config::CAR_BRAKE_RATE;
-    else {
-        // Si no hay input, aplicamos fricción para detener gradualmente el coche
-        if (speed > 0) { speed -= Config::CAR_FRICTION; if (speed < 0) speed = 0; }
-        else if (speed < 0) { speed += Config::CAR_FRICTION; if (speed > 0) speed = 0; }
+
+    float velocidadLongitudinal = (velocity.x * cos(rotation * DEG2RAD)) + (velocity.y * sin(rotation * DEG2RAD));
+    float velocidadLateral = (-velocity.x * sin(rotation * DEG2RAD)) + (velocity.y * cos(rotation * DEG2RAD));
+
+    float fuerzaMotor = 0.0;
+    if(inputAcelerar > 0.0f) {
+        fuerzaMotor = inputAcelerar * Config::ENGINE_POWER;
+    }else{
+        fuerzaMotor = -inputAcelerar * Config::BRAKING_POWER;
     }
+    float fuerzaDrag = -velocidadLongitudinal * std::abs(velocidadLongitudinal) * Config::DRAG_MULTIPLIER;
+    float aceleracionLong = (fuerzaMotor + fuerzaDrag) / Config::CAR_MASS;
+    velocidadLongitudinal += aceleracionLong;
+    
+    float fuerzaLateral = -velocidadLateral * Config::CORNERING_STIFFNESS;
+    float aceleracionLateral = fuerzaLateral / Config::CAR_MASS;
+    if(std::abs(aceleracionLateral) > std::abs(velocidadLateral)) {
+        aceleracionLateral = 0.0f;
+    }
+    velocidadLateral += aceleracionLateral;
 
-    // Limitamos la velocidad a los máximos permitidos (hacia adelante y hacia atrás)
-    if (speed > Config::CAR_MAX_SPEED_FORWARD) speed = Config::CAR_MAX_SPEED_FORWARD;
-    if (speed < Config::CAR_MAX_SPEED_BACKWARD) speed = Config::CAR_MAX_SPEED_BACKWARD;
+    rotation += inputGiro * Config::CAR_TURN_SPEED * (velocidadLongitudinal > 0 ? 1.0f : -1.0f);
 
-    // Solo permitimos girar si el coche está en movimiento.
-    // El radio de giro se invierte si vamos marcha atrás (direction = -1).
-    if (speed != 0) {
-        float direction = (speed > 0) ? 1.0f : -1.0f;
-        // Escalar el giro relativo a la velocidad para un control más realista
-        rotation += inputGiro * Config::CAR_TURN_SPEED * direction * (std::abs(speed) / Config::CAR_MAX_SPEED_FORWARD); 
-    } 
+    velocity.x = velocidadLongitudinal * cos(rotation * DEG2RAD) + velocidadLateral * sin(rotation * DEG2RAD);
+    velocity.y = velocidadLongitudinal * sin(rotation * DEG2RAD) - velocidadLateral * cos(rotation * DEG2RAD);
 
     // Guardamos la posicion antigua para comprobar si ha pasado por un checkpoint
     Vector2 oldPosition;
     oldPosition = position;
-    // Actualizamos posición usando trigonometría simple basándonos en la velocidad y el ángulo actual
-    position.x += cos(rotation * DEG2RAD) * speed;
-    position.y += sin(rotation * DEG2RAD) * speed;
+
+    position.x = position.x + velocity.x;
+    position.y = position.y + velocity.y;
 
     // Comprobamos si ha pasado por un checkpoint
     if (nextCheckPointIndex == -1) {
@@ -82,8 +89,8 @@ void Car::UpdatePhysics(float inputAcelerar, float inputGiro, const std::unorder
     }
 
     // Incrementamos fitness: premia la velocidad pero penaliza el girar en exceso
-    if (speed > 0) {
-        distanceTraveled += speed - (std::abs(inputGiro) * Config::CAR_TURN_PENALTY); 
+    if (GetSpeed() > 0) {
+        distanceTraveled += GetSpeed() - (std::abs(inputGiro) * Config::CAR_TURN_PENALTY); 
     }
 
     // Cálculo de Raycasting para los 5 sensores (ojos del coche)
@@ -119,7 +126,7 @@ void Car::UpdatePhysics(float inputAcelerar, float inputGiro, const std::unorder
         // 1. Chocar de frente con pared.
         // 2. Quedarse atascado por mucho tiempo.
         // 3. Estar yendo demasiado rápido marcha atrás (trampas de IA).
-        if (sensorDistances[i] < Config::CAR_CRASH_DIST_THRESHOLD || timeSinceLastCheckpoint > Config::CAR_MAX_TIME_WITHOUT_CHECKPOINT || speed < Config::CAR_STALL_SPEED_THRESHOLD) {
+        if (sensorDistances[i] < Config::CAR_HALF_WIDTH || timeSinceLastCheckpoint > Config::CAR_MAX_TIME_WITHOUT_CHECKPOINT || GetSpeed() < Config::CAR_STALL_SPEED_THRESHOLD) {
             isCrashed = true; 
         }
     }

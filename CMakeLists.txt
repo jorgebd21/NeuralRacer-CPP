@@ -13,6 +13,10 @@ project(NeuralRacer)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
+# Definir dónde guardar los binarios (ejecutable en build/bin)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+
+
 # 3. Dile a CMake dónde están tus cabeceras y dónde buscar las librerías locales
 include_directories(include)
 link_directories(lib)

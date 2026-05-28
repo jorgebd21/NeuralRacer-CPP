@@ -5,6 +5,7 @@
 #include <vector>
 #include <utility>
 #include <unordered_map>
+#include <cmath>
 
 /**
  * @brief Estructura que representa la entidad de un coche en la simulación.
@@ -15,7 +16,12 @@
 struct Car {
     Vector2 position;
     float rotation;
-    float speed;
+    Vector2 velocity;
+    Vector2 acceleration;
+
+    float width;
+    float height;
+
     float sensorDistances[5];
     bool isCrashed;
     
@@ -48,6 +54,11 @@ struct Car {
      */
     void Reset(float startX, float startY, float startRot = 0.0f, bool fullReset = true);
     
+    /**
+     * @brief Calcula la magnitud escalar de la velocidad actual (Teorema de Pitágoras).
+     */
+    float GetSpeed() const { return std::sqrt(velocity.x * velocity.x + velocity.y * velocity.y); }
+
     /**
      * @brief Actualiza la física del coche según sus entradas y calcula las colisiones.
      * 

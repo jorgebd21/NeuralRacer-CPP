@@ -84,7 +84,7 @@ void Simulation::UpdateMenu() {
     }
     if (!aiCar.isCrashed) {
         float aiAcelerar = 0.0f, aiGiro = 0.0f;
-        aiCar.brain.Evaluate(aiCar.sensorDistances, aiCar.speed, aiAcelerar, aiGiro);
+        aiCar.brain.Evaluate(aiCar.sensorDistances, aiCar.GetSpeed(), aiAcelerar, aiGiro);
         aiCar.UpdatePhysics(aiAcelerar, aiGiro, spatialGrid, 0, trackCheckpoints);
     }
 
@@ -179,7 +179,7 @@ void Simulation::UpdateTraining() {
                 
                 // 1. El cerebro decide qué hacer basándose en los sensores
                 float inputAcelerar = 0.0f, inputGiro = 0.0f;
-                car.brain.Evaluate(car.sensorDistances, car.speed, inputAcelerar, inputGiro);
+                car.brain.Evaluate(car.sensorDistances, car.GetSpeed(), inputAcelerar, inputGiro);
                 
                 // 2. El coche se mueve según la decisión y comprueba si ha chocado
                 car.UpdatePhysics(inputAcelerar, inputGiro, spatialGrid, generationTimer, trackCheckpoints);
@@ -244,7 +244,7 @@ void Simulation::UpdateExhibition() {
         playerCar.UpdatePhysics(playerAcelerar, playerGiro, spatialGrid, 0, trackCheckpoints);
 
         float aiAcelerar = 0.0f, aiGiro = 0.0f;
-        aiCar.brain.Evaluate(aiCar.sensorDistances, aiCar.speed, aiAcelerar, aiGiro);
+        aiCar.brain.Evaluate(aiCar.sensorDistances, aiCar.GetSpeed(), aiAcelerar, aiGiro);
         aiCar.UpdatePhysics(aiAcelerar, aiGiro, spatialGrid, 0, trackCheckpoints);
 
         if (playerCar.isCrashed && !aiCar.isCrashed) exhibitionResult = 2;
@@ -494,7 +494,7 @@ void Simulation::UpdateTestAI() {
 
     if (!aiCar.isCrashed) {
         float aiAcelerar = 0.0f, aiGiro = 0.0f;
-        aiCar.brain.Evaluate(aiCar.sensorDistances, aiCar.speed, aiAcelerar, aiGiro);
+        aiCar.brain.Evaluate(aiCar.sensorDistances, aiCar.GetSpeed(), aiAcelerar, aiGiro);
         aiCar.UpdatePhysics(aiAcelerar, aiGiro, spatialGrid, 0, trackCheckpoints);
     }
 }

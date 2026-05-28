@@ -17,18 +17,21 @@ namespace Config {
     constexpr int MAX_GENERATION_TIME = 2000;
     constexpr float SENSOR_ANGLES[5] = {-90.0f, -45.0f, 0.0f, 45.0f, 90.0f};
 
-    constexpr float CAR_MAX_SPEED_FORWARD = 4.0f;
-    constexpr float CAR_MAX_SPEED_BACKWARD = -1.5f;
-    constexpr float CAR_ACCEL_RATE = 0.04f;
-    constexpr float CAR_BRAKE_RATE = 0.2f;
-    constexpr float CAR_FRICTION = 0.015f;
-    constexpr float CAR_TURN_SPEED = 4.5f;
+    constexpr float CAR_TURN_SPEED = 1.5f;
     constexpr float CAR_TURN_PENALTY = 0.05f;
     constexpr float CAR_MAX_SENSOR_DIST = 250.0f;
-    constexpr float CAR_CRASH_DIST_THRESHOLD = 5.0f;
     constexpr int CAR_STALL_TIME_THRESHOLD = 100;
     constexpr float CAR_STALL_SPEED_THRESHOLD = -0.2f;
     constexpr int CAR_MAX_TIME_WITHOUT_CHECKPOINT = 300;
+
+    constexpr float CAR_MASS = 1200.0f;
+    constexpr float ENGINE_POWER = 35.0f;
+    constexpr float BRAKING_POWER = 45.0f;
+    constexpr float DRAG_MULTIPLIER = 0.35f;
+    constexpr float CORNERING_STIFFNESS = 1000.0f;
+
+    constexpr float CAR_HALF_WIDTH = 10.0f;
+    constexpr float CAR_HALF_LENGTH = 20.0f;
     
     constexpr float SIM_START_POS_X = 400.0f;
     constexpr float SIM_START_POS_Y = 650.0f;
