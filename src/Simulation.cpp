@@ -84,7 +84,7 @@ void Simulation::UpdateMenu() {
     if (!aiCar.isCrashed) {
         float aiAcelerar = 0.0f, aiGiro = 0.0f;
         aiCar.brain.Evaluate(aiCar.sensorDistances, aiCar.speed, aiAcelerar, aiGiro);
-        aiCar.UpdatePhysics(aiAcelerar, aiGiro, spatialGrid, 0);
+        aiCar.UpdatePhysics(aiAcelerar, aiGiro, spatialGrid, 0, trackCheckpoints);
     }
 
     if (IsKeyPressed(KEY_T)) currentState = TRAINING;
@@ -180,7 +180,7 @@ void Simulation::UpdateTraining() {
                 car.brain.Evaluate(car.sensorDistances, car.speed, inputAcelerar, inputGiro);
                 
                 // 2. El coche se mueve según la decisión y comprueba si ha chocado
-                car.UpdatePhysics(inputAcelerar, inputGiro, spatialGrid, generationTimer);
+                car.UpdatePhysics(inputAcelerar, inputGiro, spatialGrid, generationTimer, trackCheckpoints);
             }
         });
         
@@ -239,11 +239,11 @@ void Simulation::UpdateExhibition() {
         if (IsKeyDown(KEY_S) || IsKeyDown(KEY_DOWN)) playerAcelerar = -1.0f;
         if (IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT)) playerGiro = 1.0f;
         if (IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT)) playerGiro = -1.0f;
-        playerCar.UpdatePhysics(playerAcelerar, playerGiro, spatialGrid, 0);
+        playerCar.UpdatePhysics(playerAcelerar, playerGiro, spatialGrid, 0, trackCheckpoints);
 
         float aiAcelerar = 0.0f, aiGiro = 0.0f;
         aiCar.brain.Evaluate(aiCar.sensorDistances, aiCar.speed, aiAcelerar, aiGiro);
-        aiCar.UpdatePhysics(aiAcelerar, aiGiro, spatialGrid, 0);
+        aiCar.UpdatePhysics(aiAcelerar, aiGiro, spatialGrid, 0, trackCheckpoints);
 
         if (playerCar.isCrashed && !aiCar.isCrashed) exhibitionResult = 2;
         else if (aiCar.isCrashed && !playerCar.isCrashed) exhibitionResult = 1;
@@ -414,7 +414,7 @@ void Simulation::UpdateTestAI() {
     if (!aiCar.isCrashed) {
         float aiAcelerar = 0.0f, aiGiro = 0.0f;
         aiCar.brain.Evaluate(aiCar.sensorDistances, aiCar.speed, aiAcelerar, aiGiro);
-        aiCar.UpdatePhysics(aiAcelerar, aiGiro, spatialGrid, 0);
+        aiCar.UpdatePhysics(aiAcelerar, aiGiro, spatialGrid, 0, trackCheckpoints);
     }
 }
 
