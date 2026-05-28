@@ -66,7 +66,7 @@ bool CargarMejoresCerebros(std::vector<Car>& population) {
     int padre, madre;
     std::pair<int, int> padres;
     
-    for(int n = Config::NUM_MEJORES; n < Config::POPULATION_SIZE; n++) {
+    for(int n = Config::NUM_MEJORES; n < Config::POPULATION_SIZE && n < (int)population.size(); n++) {
         padre = distMejores(generador);
         do{
             madre = distMejores(generador);
@@ -116,7 +116,7 @@ void EvolvePopulation(std::vector<Car>& population, Vector2 startPosition, float
     int referente;
     int padre, madre;
     std::pair<int, int> padres;
-    for(int n = Config::NUM_MEJORES; n < Config::POPULATION_SIZE; n++) {
+    for(int n = Config::NUM_MEJORES; n < Config::POPULATION_SIZE && n < (int)population.size(); n++) {
         padre = distMejores(generador);
         do{
             madre = distMejores(generador);
