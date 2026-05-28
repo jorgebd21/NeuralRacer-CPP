@@ -91,7 +91,7 @@ namespace TrackManager {
      * @param outCheckpoints Vector donde se almacenarán los checkpoints.
      * @param startPosition Posición inicial para poder generar los checkpoints adecuadamente.
      */
-    void GenerateBordersFromCenterLine(const std::vector<Vector2>& centerPoints, float trackWidth, std::vector<std::pair<Vector2, Vector2>>& outWalls, std::vector<std::pair<Vector2, Vector2>>& outCheckpoints, Vector2 startPosition);
+    void GenerateBordersFromCenterLine(const std::vector<Vector2>& centerPoints, float trackWidth, std::vector<std::pair<Vector2, Vector2>>& outWalls, std::vector<Vector2>& outCheckpoints, Vector2 startPosition);
 
     /**
      * @brief Determina la posición y rotación inicial idóneas para los coches.
@@ -110,7 +110,7 @@ namespace TrackManager {
      * @param outStartPos Posición de salida leída del mapa.
      * @param outStartRot Rotación de salida calculada u obtenida del mapa.
      */
-    void LoadTrackFromFile(const std::string& filename, std::vector<std::pair<Vector2, Vector2>>& outWalls, Vector2& outStartPos, float& outStartRot, std::vector<std::pair<Vector2, Vector2>>& outCheckpoints);
+    void LoadTrackFromFile(const std::string& filename, std::vector<std::pair<Vector2, Vector2>>& outWalls, Vector2& outStartPos, float& outStartRot, std::vector<Vector2>& outCheckpoints);
 
     /**
      * @brief Explora el directorio de mapas y devuelve una lista de los nombres disponibles.

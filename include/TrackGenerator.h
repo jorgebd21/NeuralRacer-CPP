@@ -33,8 +33,8 @@ namespace TrackGenerator {
      * @param maxY Límite inferior del área.
      * @return std::vector<Vector2> Lista de puntos válidos generados.
      */
-    inline std::vector<Vector2> GenerateRandomPoints(int count, int minX, int maxX, int minY, int maxY) {
-        std::vector<Vector2> points;
+    inline std::vector<Vector2> GenerateRandomPoints(int count, int minX, int maxX, int minY, int maxY, const std::vector<Vector2>& existingPoints = {}) {
+        std::vector<Vector2> points = existingPoints;
         int max_intentos = MAX_INTENTS; 
         
         for(int i = 0; i < count; i++){
@@ -108,8 +108,13 @@ namespace TrackGenerator {
 
         tour.push_back(points[0]);
         visited[0] = true;
+        
+        if (n > 1) {
+            tour.push_back(points[1]);
+            visited[1] = true;
+        }
 
-        for(int i = 1; i < n; i++){
+        for(int i = 2; i < n; i++){
             Vector2 next_point;
             int min_dist = 0;
             int pos_point = -1;
@@ -146,7 +151,7 @@ namespace TrackGenerator {
         while(repetir){
             repetir = false;
 
-            for(int i = 0; i < n-2; i++){
+            for(int i = 1; i < n-2; i++){
                 for(int j = i+2; j < n; j++){
                     Vector2 A = tour[i];
                     Vector2 B = tour[i+1];
@@ -182,8 +187,36 @@ namespace TrackGenerator {
      * @return std::vector<Vector2> Lista final de nodos centrales procedimentales.
      */
     inline std::vector<Vector2> GenerateProceduralCenterPoints() {
-        auto randomPoints = GenerateRandomPoints(PROCEDURAL_POINTS, BOUNDS_MIN_X, BOUNDS_MAX_X, BOUNDS_MIN_Y, BOUNDS_MAX_Y);
-        auto tour_feo = SolveTSPNearestNeighbor(randomPoints);
+        int prefabType = GetRandomValue(0, 3);
+        Vector2 p1, p2;
+        int minX = BOUNDS_MIN_X, maxX = BOUNDS_MAX_X;
+        int minY = BOUNDS_MIN_Y, maxY = BOUNDS_MAX_Y;
+
+        if (prefabType == 0) { // Top
+            p1 = {(float)BOUNDS_MIN_X + 150, (float)BOUNDS_MIN_Y};
+            p2 = {(float)BOUNDS_MAX_X - 150, (float)BOUNDS_MIN_Y};
+            minY = BOUNDS_MIN_Y + 150;
+        } else if (prefabType == 1) { // Bottom
+            p1 = {(float)BOUNDS_MAX_X - 150, (float)BOUNDS_MAX_Y};
+            p2 = {(float)BOUNDS_MIN_X + 150, (float)BOUNDS_MAX_Y};
+            maxY = BOUNDS_MAX_Y - 150;
+        } else if (prefabType == 2) { // Left
+            p1 = {(float)BOUNDS_MIN_X, (float)BOUNDS_MAX_Y - 150};
+            p2 = {(float)BOUNDS_MIN_X, (float)BOUNDS_MIN_Y + 150};
+            minX = BOUNDS_MIN_X + 150;
+        } else { // Right
+            p1 = {(float)BOUNDS_MAX_X, (float)BOUNDS_MIN_Y + 150};
+            p2 = {(float)BOUNDS_MAX_X, (float)BOUNDS_MAX_Y - 150};
+            maxX = BOUNDS_MAX_X - 150;
+        }
+
+        std::vector<Vector2> allPoints;
+        allPoints.push_back(p1);
+        allPoints.push_back(p2);
+        
+        allPoints = GenerateRandomPoints(PROCEDURAL_POINTS - 2, minX, maxX, minY, maxY, allPoints);
+
+        auto tour_feo = SolveTSPNearestNeighbor(allPoints);
         auto tour_bonito = Optimize2Opt(tour_feo);
         
         float sum = 0.0f;
@@ -212,9 +245,13 @@ namespace TrackGenerator {
      */
     inline void SaveTrackToFile(const std::vector<Vector2>& centerPoints, const std::string& filename) {
         std::ofstream file(filename);
-        for (const auto& point : centerPoints) {
-            file << point.x << " " << point.y << "\n";
+        file << "{ \"puntos_centrales\": [\n";
+        for (size_t i = 0; i < centerPoints.size(); i++) {
+            file << "    {\"x\": " << centerPoints[i].x << ", \"y\": " << centerPoints[i].y << "}";
+            if (i < centerPoints.size() - 1) file << ",";
+            file << "\n";
         }
+        file << "  ]\n}\n";
         file.close();
     }
 }

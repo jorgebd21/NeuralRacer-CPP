@@ -150,7 +150,7 @@ void Simulation::UpdateMenu() {
             int counter = 1;
             std::string filename;
             while (true) {
-                filename = "data/tracks/pista_procedural" + std::to_string(counter) + ".txt";
+                filename = "data/tracks/pista_procedural" + std::to_string(counter) + ".json";
                 std::ifstream f(filename.c_str());
                 if (!f.good()) break;
                 counter++;
@@ -271,10 +271,9 @@ constexpr int FINISH_LINE_BLOCK_COUNT = 10;
 void Simulation::DrawCheckpoints(float alpha) {
     for (size_t i = 0; i < trackCheckpoints.size(); i++) {
         auto& cp = trackCheckpoints[i];
-        DrawLineEx(cp.first, cp.second, 2.0f, Fade(YELLOW, alpha));
+        DrawCircleLines(cp.x, cp.y, 65.0f, Fade(YELLOW, alpha));
         
-        Vector2 center = { (cp.first.x + cp.second.x) / 2.0f, (cp.first.y + cp.second.y) / 2.0f };
-        DrawText(TextFormat("%zu", i + 1), center.x - 5, center.y - 10, 20, Fade(ORANGE, alpha));
+        DrawText(TextFormat("%zu", i + 1), cp.x - 5, cp.y - 10, 20, Fade(ORANGE, alpha));
     }
 }
 

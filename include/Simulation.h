@@ -73,7 +73,7 @@ private:
     Vector2 startPosition;
     float startRotation;
     std::vector<std::pair<Vector2, Vector2>> trackWalls;
-    std::vector<std::pair<Vector2, Vector2>> trackCheckpoints;
+    std::vector<Vector2> trackCheckpoints;
     std::unordered_map<uint64_t, std::vector<std::pair<Vector2, Vector2>>> spatialGrid;
     std::vector<Vector2> puntosProcedurales;
 

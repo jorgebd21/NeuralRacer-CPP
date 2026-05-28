@@ -141,7 +141,7 @@ void RemoveSelfIntersections(std::vector<Vector2>& pts) {
     }
 }
 
-void GenerateBordersFromCenterLine(const std::vector<Vector2>& centerPoints, float trackWidth, std::vector<std::pair<Vector2, Vector2>>& outWalls, std::vector<std::pair<Vector2, Vector2>>& outCheckpoints, Vector2 startPosition) {
+void GenerateBordersFromCenterLine(const std::vector<Vector2>& centerPoints, float trackWidth, std::vector<std::pair<Vector2, Vector2>>& outWalls, std::vector<Vector2>& outCheckpoints, Vector2 startPosition) {
     int n = centerPoints.size();
     if (n < 2) return;
     float halfWidth = trackWidth / 2.0f;
@@ -209,26 +209,11 @@ void GenerateBordersFromCenterLine(const std::vector<Vector2>& centerPoints, flo
                 if (length > 0.0001f) { dir.x /= length; dir.y /= length; }
                 else { dir = {1.0f, 0.0f}; }
                 
-                Vector2 normal = {-dir.y, dir.x};
-                Vector2 cpInner = {centerPoints[centerIdx].x - normal.x * halfWidth, centerPoints[centerIdx].y - normal.y * halfWidth};
-                Vector2 cpOuter = {centerPoints[centerIdx].x + normal.x * halfWidth, centerPoints[centerIdx].y + normal.y * halfWidth};
-                
-                outCheckpoints.push_back({cpInner, cpOuter});
+                outCheckpoints.push_back(centerPoints[centerIdx]);
             }
         }
         
-        Vector2 prev = centerPoints[(startIndex - 1 + n) % n];
-        Vector2 next = centerPoints[(startIndex + 1) % n];
-        Vector2 dir = {next.x - prev.x, next.y - prev.y};
-        float length = sqrt(dir.x * dir.x + dir.y * dir.y);
-        if (length > 0.0001f) { dir.x /= length; dir.y /= length; }
-        else { dir = {1.0f, 0.0f}; }
-        
-        Vector2 normal = {-dir.y, dir.x};
-        Vector2 cpInner = {centerPoints[startIndex].x - normal.x * halfWidth, centerPoints[startIndex].y - normal.y * halfWidth};
-        Vector2 cpOuter = {centerPoints[startIndex].x + normal.x * halfWidth, centerPoints[startIndex].y + normal.y * halfWidth};
-        
-        outCheckpoints.push_back({cpInner, cpOuter});
+        outCheckpoints.push_back(centerPoints[startIndex]);
     }
 
     RemoveSelfIntersections(outerPoints);
@@ -274,7 +259,7 @@ void CalculateStartGrid(const std::vector<Vector2>& puntosProcedurales, Vector2&
     startRotation = atan2(p2.y - p1.y, p2.x - p1.x) * (180.0f / PI);
 }
 
-void LoadTrackFromFile(const std::string& filename, std::vector<std::pair<Vector2, Vector2>>& outWalls, Vector2& outStartPos, float& outStartRot, std::vector<std::pair<Vector2, Vector2>>& outCheckpoints) {
+void LoadTrackFromFile(const std::string& filename, std::vector<std::pair<Vector2, Vector2>>& outWalls, Vector2& outStartPos, float& outStartRot, std::vector<Vector2>& outCheckpoints) {
     std::ifstream file(filename);
     if (!file.is_open()) {
         std::cerr << "Error: No se pudo abrir " << filename << std::endl;

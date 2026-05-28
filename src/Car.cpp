@@ -30,7 +30,7 @@ void Car::Reset(float startX, float startY, float startRot, bool fullReset) {
     for(int i=0; i<5; i++) sensorDistances[i] = 100.0f;
 }
 
-void Car::UpdatePhysics(float inputAcelerar, float inputGiro, const std::unordered_map<uint64_t, std::vector<std::pair<Vector2, Vector2>>> &spatialGrid, int timer, const std::vector<std::pair<Vector2, Vector2>>& trackCheckpoints) {
+void Car::UpdatePhysics(float inputAcelerar, float inputGiro, const std::unordered_map<uint64_t, std::vector<std::pair<Vector2, Vector2>>> &spatialGrid, int timer, const std::vector<Vector2>& trackCheckpoints) {
     if (isCrashed) return;
     timeAlive++;
     timeSinceLastCheckpoint++;
@@ -76,9 +76,9 @@ void Car::UpdatePhysics(float inputAcelerar, float inputGiro, const std::unorder
     // Comprobamos si ha pasado por un checkpoint
     if (nextCheckPointIndex == -1) {
         for (size_t i = 0; i < trackCheckpoints.size(); i++) {
-            auto cp = trackCheckpoints[i];
-            Vector2 interseccion_basura;
-            if(TrackManager::GetSegmentIntersection(oldPosition, position, cp.first, cp.second, interseccion_basura)){
+            Vector2 cp = trackCheckpoints[i];
+            float dist = sqrt(pow(position.x - cp.x, 2) + pow(position.y - cp.y, 2));
+            if(dist <= 65.0f){
                 nextCheckPointIndex = (i + 1) % trackCheckpoints.size();
                 totalCheckPointsCrossed++;
                 timeSinceLastCheckpoint = 0;
@@ -86,9 +86,9 @@ void Car::UpdatePhysics(float inputAcelerar, float inputGiro, const std::unorder
             }
         }
     } else {
-        auto cp = trackCheckpoints[nextCheckPointIndex];
-        Vector2 interseccion_basura;
-        if(TrackManager::GetSegmentIntersection(oldPosition, position, cp.first, cp.second, interseccion_basura)){
+        Vector2 cp = trackCheckpoints[nextCheckPointIndex];
+        float dist = sqrt(pow(position.x - cp.x, 2) + pow(position.y - cp.y, 2));
+        if(dist <= 65.0f){
             nextCheckPointIndex = (nextCheckPointIndex + 1) % trackCheckpoints.size();
             totalCheckPointsCrossed++;
             timeSinceLastCheckpoint = 0;
