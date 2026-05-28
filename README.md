@@ -53,7 +53,7 @@ flowchart TD
         B --> C[Initialize Population: 100 Agents]
     end
 
-    subgraph Parallel Physics & Inference Loop [Multi-threaded via Intel TBB]
+    subgraph ParallelLoop ["Multi-threaded via Intel TBB"]
         C --> D[Compute Sensor Raycasts]
         D --> E[Evaluate Neural Network - 6-8-2]
         E --> F[Apply Vehicle Dynamics - Drift & Inertia]
@@ -62,7 +62,7 @@ flowchart TD
         G -- No --> I[Accumulate Fitness & Cross Checkpoints]
     end
 
-    subgraph Evolutionary Pipeline [End of Generation Cycle]
+    subgraph EvolutionaryPipeline ["End of Generation Cycle"]
         H & I --> J[Sort Population by Fitness]
         J --> K[Elitism: Preserve Top 10% Intact]
         J --> L[Two-Parent Crossover & Decaying Gaussian Mutation]
@@ -70,14 +70,14 @@ flowchart TD
         M --> C
     end
 
-    subgraph Asynchronous Subsystems
+    subgraph AsyncSubsystems ["Asynchronous Subsystems"]
         F --> N[Render Live Weight Visualization & Activation Dashboard]
         H --> O[Update Spatial Collision Heatmap]
         J --> P[Non-blocking CSV Data Export - std::future]
     end
 
-    style Parallel Physics & Inference Loop fill:#252525,stroke:#444,stroke-width:2px,color:#fff
-    style Evolutionary Pipeline fill:#1a2b3c,stroke:#444,stroke-width:2px,color:#fff
+    style ParallelLoop fill:#252525,stroke:#444,stroke-width:2px,color:#fff
+    style EvolutionaryPipeline fill:#1a2b3c,stroke:#444,stroke-width:2px,color:#fff
 ```
 
 ---
