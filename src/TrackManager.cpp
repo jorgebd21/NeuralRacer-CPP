@@ -5,6 +5,7 @@
 #include <sstream>
 #include <algorithm>
 #include <filesystem>
+#include "json.hpp"
 
 #ifndef PI
 #define PI 3.14159265358979323846f
@@ -280,15 +281,11 @@ void LoadTrackFromFile(const std::string& filename, std::vector<std::pair<Vector
         return;
     }
     std::vector<Vector2> centerPoints;
-    std::string line;
-    while (std::getline(file, line)) {
-        if (line.empty()) continue;
-        std::stringstream ss(line);
-        float x, y;
-        if (ss >> x >> y) {
-            centerPoints.push_back({x, y});
-        }
+    nlohmann::json j = nlohmann::json::parse(file);
+    for (const auto& point : j["puntos_centrales"]) {
+        centerPoints.push_back({point["x"], point["y"]});
     }
+    
     if (centerPoints.size() >= 3) {
         CalculateStartGrid(centerPoints, outStartPos, outStartRot);
         std::vector<Vector2> denseCenterLine = GenerateSplinePoints(centerPoints, TRACK_SPLINE_SEGMENTS);
@@ -299,14 +296,14 @@ void LoadTrackFromFile(const std::string& filename, std::vector<std::pair<Vector
 std::vector<std::string> ScanMapFiles() {
     std::vector<std::string> mapFiles;
     for (const auto& entry : std::filesystem::directory_iterator("data/tracks")) {
-        if (entry.path().extension() == ".txt") {
+        if (entry.path().extension() == ".json") {
             std::string name = entry.path().filename().string();
             if (name.rfind("pista_", 0) == 0) {
                 mapFiles.push_back("data/tracks/" + name);
             }
         }
     }
-    if (mapFiles.empty()) mapFiles.push_back("data/tracks/pista_facil.txt");
+    if (mapFiles.empty()) mapFiles.push_back("data/tracks/pista_facil.json");
     std::sort(mapFiles.begin(), mapFiles.end());
     return mapFiles;
 }

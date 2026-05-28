@@ -5,38 +5,32 @@
 #include <iostream>
 #include <algorithm>
 #include <random>
+#include "json.hpp"
 
 namespace Evolution {
 
 void GuardarMejoresCerebros(const std::vector<Car>& population, int generacion) {
-    std::ofstream mejoresFile("data/mejores.txt", std::ios::out);
-    mejoresFile << generacion << " ";
+    std::ofstream mejoresFile("data/mejores.json", std::ios::out);
+    nlohmann::json datos;
+    datos["generacion"] = generacion;
     for(int n = 0; n < Config::NUM_MEJORES; n++) {
-        for(int i = 0; i < NODOS_OCULTOS; i++) {
-            for(int j = 0; j < NODOS_ENTRADA; j++) {
-                mejoresFile << population[n].brain.peso_entrada_oculta[i][j] << " ";
-            }
-        }
-        for(int i = 0; i < NODOS_OCULTOS; i++) {
-            mejoresFile << population[n].brain.sesgos_oculta[i] << " ";
-        }
-        for(int i = 0; i < NODOS_SALIDA; i++) {
-            for(int j = 0; j < NODOS_OCULTOS; j++) {
-                mejoresFile << population[n].brain.peso_oculta_salida[i][j] << " ";
-            }
-        }
-        for(int i = 0; i < NODOS_SALIDA; i++) {
-            mejoresFile << population[n].brain.sesgos_salida[i] << " ";
-        }
-        mejoresFile << std::endl;
+        nlohmann::json coche;
+        coche["id"] = n;
+        coche["pesos_entrada_oculta"] = population[n].brain.peso_entrada_oculta;
+        coche["sesgos_oculta"] = population[n].brain.sesgos_oculta;
+        coche["pesos_oculta_salida"] = population[n].brain.peso_oculta_salida;
+        coche["sesgos_salida"] = population[n].brain.sesgos_salida;
+        datos["elite"].push_back(coche);
     }
+    mejoresFile << datos.dump(4);
 }
 
 bool CargarMejoresCerebros(std::vector<Car>& population, int &generacion) {
-    std::ifstream file("data/mejores.txt");
+    std::ifstream file("data/mejores.json");
     if (!file.is_open()) return false;
-
-    if (!(file >> generacion)) return false;
+    
+    nlohmann::json datos = nlohmann::json::parse(file);
+    generacion = datos["generacion"];
     Config::MUTACION = std::max(1, (int)(Config::MAX_MUTACION / (1.0f + (Config::TASA_CAIDA * generacion))));
 
     // La primera fase de la carga inyecta directamente los cerebros élite de la generacion anterior.
@@ -44,19 +38,19 @@ bool CargarMejoresCerebros(std::vector<Car>& population, int &generacion) {
     for(int n = 0; n < Config::NUM_MEJORES && n < (int)population.size(); n++) {
         for(int i = 0; i < NODOS_OCULTOS; i++) {
             for(int j = 0; j < NODOS_ENTRADA; j++) {
-                if (!(file >> population[n].brain.peso_entrada_oculta[i][j])) return false;
+                population[n].brain.peso_entrada_oculta[i][j] = datos["elite"][n]["pesos_entrada_oculta"][i][j];
             }
         }
         for(int i = 0; i < NODOS_OCULTOS; i++) {
-            if (!(file >> population[n].brain.sesgos_oculta[i])) return false;
+            population[n].brain.sesgos_oculta[i] = datos["elite"][n]["sesgos_oculta"][i];
         }
         for(int i = 0; i < NODOS_SALIDA; i++) {
             for(int j = 0; j < NODOS_OCULTOS; j++) {
-                if (!(file >> population[n].brain.peso_oculta_salida[i][j])) return false;
+                population[n].brain.peso_oculta_salida[i][j] = datos["elite"][n]["pesos_oculta_salida"][i][j];
             }
         }
         for(int i = 0; i < NODOS_SALIDA; i++) {
-            if (!(file >> population[n].brain.sesgos_salida[i])) return false;
+            population[n].brain.sesgos_salida[i] = datos["elite"][n]["sesgos_salida"][i];
         }
     }
 
