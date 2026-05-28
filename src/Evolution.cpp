@@ -3,6 +3,7 @@
 #include <fstream>
 #include <iostream>
 #include <algorithm>
+#include <random>
 
 namespace Evolution {
 
@@ -61,25 +62,38 @@ bool CargarMejoresCerebros(std::vector<Car>& population) {
     std::uniform_int_distribution<int> distMejores(0, Config::NUM_MEJORES - 1);
     std::uniform_int_distribution<int> distMutacion(0, 99);
 
-    for(int n = Config::NUM_MEJORES; n < Config::POPULATION_SIZE && n < (int)population.size(); n++) {
+    int referente;
+    int padre, madre;
+    std::pair<int, int> padres;
+    
+    for(int n = Config::NUM_MEJORES; n < Config::POPULATION_SIZE; n++) {
+        padre = distMejores(generador);
+        do{
+            madre = distMejores(generador);
+        }while(madre == padre);
+        padres = {padre, madre};
         for(int i = 0; i < NODOS_OCULTOS; i++) {
             for(int j = 0; j < NODOS_ENTRADA; j++) {
-                population[n].brain.peso_entrada_oculta[i][j] = population[distMejores(generador)].brain.peso_entrada_oculta[i][j];
+                referente = distMutacion(generador) < 50 ? padres.first : padres.second;
+                population[n].brain.peso_entrada_oculta[i][j] = population[referente].brain.peso_entrada_oculta[i][j];
                 if(distMutacion(generador) < Config::MUTACION) population[n].brain.peso_entrada_oculta[i][j] += population[n].brain.MutateGaussian();
             }
         }
         for(int i = 0; i < NODOS_OCULTOS; i++) {
-            population[n].brain.sesgos_oculta[i] = population[distMejores(generador)].brain.sesgos_oculta[i];
+            referente = distMutacion(generador) < 50 ? padres.first : padres.second;
+            population[n].brain.sesgos_oculta[i] = population[referente].brain.sesgos_oculta[i];
             if(distMutacion(generador) < Config::MUTACION) population[n].brain.sesgos_oculta[i] += population[n].brain.MutateGaussian();
         }
         for(int i = 0; i < NODOS_SALIDA; i++) {
             for(int j = 0; j < NODOS_OCULTOS; j++) {
-                population[n].brain.peso_oculta_salida[i][j] = population[distMejores(generador)].brain.peso_oculta_salida[i][j];
+                referente = distMutacion(generador) < 50 ? padres.first : padres.second;
+                population[n].brain.peso_oculta_salida[i][j] = population[referente].brain.peso_oculta_salida[i][j];
                 if(distMutacion(generador) < Config::MUTACION) population[n].brain.peso_oculta_salida[i][j] += population[n].brain.MutateGaussian();
             }
         }
         for(int i = 0; i < NODOS_SALIDA; i++) {
-            population[n].brain.sesgos_salida[i] = population[distMejores(generador)].brain.sesgos_salida[i];
+            referente = distMutacion(generador) < 50 ? padres.first : padres.second;
+            population[n].brain.sesgos_salida[i] = population[referente].brain.sesgos_salida[i];
             if(distMutacion(generador) < Config::MUTACION) population[n].brain.sesgos_salida[i] += population[n].brain.MutateGaussian();
         }
     }
@@ -99,31 +113,43 @@ void EvolvePopulation(std::vector<Car>& population, Vector2 startPosition, float
     std::uniform_int_distribution<int> distMejores(0, Config::NUM_MEJORES - 1);
     std::uniform_int_distribution<int> distMutacion(0, 99);
 
+    int referente;
+    int padre, madre;
+    std::pair<int, int> padres;
     for(int n = Config::NUM_MEJORES; n < Config::POPULATION_SIZE; n++) {
+        padre = distMejores(generador);
+        do{
+            madre = distMejores(generador);
+        }while(madre == padre);
+        padres = {padre, madre};
         for(int i = 0; i < NODOS_OCULTOS; i++) {
             for(int j = 0; j < NODOS_ENTRADA; j++) {
-                population[n].brain.peso_entrada_oculta[i][j] = population[distMejores(generador)].brain.peso_entrada_oculta[i][j];
+                referente = distMutacion(generador) < 50 ? padres.first : padres.second;
+                population[n].brain.peso_entrada_oculta[i][j] = population[referente].brain.peso_entrada_oculta[i][j];
                 if(distMutacion(generador) < Config::MUTACION){
                     population[n].brain.peso_entrada_oculta[i][j] += population[n].brain.MutateGaussian();
                 }
             }
         }
         for(int i = 0; i < NODOS_OCULTOS; i++) {
-            population[n].brain.sesgos_oculta[i] = population[distMejores(generador)].brain.sesgos_oculta[i];
+            referente = distMutacion(generador) < 50 ? padres.first : padres.second;
+            population[n].brain.sesgos_oculta[i] = population[referente].brain.sesgos_oculta[i];
             if(distMutacion(generador) < Config::MUTACION){
                 population[n].brain.sesgos_oculta[i] += population[n].brain.MutateGaussian();
             }
         }
         for(int i = 0; i < NODOS_SALIDA; i++) {
             for(int j = 0; j < NODOS_OCULTOS; j++) {
-                population[n].brain.peso_oculta_salida[i][j] = population[distMejores(generador)].brain.peso_oculta_salida[i][j];
+                referente = distMutacion(generador) < 50 ? padres.first : padres.second;
+                population[n].brain.peso_oculta_salida[i][j] = population[referente].brain.peso_oculta_salida[i][j];
                 if(distMutacion(generador) < Config::MUTACION){
                     population[n].brain.peso_oculta_salida[i][j] += population[n].brain.MutateGaussian();
                 }
             }
         }
         for(int i = 0; i < NODOS_SALIDA; i++) {
-            population[n].brain.sesgos_salida[i] = population[distMejores(generador)].brain.sesgos_salida[i];
+            referente = distMutacion(generador) < 50 ? padres.first : padres.second;
+            population[n].brain.sesgos_salida[i] = population[referente].brain.sesgos_salida[i];
             if(distMutacion(generador) < Config::MUTACION){
                 population[n].brain.sesgos_salida[i] += population[n].brain.MutateGaussian();
             }
