@@ -12,7 +12,7 @@
 
 Simulation::Simulation(bool isHeadless) : 
     isHeadless(isHeadless),
-    showCheckpoints(true),
+    showCheckpoints(false),
     currentState(MENU),
     currentMapIndex(0),
     startPosition{Config::SIM_START_POS_X, Config::SIM_START_POS_Y},
@@ -384,11 +384,12 @@ void Simulation::DrawTraining() {
     DrawText(TextFormat("Tiempo: %d / %d", generationTimer, Config::MAX_GENERATION_TIME), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 50, 20, WHITE);
     DrawText(TextFormat("Vivos: %d / %d", aliveCount, Config::POPULATION_SIZE), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 80, 20, WHITE);
     DrawText(TextFormat("Velocidad: %s", (simSpeed == 1) ? "NORMAL" : "MAX (x50)"), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 110, 15, (simSpeed == 1) ? GREEN : RED);
-    DrawText("[ESPACIO] Cambiar vel", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 130, 10, LIGHTGRAY);
-    DrawText("[M] Volver al Menu", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 145, 10, LIGHTGRAY);
-    DrawText("[C] Ver/Ocultar Checkpoints", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 160, 10, LIGHTGRAY);
+    DrawText(TextFormat("Mutacion: %d %%", Config::MUTACION), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 130, 15, YELLOW);
+    DrawText("[ESPACIO] Cambiar vel", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 150, 10, LIGHTGRAY);
+    DrawText("[M] Volver al Menu", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 165, 10, LIGHTGRAY);
+    DrawText("[C] Ver/Ocultar Checkpoints", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 180, 10, LIGHTGRAY);
 
-    DrawText("TOP 10 FITNESS", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 180, 20, YELLOW);
+    DrawText("TOP 10 FITNESS", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 200, 20, YELLOW);
     std::vector<Car*> sortedPop;
     sortedPop.reserve(population.size());
     for (auto& car : population) {
@@ -398,7 +399,69 @@ void Simulation::DrawTraining() {
     for (int i = 0; i < 10 && i < (int)sortedPop.size(); i++) {
         Color rowColor = (sortedPop[i]->isCrashed) ? GRAY : WHITE;
         if (i == 0) rowColor = GOLD;
-        DrawText(TextFormat("%d. Fit: %.1f", i + 1, sortedPop[i]->fitness), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 210 + (i * 25), 18, rowColor);
+        DrawText(TextFormat("%d. Fit: %.1f", i + 1, sortedPop[i]->fitness), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 230 + (i * 25), 18, rowColor);
+    }
+
+    if (!sortedPop.empty()) {
+        DrawText("RED NEURONAL (Lider)", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 490, 15, SKYBLUE);
+        
+        Brain& bestBrain = sortedPop[0]->brain;
+        int startY = 510;
+        int endY = 750;
+        int layerX[3] = {
+            Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 30,
+            Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 125,
+            Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 220
+        };
+        int nodesPerLayer[3] = { NODOS_ENTRADA, NODOS_OCULTOS, NODOS_SALIDA };
+        
+        std::vector<Vector2> nodePos[3];
+        for (int l = 0; l < 3; l++) {
+            int nodes = nodesPerLayer[l];
+            float spacing = (endY - startY) / (float)(nodes + 1);
+            for (int n = 0; n < nodes; n++) {
+                nodePos[l].push_back({ (float)layerX[l], startY + spacing * (n + 1) });
+            }
+        }
+        
+        for (int i = 0; i < NODOS_ENTRADA; i++) {
+            for (int j = 0; j < NODOS_OCULTOS; j++) {
+                float weight = bestBrain.peso_entrada_oculta[j][i];
+                float alpha = fmin(fabs(weight), 1.0f);
+                Color edgeColor = (weight > 0) ? Fade(GREEN, alpha) : Fade(RED, alpha);
+                DrawLineV(nodePos[0][i], nodePos[1][j], edgeColor);
+            }
+        }
+        
+        for (int i = 0; i < NODOS_OCULTOS; i++) {
+            for (int j = 0; j < NODOS_SALIDA; j++) {
+                float weight = bestBrain.peso_oculta_salida[j][i];
+                float alpha = fmin(fabs(weight), 1.0f);
+                Color edgeColor = (weight > 0) ? Fade(GREEN, alpha) : Fade(RED, alpha);
+                DrawLineV(nodePos[1][i], nodePos[2][j], edgeColor);
+            }
+        }
+        
+        for (int l = 0; l < 3; l++) {
+            for (int n = 0; n < nodesPerLayer[l]; n++) {
+                float val = 0.0f;
+                if (l == 0) {
+                    if (n < 5) val = bestBrain.last_entrada[n] / 250.0f; // SENSOR_MAX_DIST aprox
+                    else val = bestBrain.last_entrada[n] / 10.0f; // max speed aprox
+                } else if (l == 1) {
+                    val = bestBrain.last_ocultos[n];
+                } else if (l == 2) {
+                    val = bestBrain.last_salida[n];
+                }
+                
+                val = fmax(-1.0f, fmin(1.0f, val));
+                Color nodeColor = (val > 0) ? Fade(GREEN, val) : Fade(RED, -val);
+                if (fabs(val) < 0.1f) nodeColor = DARKGRAY;
+                
+                DrawCircleV(nodePos[l][n], 6.0f, nodeColor);
+                DrawCircleLines(nodePos[l][n].x, nodePos[l][n].y, 6.0f, LIGHTGRAY);
+            }
+        }
     }
 }
 

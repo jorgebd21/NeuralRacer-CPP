@@ -19,6 +19,11 @@ struct Brain {
     float peso_oculta_salida[NODOS_SALIDA][NODOS_OCULTOS];
     float sesgos_salida[NODOS_SALIDA];
     
+    // Almacenamos las últimas activaciones para dibujarlas en la interfaz gráfica
+    float last_entrada[NODOS_ENTRADA];
+    float last_ocultos[NODOS_OCULTOS];
+    float last_salida[NODOS_SALIDA];
+    
     /**
      * @brief Constructor por defecto que inicializa los pesos y sesgos aleatoriamente.
      * 
@@ -41,6 +46,9 @@ struct Brain {
                 peso_oculta_salida[i][j] = dist(generador);
             }
         }
+        for(int i = 0; i < NODOS_ENTRADA; i++) last_entrada[i] = 0.0f;
+        for(int i = 0; i < NODOS_OCULTOS; i++) last_ocultos[i] = 0.0f;
+        for(int i = 0; i < NODOS_SALIDA; i++) last_salida[i] = 0.0f;
     }
 
     /**
@@ -53,6 +61,7 @@ struct Brain {
      */
     void Evaluate(float sensorDistances[5], float velocidad, float &outAcelerar, float &outGiro) {
         float entrada[6] = {sensorDistances[0], sensorDistances[1], sensorDistances[2], sensorDistances[3], sensorDistances[4], velocidad};
+        for(int i=0; i<NODOS_ENTRADA; i++) last_entrada[i] = entrada[i];
         
         float valores_ocultos[NODOS_OCULTOS];
         for(int i=0; i<NODOS_OCULTOS; i++) {
@@ -65,6 +74,7 @@ struct Brain {
             // Empleamos tangente hiperbólica para normalizar los valores entre -1 y 1
             // dado que el coche requiere rangos negativos (ej. marcha atrás o girar izquierda)
             valores_ocultos[i] = tanh(valores_ocultos[i]);
+            last_ocultos[i] = valores_ocultos[i];
         }
 
         float valores_salida[NODOS_SALIDA];
@@ -75,6 +85,7 @@ struct Brain {
             }
             valores_salida[i] += sesgos_salida[i];
             valores_salida[i] = tanh(valores_salida[i]);
+            last_salida[i] = valores_salida[i];
         }
 
         outAcelerar = valores_salida[0];
