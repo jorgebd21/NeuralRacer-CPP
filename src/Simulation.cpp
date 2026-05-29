@@ -10,6 +10,10 @@
 #include <string>
 #include <execution>
 #include <atomic>
+#include <csignal>
+
+static volatile sig_atomic_t stopRequested = 0;
+static void signalHandler(int) { stopRequested = 1; }
 
 Simulation::Simulation(bool isHeadless) : 
     isHeadless(isHeadless),
@@ -60,18 +64,21 @@ void Simulation::Init() {
 
 void Simulation::Run() {
     Init();
+    std::signal(SIGINT, signalHandler);
+    std::signal(SIGTERM, signalHandler);
     if(isHeadless){
         currentState = TRAINING;
-        while(true){
+        while(!stopRequested){
             Update();
         }
+        std::cout << "Training stopped gracefully after " << generationCount << " generations." << std::endl;
     }else{
-        while (!WindowShouldClose()) {
+        while (!WindowShouldClose() && !stopRequested) {
             Update();
             Draw();
         }
         CloseWindow();
-}   
+    }
 }
 
 void Simulation::Update() {
