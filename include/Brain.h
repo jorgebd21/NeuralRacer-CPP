@@ -31,8 +31,8 @@ struct Brain {
      * Uses a random number generator to assign initial values between -1.0 and 1.0.
      */
     Brain() {
-        static std::random_device rd; 
-        static std::mt19937 generator(rd()); 
+        thread_local static std::random_device rd; 
+        thread_local static std::mt19937 generator(rd()); 
         std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
 
         for(int i = 0; i < HIDDEN_NODES; i++) {
@@ -104,8 +104,8 @@ struct Brain {
      * @return float A mutated value based on a normal distribution (mean 0, standard deviation 0.1).
      */
     float MutateGaussian() {
-        static std::random_device rd; 
-        static std::mt19937 generator(rd()); 
+        thread_local static std::random_device rd; 
+        thread_local static std::mt19937 generator(rd()); 
         std::normal_distribution<float> distribution(0.0f, 0.1f);
         return distribution(generator);
     }
