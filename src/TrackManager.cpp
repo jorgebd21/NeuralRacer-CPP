@@ -266,7 +266,13 @@ void LoadTrackFromFile(const std::string& filename, std::vector<std::pair<Vector
         return;
     }
     std::vector<Vector2> centerPoints;
-    nlohmann::json j = nlohmann::json::parse(file);
+    nlohmann::json j;
+    try {
+        j = nlohmann::json::parse(file);
+    } catch (const nlohmann::json::parse_error& e) {
+        std::cerr << "Error: Failed to parse track file '" << filename << "': " << e.what() << std::endl;
+        return;
+    }
     
     // Support both old and new keys for loading track files
     if (j.contains("puntos_centrales")) {

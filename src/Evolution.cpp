@@ -27,13 +27,18 @@ void SaveBestBrains(const std::vector<Car>& population, int generation) {
 
 bool LoadBestBrains(std::vector<Car>& population, int &generation) {
     std::ifstream file("data/best.json");
-    // Fallback to old name if best.json doesn't exist yet, but only read it, we will save to best.json later.
     if (!file.is_open()) {
-        file.open("data/mejores.json");
-        if (!file.is_open()) return false;
+        return false;
     }
     
-    nlohmann::json data = nlohmann::json::parse(file);
+    nlohmann::json data;
+    try {
+        data = nlohmann::json::parse(file);
+    } catch (const nlohmann::json::parse_error& e) {
+        std::cerr << "Error: Failed to parse brain data file: " << e.what() << std::endl;
+        return false;
+    }
+
     // Support for old json keys for backward compatibility initially, though saving uses new ones
     if (data.contains("generacion")) generation = data["generacion"];
     else if (data.contains("generation")) generation = data["generation"];
