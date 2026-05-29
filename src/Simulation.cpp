@@ -181,7 +181,7 @@ void Simulation::UpdateTraining() {
     // Execute logic multiple times per frame if in fast forward mode
     for (int s = 0; s < simSpeed; s++) {
         std::atomic<int> carsAlive{0};
-        std::for_each(std::execution::par_unseq, population.begin(), population.end(), [&](Car& car) {
+        std::for_each(std::execution::par, population.begin(), population.end(), [&](Car& car) {
             if (!car.isCrashed) {
                 carsAlive++;
                 
