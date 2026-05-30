@@ -107,7 +107,6 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const std::unord
     Vector2 cornerRR = { position.x - noseX + rightX, position.y - noseY + rightY }; // Rear Right
     Vector2 cornerRL = { position.x - noseX - rightX, position.y - noseY - rightY }; // Rear Left
 
-    float baseRayAngle = (rotation + Config::SENSOR_ANGLES[0]) * DEG2RAD;
     Vector2 rayEnd[5];
     for (int i = 0; i < 5; i++) {
         sensorDistances[i] = Config::CAR_MAX_SENSOR_DIST; // Reset impact memory here
