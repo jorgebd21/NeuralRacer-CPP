@@ -559,10 +559,10 @@ void Simulation::BuildSpacialGrid(){
     spatialGrid.clear();
 
     for(int i = 0; i < trackWalls.size(); i++){
-        int grid1X = trackWalls[i].first.x / TrackManager::GRID_CELL_SIZE;
-        int grid1Y = trackWalls[i].first.y / TrackManager::GRID_CELL_SIZE;
-        int grid2X = trackWalls[i].second.x / TrackManager::GRID_CELL_SIZE;
-        int grid2Y = trackWalls[i].second.y / TrackManager::GRID_CELL_SIZE;
+        int grid1X = (int)std::floor(trackWalls[i].first.x  / TrackManager::GRID_CELL_SIZE);
+        int grid1Y = (int)std::floor(trackWalls[i].first.y  / TrackManager::GRID_CELL_SIZE);
+        int grid2X = (int)std::floor(trackWalls[i].second.x / TrackManager::GRID_CELL_SIZE);
+        int grid2Y = (int)std::floor(trackWalls[i].second.y / TrackManager::GRID_CELL_SIZE);
         
         int startX = std::min(grid1X, grid2X);
         int startY = std::min(grid1Y, grid2Y);

@@ -115,8 +115,8 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const std::unord
         rayEnd[i] = { position.x + cos(rayAngle) * Config::CAR_MAX_SENSOR_DIST, position.y + sin(rayAngle) * Config::CAR_MAX_SENSOR_DIST };
     }
 
-    int myCellX = position.x / TrackManager::GRID_CELL_SIZE;
-    int myCellY = position.y / TrackManager::GRID_CELL_SIZE;
+    int myCellX = (int)std::floor(position.x / TrackManager::GRID_CELL_SIZE);
+    int myCellY = (int)std::floor(position.y / TrackManager::GRID_CELL_SIZE);
     for(int gridX = myCellX - 2; gridX <= myCellX + 2; gridX++){
         for(int gridY = myCellY - 2; gridY <= myCellY + 2; gridY++){
             uint64_t key = TrackManager::GetGridKey(gridX, gridY);
