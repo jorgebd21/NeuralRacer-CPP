@@ -116,8 +116,9 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const std::unord
 
     int myCellX = (int)std::floor(position.x / TrackManager::GRID_CELL_SIZE);
     int myCellY = (int)std::floor(position.y / TrackManager::GRID_CELL_SIZE);
-    for(int gridX = myCellX - 2; gridX <= myCellX + 2; gridX++){
-        for(int gridY = myCellY - 2; gridY <= myCellY + 2; gridY++){
+    const int sensorGridRadius = (int)std::ceil(Config::CAR_MAX_SENSOR_DIST / (float)TrackManager::GRID_CELL_SIZE) + 1;
+    for(int gridX = myCellX - sensorGridRadius; gridX <= myCellX + sensorGridRadius; gridX++){
+        for(int gridY = myCellY - sensorGridRadius; gridY <= myCellY + sensorGridRadius; gridY++){
             uint64_t key = TrackManager::GetGridKey(gridX, gridY);
             if(spatialGrid.find(key) != spatialGrid.end()){
                 for (const auto& wallLine : spatialGrid.at(key)){
