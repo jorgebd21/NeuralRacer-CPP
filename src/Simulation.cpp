@@ -56,7 +56,7 @@ void Simulation::Init() {
         trackFile = mapFiles[currentMapIndex];
         TrackManager::LoadTrackFromFile(trackFile, trackWalls, startPosition, startRotation, trackCheckpoints);
     }
-    BuildSpacialGrid();
+    BuildSpatialGrid();
     if (trackWalls.empty()) trackWalls.push_back({{100, 100}, {900, 100}});
 
     for (int i = 0; i < Config::POPULATION_SIZE; i++) {
@@ -136,7 +136,7 @@ void Simulation::UpdateMenu() {
         trackCheckpoints.clear();
         Telemetry::ResetHeatmap();
         TrackManager::GenerateBordersFromCenterLine(denseCenterLine, PROCEDURAL_TRACK_WIDTH, trackWalls, trackCheckpoints, startPosition);
-        BuildSpacialGrid();
+        BuildSpatialGrid();
         
         for (auto& car : population) car.Reset(startPosition.x, startPosition.y, startRotation);
         playerCar.Reset(startPosition.x, startPosition.y, startRotation);
@@ -150,7 +150,7 @@ void Simulation::UpdateMenu() {
         trackCheckpoints.clear();
         Telemetry::ResetHeatmap();
         TrackManager::LoadTrackFromFile(trackFile, trackWalls, startPosition, startRotation, trackCheckpoints);
-        BuildSpacialGrid();
+        BuildSpatialGrid();
         for (auto& car : population) car.Reset(startPosition.x, startPosition.y, startRotation);
         aiCar.Reset(startPosition.x, startPosition.y, startRotation);
     }
@@ -162,7 +162,7 @@ void Simulation::UpdateMenu() {
         trackCheckpoints.clear();
         Telemetry::ResetHeatmap();
         TrackManager::LoadTrackFromFile(trackFile, trackWalls, startPosition, startRotation, trackCheckpoints);
-        BuildSpacialGrid();
+        BuildSpatialGrid();
         for (auto& car : population) car.Reset(startPosition.x, startPosition.y, startRotation);
         aiCar.Reset(startPosition.x, startPosition.y, startRotation);
     }
@@ -247,7 +247,7 @@ void Simulation::UpdateTraining() {
                 trackCheckpoints.clear();
                 Telemetry::ResetHeatmap();
                 TrackManager::GenerateBordersFromCenterLine(denseCenterLine, PROCEDURAL_TRACK_WIDTH, trackWalls, trackCheckpoints, startPosition);
-                BuildSpacialGrid();
+                BuildSpatialGrid();
                 
                 for (auto& car : population) {
                     car.Reset(startPosition.x, startPosition.y, startRotation, false);
@@ -562,7 +562,7 @@ void Simulation::DrawTestAI() {
     DrawText("[M] Return to Main Menu", 20, 20, 20, LIGHTGRAY);
 }
 
-void Simulation::BuildSpacialGrid(){
+void Simulation::BuildSpatialGrid(){
     spatialGrid.clear();
 
     for(int i = 0; i < trackWalls.size(); i++){

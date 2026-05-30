@@ -59,7 +59,7 @@ private:
     void DrawFinishLine(float alpha = 1.0f);
     void DrawCheckpoints(float alpha = 1.0f);
 
-    void BuildSpacialGrid();
+    void BuildSpatialGrid();
 
     GameState currentState;
 
