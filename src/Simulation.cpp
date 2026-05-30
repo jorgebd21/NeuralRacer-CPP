@@ -212,22 +212,31 @@ void Simulation::UpdateTraining() {
     // Execute logic multiple times per frame if in fast forward mode
     for (int s = 0; s < simSpeed; s++) {
         std::atomic<int> carsAlive{0};
-        std::for_each(std::execution::par, population.begin(), population.end(), [&](Car& car) {
+
+        // par_unseq enables both multi-core AND SIMD vectorisation via TBB.
+        // Constraint: no blocking synchronisation (mutex/condition_variable) inside the lambda.
+        // carsAlive++ is an atomic increment — vectorisation-safe per the C++ standard.
+        std::for_each(std::execution::par_unseq, population.begin(), population.end(), [&](Car& car) {
             if (!car.isCrashed) {
                 carsAlive++;
-                
+
                 // 1. The brain decides what to do based on the sensors
                 float inputAccelerate = 0.0f, inputTurn = 0.0f;
                 car.brain.Evaluate(car.sensorDistances, car.GetSpeed(), inputAccelerate, inputTurn);
-                
+
                 // 2. The car moves according to the decision and checks if it crashed
                 car.UpdatePhysics(inputAccelerate, inputTurn, spatialGrid, generationTimer, trackCheckpoints);
-                
-                if (car.isCrashed) {
-                    Telemetry::RecordCrash(car.position);
-                }
             }
         });
+
+        // Sequential post-step: record newly crashed cars to telemetry.
+        // Telemetry::RecordCrash uses a std::mutex which is forbidden inside par_unseq,
+        // so it runs here after the parallel section completes.
+        for (auto& car : population) {
+            if (car.isCrashed) {
+                Telemetry::RecordCrash(car.position);
+            }
+        }
         
         bool allCrashed = (carsAlive == 0);
         generationTimer++;
