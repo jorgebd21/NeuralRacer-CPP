@@ -46,9 +46,16 @@ void Simulation::Init() {
     Telemetry::Init();
 
     mapFiles = TrackManager::ScanMapFiles();
-    trackFile = mapFiles[currentMapIndex];
-    
-    TrackManager::LoadTrackFromFile(trackFile, trackWalls, startPosition, startRotation, trackCheckpoints);
+    if (mapFiles.empty()) {
+        std::cerr << "Warning: No track files found in data/tracks/. Generating a procedural track." << std::endl;
+        proceduralPoints = TrackGenerator::GenerateProceduralCenterPoints();
+        std::vector<Vector2> denseCenterLine = TrackManager::GenerateSplinePoints(proceduralPoints, PROCEDURAL_SPLINE_SEGMENTS);
+        TrackManager::CalculateStartGrid(proceduralPoints, startPosition, startRotation);
+        TrackManager::GenerateBordersFromCenterLine(denseCenterLine, PROCEDURAL_TRACK_WIDTH, trackWalls, trackCheckpoints, startPosition);
+    } else {
+        trackFile = mapFiles[currentMapIndex];
+        TrackManager::LoadTrackFromFile(trackFile, trackWalls, startPosition, startRotation, trackCheckpoints);
+    }
     BuildSpacialGrid();
     if (trackWalls.empty()) trackWalls.push_back({{100, 100}, {900, 100}});
 
@@ -135,9 +142,9 @@ void Simulation::UpdateMenu() {
         playerCar.Reset(startPosition.x, startPosition.y, startRotation);
         aiCar.Reset(startPosition.x, startPosition.y, startRotation);
     }
-    if (IsKeyPressed(KEY_LEFT)) {
+    if (IsKeyPressed(KEY_LEFT) && !mapFiles.empty()) {
         currentMapIndex--;
-        if (currentMapIndex < 0) currentMapIndex = mapFiles.size() - 1;
+        if (currentMapIndex < 0) currentMapIndex = (int)mapFiles.size() - 1;
         trackFile = mapFiles[currentMapIndex];
         trackWalls.clear();
         trackCheckpoints.clear();
@@ -147,7 +154,7 @@ void Simulation::UpdateMenu() {
         for (auto& car : population) car.Reset(startPosition.x, startPosition.y, startRotation);
         aiCar.Reset(startPosition.x, startPosition.y, startRotation);
     }
-    if (IsKeyPressed(KEY_RIGHT)) {
+    if (IsKeyPressed(KEY_RIGHT) && !mapFiles.empty()) {
         currentMapIndex++;
         if (currentMapIndex >= (int)mapFiles.size()) currentMapIndex = 0;
         trackFile = mapFiles[currentMapIndex];
