@@ -340,12 +340,12 @@ void Simulation::DrawMenu() {
     DrawFinishLine(0.3f);
     DrawCheckpoints(0.3f);
     
-    for (auto wall : trackWalls) {
+    for (const auto& wall : trackWalls) {
         DrawLineEx(wall.first, wall.second, 6.0f, Fade(WHITE, 0.3f));
     }
 
     if (!aiCar.isCrashed) {
-        DrawRectanglePro({ aiCar.position.x, aiCar.position.y, 20.0f, 10.0f }, { 10.0f, 5.0f }, aiCar.rotation, Fade(RED, 0.3f));
+        DrawRectanglePro({ aiCar.position.x, aiCar.position.y, Config::CAR_HALF_LENGTH * 2.0f, Config::CAR_HALF_WIDTH * 2.0f }, { Config::CAR_HALF_LENGTH, Config::CAR_HALF_WIDTH }, aiCar.rotation, Fade(RED, 0.3f));
         for (int i = 0; i < 5; i++) {
             float rayAngle = (aiCar.rotation + Config::SENSOR_ANGLES[i]) * DEG2RAD;
             Vector2 actualRayEnd = { aiCar.position.x + cos(rayAngle) * aiCar.sensorDistances[i], aiCar.position.y + sin(rayAngle) * aiCar.sensorDistances[i] };
@@ -381,7 +381,7 @@ void Simulation::DrawTraining() {
         Telemetry::DrawHeatmap();
     }
     
-    for (auto wall : trackWalls) {
+    for (const auto& wall : trackWalls) {
         DrawLineEx(wall.first, wall.second, 6.0f, WHITE);
         Vector2 dir = {wall.second.x - wall.first.x, wall.second.y - wall.first.y};
         float length = sqrt(dir.x*dir.x + dir.y*dir.y);
@@ -399,7 +399,7 @@ void Simulation::DrawTraining() {
     for (auto& car : population) {
         if (!car.isCrashed) {
             aliveCount++;
-            DrawRectanglePro({ car.position.x, car.position.y, 20.0f, 10.0f }, { 10.0f, 5.0f }, car.rotation, Fade(RED, 0.5f));
+            DrawRectanglePro({ car.position.x, car.position.y, Config::CAR_HALF_LENGTH * 2.0f, Config::CAR_HALF_WIDTH * 2.0f }, { Config::CAR_HALF_LENGTH, Config::CAR_HALF_WIDTH }, car.rotation, Fade(RED, 0.5f));
             if (aliveCount == 1) {
                 for (int i = 0; i < 5; i++) {
                     float rayAngle = (car.rotation + Config::SENSOR_ANGLES[i]) * DEG2RAD;
@@ -507,12 +507,12 @@ void Simulation::DrawExhibition() {
     DrawFinishLine(1.0f);
     DrawCheckpoints(0.5f);
     
-    for (auto wall : trackWalls) {
+    for (const auto& wall : trackWalls) {
         DrawLineEx(wall.first, wall.second, 6.0f, WHITE);
     }
 
-    if (!aiCar.isCrashed) DrawRectanglePro({ aiCar.position.x, aiCar.position.y, 20.0f, 10.0f }, { 10.0f, 5.0f }, aiCar.rotation, RED);
-    if (!playerCar.isCrashed) DrawRectanglePro({ playerCar.position.x, playerCar.position.y, 20.0f, 10.0f }, { 10.0f, 5.0f }, playerCar.rotation, BLUE);
+    if (!aiCar.isCrashed) DrawRectanglePro({ aiCar.position.x, aiCar.position.y, Config::CAR_HALF_LENGTH * 2.0f, Config::CAR_HALF_WIDTH * 2.0f }, { Config::CAR_HALF_LENGTH, Config::CAR_HALF_WIDTH }, aiCar.rotation, RED);
+    if (!playerCar.isCrashed) DrawRectanglePro({ playerCar.position.x, playerCar.position.y, Config::CAR_HALF_LENGTH * 2.0f, Config::CAR_HALF_WIDTH * 2.0f }, { Config::CAR_HALF_LENGTH, Config::CAR_HALF_WIDTH }, playerCar.rotation, BLUE);
 
     if (exhibitionResult == 1) {
         DrawText("YOU BEAT THE AI!", Config::SCREEN_WIDTH/2 - 200, 200, 40, GREEN);
@@ -542,12 +542,12 @@ void Simulation::DrawTestAI() {
     DrawFinishLine(1.0f);
     DrawCheckpoints(0.5f);
     
-    for (auto wall : trackWalls) {
+    for (const auto& wall : trackWalls) {
         DrawLineEx(wall.first, wall.second, 6.0f, WHITE);
     }
 
     if (!aiCar.isCrashed) {
-        DrawRectanglePro({ aiCar.position.x, aiCar.position.y, 20.0f, 10.0f }, { 10.0f, 5.0f }, aiCar.rotation, RED);
+        DrawRectanglePro({ aiCar.position.x, aiCar.position.y, Config::CAR_HALF_LENGTH * 2.0f, Config::CAR_HALF_WIDTH * 2.0f }, { Config::CAR_HALF_LENGTH, Config::CAR_HALF_WIDTH }, aiCar.rotation, RED);
         for (int i = 0; i < 5; i++) {
             float rayAngle = (aiCar.rotation + Config::SENSOR_ANGLES[i]) * DEG2RAD;
             Vector2 actualRayEnd = { aiCar.position.x + cos(rayAngle) * aiCar.sensorDistances[i], aiCar.position.y + sin(rayAngle) * aiCar.sensorDistances[i] };

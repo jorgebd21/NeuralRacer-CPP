@@ -3,6 +3,7 @@
 
 #include <random>
 #include <algorithm>
+#include "Config.h"
 
 const int HIDDEN_NODES = 8;
 const int INPUT_NODES = 6;
@@ -63,7 +64,7 @@ struct Brain {
     void Evaluate(float sensorDistances[5], float speed, float &outAccelerate, float &outTurn) {
         float input[6];
         for(int i=0; i<5; i++){
-            input[i] = sensorDistances[i] / 400.0f; // 400 = Config::CAR_MAX_SENSOR_DIST
+            input[i] = sensorDistances[i] / Config::CAR_MAX_SENSOR_DIST;
         }
         input[5] = std::clamp(speed / 20.0f, -1.0f, 1.0f); // Normalize speed (max approx 20)
 

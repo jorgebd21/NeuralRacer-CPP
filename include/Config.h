@@ -33,6 +33,7 @@ namespace Config {
 
     constexpr float CAR_HALF_WIDTH = 10.0f;
     constexpr float CAR_HALF_LENGTH = 20.0f;
+    constexpr float CHECKPOINT_RADIUS = 65.0f;
     
     constexpr float SIM_START_POS_X = 400.0f;
     constexpr float SIM_START_POS_Y = 650.0f;

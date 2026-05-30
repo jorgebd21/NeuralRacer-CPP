@@ -27,7 +27,7 @@ void Car::Reset(float startX, float startY, float startRot, bool fullReset) {
     timeAlive = 0;
     timeSinceLastCheckpoint = 0;
     distanceTraveled = 0.0f;
-    for(int i = 0; i < 5; i++) sensorDistances[i] = 100.0f;
+    for(int i = 0; i < 5; i++) sensorDistances[i] = Config::CAR_MAX_SENSOR_DIST;
 }
 
 void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const std::unordered_map<uint64_t, std::vector<std::pair<Vector2, Vector2>>> &spatialGrid, int timer, const std::vector<Vector2>& trackCheckpoints) {
@@ -78,8 +78,8 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const std::unord
         for (size_t i = 0; i < trackCheckpoints.size(); i++) {
             Vector2 cp = trackCheckpoints[i];
             float dist = sqrt(pow(position.x - cp.x, 2) + pow(position.y - cp.y, 2));
-            if(dist <= 65.0f){
-                nextCheckPointIndex = (i + 1) % trackCheckpoints.size();
+            if(dist <= Config::CHECKPOINT_RADIUS){
+                nextCheckPointIndex = (int)(i + 1) % (int)trackCheckpoints.size();
                 totalCheckPointsCrossed++;
                 timeSinceLastCheckpoint = 0;
                 break;
@@ -88,7 +88,7 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const std::unord
     } else {
         Vector2 cp = trackCheckpoints[nextCheckPointIndex];
         float dist = sqrt(pow(position.x - cp.x, 2) + pow(position.y - cp.y, 2));
-        if(dist <= 65.0f){
+        if(dist <= Config::CHECKPOINT_RADIUS){
             nextCheckPointIndex = (nextCheckPointIndex + 1) % trackCheckpoints.size();
             totalCheckPointsCrossed++;
             timeSinceLastCheckpoint = 0;
@@ -121,7 +121,7 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const std::unord
         for(int gridY = myCellY - 2; gridY <= myCellY + 2; gridY++){
             uint64_t key = TrackManager::GetGridKey(gridX, gridY);
             if(spatialGrid.find(key) != spatialGrid.end()){
-                for (auto wallLine : spatialGrid.at(key)){
+                for (const auto& wallLine : spatialGrid.at(key)){
                     if (!isCrashed) {
                         Vector2 unused;
                         bool noseHit = TrackManager::GetSegmentIntersection(cornerFL, cornerFR, wallLine.first, wallLine.second, unused);
