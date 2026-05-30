@@ -480,8 +480,8 @@ void Simulation::DrawTraining() {
             for (int n = 0; n < nodesPerLayer[l]; n++) {
                 float val = 0.0f;
                 if (l == 0) {
-                    if (n < 5) val = bestBrain.last_input[n] / 250.0f; // SENSOR_MAX_DIST approx
-                    else val = bestBrain.last_input[n] / 10.0f; // max speed approx
+                    if (n < 5) val = bestBrain.last_input[n] / Config::CAR_MAX_SENSOR_DIST;
+                    else val = bestBrain.last_input[n] / 20.0f; // matches speed normalisation in Brain::Evaluate()
                 } else if (l == 1) {
                     val = bestBrain.last_hidden[n];
                 } else if (l == 2) {
