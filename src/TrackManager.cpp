@@ -7,9 +7,6 @@
 #include <filesystem>
 #include "json.hpp"
 
-#ifndef PI
-#define PI 3.14159265358979323846f
-#endif
 
 namespace TrackManager {
 
@@ -24,7 +21,7 @@ constexpr float TRACK_WIDTH = 65.0f;
 bool GetLineIntersectionDist(Vector2 p1, Vector2 p2, Vector2 p3, Vector2 p4, float &outDist) {
     // Calculate the denominator with the determinant of the lines
     float den = (p1.x - p2.x) * (p3.y - p4.y) - (p1.y - p2.y) * (p3.x - p4.x);
-    if (den == 0) return false; // They are parallel or coincident
+    if (std::abs(den) < 1e-6f) return false; // Parallel or coincident lines
     
     // t and u represent the relative intersection point on both segments
     float t = ((p1.x - p3.x) * (p3.y - p4.y) - (p1.y - p3.y) * (p3.x - p4.x)) / den;
