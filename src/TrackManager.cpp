@@ -1,4 +1,5 @@
 #include "TrackManager.h"
+#include <cfloat>
 #include <cmath>
 #include <fstream>
 #include <iostream>
@@ -285,6 +286,25 @@ void LoadTrackFromFile(const std::string& filename, std::vector<std::pair<Vector
     if (centerPoints.size() >= 3) {
         CalculateStartGrid(centerPoints, outStartPos, outStartRot);
         std::vector<Vector2> denseCenterLine = GenerateSplinePoints(centerPoints, TRACK_SPLINE_SEGMENTS);
+
+        // Snap start position to nearest dense center line point so the car spawns
+        // exactly on the smooth spline, not the raw Catmull-Rom midpoint which can
+        // diverge into a wall on curved sections.
+        int snapIdx = 0;
+        float minDist = FLT_MAX;
+        for (int i = 0; i < (int)denseCenterLine.size(); i++) {
+            float dx = denseCenterLine[i].x - outStartPos.x;
+            float dy = denseCenterLine[i].y - outStartPos.y;
+            float d = dx*dx + dy*dy;
+            if (d < minDist) { minDist = d; snapIdx = i; }
+        }
+        outStartPos = denseCenterLine[snapIdx];
+        // Recompute rotation from the dense tangent for better alignment
+        int n = (int)denseCenterLine.size();
+        Vector2 prev = denseCenterLine[(snapIdx - 1 + n) % n];
+        Vector2 next = denseCenterLine[(snapIdx + 1) % n];
+        outStartRot = atan2(next.y - prev.y, next.x - prev.x) * (180.0f / PI);
+
         GenerateBordersFromCenterLine(denseCenterLine, TRACK_WIDTH, outWalls, outCheckpoints, outStartPos);
     }
 }

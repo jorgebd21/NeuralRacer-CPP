@@ -143,11 +143,17 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const std::unord
         }
     }
 
-    // Increment fitness: rewards speed but penalizes excessive turning
+    // Fitness breakdown:
+    //  - Checkpoints (2000 each): dominant signal — crossing checkpoints fast is the primary goal
+    //  - Distance * 0.1:          secondary — rewards net progress, prevents pure checkpoint camping
+    //  - Speed * 0.5:             per-frame bonus — incentivises pushing the throttle at all times
     if (GetSpeed() > 0){
-        distanceTraveled += GetSpeed() - (std::abs(inputTurn) * Config::CAR_TURN_PENALTY); 
+        distanceTraveled += GetSpeed();
     }
-    fitness = accumulatedFitness + distanceTraveled + (totalCheckPointsCrossed * 100.0f);
+    fitness = accumulatedFitness
+            + (totalCheckPointsCrossed * 2000.0f)
+            + (distanceTraveled * 0.1f)
+            + (GetSpeed() * 0.5f);
 
     float currentLongitudinalVelocity = (velocity.x * cos(rotation * DEG2RAD)) + (velocity.y * sin(rotation * DEG2RAD));
     if (timeSinceLastCheckpoint > Config::CAR_MAX_TIME_WITHOUT_CHECKPOINT || currentLongitudinalVelocity < Config::CAR_STALL_SPEED_THRESHOLD) {

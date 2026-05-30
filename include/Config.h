@@ -31,8 +31,8 @@ namespace Config {
     constexpr float CORNERING_STIFFNESS = 1000.0f;
     constexpr float WEIGHT_TRANSFER_FACTOR = 0.15f;
 
-    constexpr float CAR_HALF_WIDTH = 10.0f;
-    constexpr float CAR_HALF_LENGTH = 20.0f;
+    constexpr float CAR_HALF_WIDTH = 6.0f;
+    constexpr float CAR_HALF_LENGTH = 13.0f;
     constexpr float CHECKPOINT_RADIUS = 65.0f;
     
     constexpr float SIM_START_POS_X = 400.0f;

@@ -5,6 +5,7 @@
 #include "TrackGenerator.h"
 #include "Telemetry.h"
 #include <algorithm>
+#include <cfloat>
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -51,6 +52,22 @@ void Simulation::Init() {
         proceduralPoints = TrackGenerator::GenerateProceduralCenterPoints();
         std::vector<Vector2> denseCenterLine = TrackManager::GenerateSplinePoints(proceduralPoints, PROCEDURAL_SPLINE_SEGMENTS);
         TrackManager::CalculateStartGrid(proceduralPoints, startPosition, startRotation);
+
+        // Snap to nearest dense center line point (same logic as LoadTrackFromFile)
+        int snapIdx = 0;
+        float minDist = FLT_MAX;
+        for (int i = 0; i < (int)denseCenterLine.size(); i++) {
+            float dx = denseCenterLine[i].x - startPosition.x;
+            float dy = denseCenterLine[i].y - startPosition.y;
+            float d = dx*dx + dy*dy;
+            if (d < minDist) { minDist = d; snapIdx = i; }
+        }
+        startPosition = denseCenterLine[snapIdx];
+        int denseN = (int)denseCenterLine.size();
+        Vector2 prev = denseCenterLine[(snapIdx - 1 + denseN) % denseN];
+        Vector2 next = denseCenterLine[(snapIdx + 1) % denseN];
+        startRotation = atan2(next.y - prev.y, next.x - prev.x) * (180.0f / PI);
+
         TrackManager::GenerateBordersFromCenterLine(denseCenterLine, PROCEDURAL_TRACK_WIDTH, trackWalls, trackCheckpoints, startPosition);
     } else {
         trackFile = mapFiles[currentMapIndex];
