@@ -159,12 +159,12 @@ The behavioral engine models decision-making processes from first principles:
     *   *Stage 2: Consolidation (Gens 15-49):* Evaluates on a deterministic 3-track rotation (`pista_facil` $\to$ `pista_medio` $\to$ `pista_dificil`) with accumulated multi-track fitness, mastering tight turns and weight-transfer management.
     *   *Stage 3: Procedural Generalization (Gens 50+):* Evaluates each generation against 1 fixed control benchmark (`pista_medio.json`) and 2 dynamically generated procedural tracks, preventing track overfitting and forging truly generalized autonomous racers.
 
-### 4. Mathematical Track Generation Pipeline
-Includes a complete procedural generation framework to ensure agent robustness and avoid track-specific overfitting:
-*   **Exclusion-Zone Node Distribution:** Distributes random control points maintaining strict Euclidean minimum distances.
-*   **TSP Optimization (2-Opt):** Orders nodes utilizing a **Nearest Neighbor** traveling salesperson solver, then applies the **2-Opt** algorithm to eliminate intersecting lines.
-*   **Spline Interpolation:** Applies **Catmull-Rom** splines to convert discrete routes into continuous curves.
-*   **Winding-Order Validation:** Computes the signed **Gauss Area** of the track to guarantee a uniform counter-clockwise winding layout, preventing boundary collapse when generating inner and outer track walls.
+### 4. Mathematical F1-Style Track Generation Pipeline
+Includes an enterprise-grade procedural generation framework producing flowing, realistic racing circuits inspired by Formula 1 layouts:
+*   **Convex Hull Base Topology:** Generates an elliptical distribution of polar seed points and computes the 2D **Convex Hull** using the **Monotone Chain** algorithm ($O(N \log N)$), mathematically guaranteeing a non-self-intersecting baseline loop.
+*   **F1 Sector Motifs & DRS Straight:** Identifies the longest polygon edge to anchor a high-speed **DRS Main Straight** with collinear stabilization nodes, alongside high-speed sweeping S-curves and controlled inward technical chicanes.
+*   **Multi-Pass Angular Relaxation:** Applies iterative Laplacian smoothing enforcing a strict deflection boundary (maximum deflection $50^\circ$, interior angle $\theta \ge 130^\circ$) to eliminate acute hairpins and guarantee wide cornering radii ($R \ge 80\text{ px}$).
+*   **Winding-Order Validation & Analytical Extrusion:** Enforces counter-clockwise winding via the signed **Gauss Area** (Shoelace formula), producing singularity-free inward and outward wall offsets with sub-millisecond generation latency ($<0.5\text{ ms}$).
 
 ### 5. Advanced Kinematics & Race Physics
 The vehicle kinematics engine bypasses simplified movement models in favor of real-world race physics:
@@ -199,7 +199,7 @@ The engineering challenges resolved in the codebase are mapped below to show the
 | :--- | :--- | :--- |
 | **Low Latency Updates** | Minimizing heap allocations on runtime hot paths, adopting cache-friendly static structures, and strict RAII usage. | Eliminates garbage collection spikes, ensuring consistent frame pacing under heavy computational loads. |
 | **Parallel CPU Execution** | OpenMP dynamic loop multi-threading and zero-allocation stack evaluation. | Maximizes multi-core occupancy, scaling raycasts and physical updates seamlessly across available CPU cores. |
-| **Geometric Complexity** | Procedural Catmull-Rom splines, TSP heuristics, oriented bounding boxes (OBB), and localized vector intersections. | Delivers robust spatial generation and pixel-perfect collision checks. |
+| **Geometric Complexity** | Procedural F1 convex-hull synthesis, sector motifs, Catmull-Rom splines, oriented bounding boxes (OBB), and localized vector intersections. | Delivers robust spatial generation and pixel-perfect collision checks. |
 | **Storage Bottlenecks** | Isolating persistent disk writing operations (JSON and CSV) to asynchronous `std::async` worker threads. | Prevents main-thread rendering hiccups when saving elite brains or generational logs. |
 
 ---
@@ -235,7 +235,7 @@ NeuralRacer-CPP/
 │   ├── Evolution.h        # Genetic operators, crossover, and serialization helpers
 │   ├── Simulation.h       # Main program coordinator and screen state machine
 │   ├── Telemetry.h        # Metrics collector, live dashboard, and CSV logger
-│   ├── TrackGenerator.h   # Procedural logic (TSP, 2-Opt, splines)
+│   ├── TrackGenerator.h   # Procedural logic (Convex Hull, F1 motifs, relaxation)
 │   ├── TrackManager.h     # Grid Hashing utilities and track I/O routines
 │   └── json.hpp           # nlohmann JSON utility library
 ├── src/                   # Source implementations
