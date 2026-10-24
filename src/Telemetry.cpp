@@ -1,5 +1,6 @@
 #include "Telemetry.h"
 #include <fstream>
+#include <sstream>
 #include <iostream>
 #include <algorithm>
 #include <cmath>
@@ -13,6 +14,33 @@ void Telemetry::Init() {
     std::lock_guard<std::mutex> lock(dataMutex);
     history.clear();
     crashPoints.clear();
+
+    // Load existing telemetry CSV if present to persist longitudinal progress across sessions
+    std::ifstream file("data/telemetry_log.csv");
+    if (file.is_open()) {
+        std::string header;
+        std::getline(file, header); // Skip header line
+        std::string line;
+        while (std::getline(file, line)) {
+            if (line.empty()) continue;
+            std::stringstream ss(line);
+            std::string token;
+            GenerationMetrics m{};
+            try {
+                if (std::getline(ss, token, ',')) m.generation = std::stoi(token);
+                if (std::getline(ss, token, ',')) m.maxFitness = std::stof(token);
+                if (std::getline(ss, token, ',')) m.minFitness = std::stof(token);
+                if (std::getline(ss, token, ',')) m.avgFitness = std::stof(token);
+                if (std::getline(ss, token, ',')) m.survivalRate = std::stof(token);
+                if (std::getline(ss, token, ',')) m.avgLifeTime = std::stof(token);
+                if (std::getline(ss, token, ',')) m.weightVariance = std::stof(token);
+                history.push_back(m);
+            } catch (...) {
+                // Ignore any malformed lines
+            }
+        }
+        file.close();
+    }
 }
 
 void Telemetry::RecordCrash(Vector2 position) {
@@ -102,7 +130,14 @@ void Telemetry::RecordGeneration(int generation, const std::vector<Car>& populat
     metrics.avgLifeTime = (float)(sumLifeTime / population.size());
     metrics.weightVariance = CalculateWeightVariance(population);
 
-    history.push_back(metrics);
+    auto it = std::find_if(history.begin(), history.end(), [generation](const GenerationMetrics& m) {
+        return m.generation == generation;
+    });
+    if (it != history.end()) {
+        *it = metrics;
+    } else {
+        history.push_back(metrics);
+    }
 }
 
 void Telemetry::ExportDataAsync(const std::string& filename) {
@@ -125,6 +160,27 @@ void Telemetry::ExportDataAsync(const std::string& filename) {
             file.close();
         }
     });
+}
+
+void Telemetry::Flush(const std::string& filename) {
+    if (exportFuture.valid()) {
+        exportFuture.wait();
+    }
+    std::lock_guard<std::mutex> lock(dataMutex);
+    std::ofstream file(filename, std::ios::out);
+    if (file.is_open()) {
+        file << "Generation,MaxFitness,MinFitness,AvgFitness,SurvivalRate,AvgLifeTime,WeightVariance\n";
+        for (const auto& m : history) {
+            file << m.generation << ","
+                 << m.maxFitness << ","
+                 << m.minFitness << ","
+                 << m.avgFitness << ","
+                 << m.survivalRate << ","
+                 << m.avgLifeTime << ","
+                 << m.weightVariance << "\n";
+        }
+        file.close();
+    }
 }
 
 void Telemetry::DrawDashboard(int screenWidth, int screenHeight) {

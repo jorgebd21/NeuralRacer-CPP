@@ -108,6 +108,7 @@ void Simulation::Run() {
         }
         CloseWindow();
     }
+    Telemetry::Flush();
 }
 
 void Simulation::Update() {
@@ -256,7 +257,8 @@ void Simulation::UpdateTraining() {
         
         // If all cars died or the maximum time per generation is up
         if (allCrashed || generationTimer >= Config::MAX_GENERATION_TIME) {
-            std::cout << "Generation " << generationCount << " (Track " << currentEvaluationTrack + 1 << "/" << trainingTracks.size() << ")" << std::endl;
+            std::cout << "Generation " << generationCount << " (Track " << currentEvaluationTrack + 1 << "/" << trainingTracks.size() 
+                      << ") finished in " << generationTimer << " ticks (" << carsAlive << " alive)" << std::endl;
             currentEvaluationTrack++;
             if (currentEvaluationTrack >= (int)trainingTracks.size()) {
                 std::vector<Car*> sortedPop;

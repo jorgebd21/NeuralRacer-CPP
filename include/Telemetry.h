@@ -25,6 +25,7 @@ public:
     static void DrawDashboard(int screenWidth, int screenHeight);
     static void DrawHeatmap();
     static void ExportDataAsync(const std::string& filename = "data/telemetry_log.csv");
+    static void Flush(const std::string& filename = "data/telemetry_log.csv");
     static void ResetHeatmap();
 
 private:
