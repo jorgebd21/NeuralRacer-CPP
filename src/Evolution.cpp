@@ -95,11 +95,20 @@ bool LoadBestBrains(std::vector<Car>& population, int& generation) {
         return false;
     }
 
+    // Validate network topology compatibility (e.g. upgraded 9-10-2)
+    if (!data.contains("elite") || data["elite"].empty() ||
+        (data["elite"][0].contains("biases_hidden") && data["elite"][0]["biases_hidden"].size() != HIDDEN_NODES) ||
+        (data["elite"][0].contains("weights_input_hidden") && data["elite"][0]["weights_input_hidden"][0].size() != INPUT_NODES)) {
+        generation = 0;
+        std::cout << "Notice: 'data/best.json' contains legacy topology. Starting population with fresh 9-10-2 network." << std::endl;
+        return false;
+    }
+
     // Support for old json keys for backward compatibility initially, though saving uses new ones
     if (data.contains("generacion")) generation = data["generacion"];
     else if (data.contains("generation")) generation = data["generation"];
 
-    Config::MUTATION = std::max(1, (int)(Config::MAX_MUTATION / (1.0f + (Config::DROP_RATE * generation))));
+    Config::MUTATION = std::max(Config::MIN_MUTATION, (int)(Config::MAX_MUTATION / (1.0f + (Config::DROP_RATE * generation))));
 
     // The first phase of loading directly injects the elite brains from the previous generation.
     // This ensures we do not lose progress ("elitism").
@@ -142,7 +151,7 @@ bool LoadBestBrains(std::vector<Car>& population, int& generation) {
 }
 
 void EvolvePopulation(std::vector<Car>& population, Vector2 startPosition, float startRotation, int genCount) {
-    Config::MUTATION = std::max(1, (int)(Config::MAX_MUTATION / (1.0f + (Config::DROP_RATE * genCount))));
+    Config::MUTATION = std::max(Config::MIN_MUTATION, (int)(Config::MAX_MUTATION / (1.0f + (Config::DROP_RATE * genCount))));
 
     std::sort(population.begin(), population.end(), [](const Car& a, const Car& b) {
         return a.fitness > b.fitness;

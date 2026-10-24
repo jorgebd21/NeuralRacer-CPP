@@ -24,6 +24,7 @@ struct Car {
 
     float sensorDistances[5];
     bool isCrashed;
+    bool justCrashed;
     
     float fitness;
     float accumulatedFitness;
@@ -34,6 +35,18 @@ struct Car {
     int nextCheckPointIndex;
     int totalCheckPointsCrossed;
     
+    // Physical state tracking for POMDP / Delta state observability
+    float prevRotation;
+    float angularVelocity;
+    float longitudinalVelocity;
+    float lateralVelocity;
+    float frontSensorDelta;
+
+    static constexpr int FRONT_HISTORY_SIZE = 8;
+    float frontSensorHistory[FRONT_HISTORY_SIZE];
+    int frontSensorHistoryIdx;
+    int stallTicks;
+
     Brain brain;
 
     /**
@@ -58,6 +71,16 @@ struct Car {
      * @brief Calculates the scalar magnitude of the current velocity (Pythagorean Theorem).
      */
     float GetSpeed() const { return std::sqrt(velocity.x * velocity.x + velocity.y * velocity.y); }
+
+    /**
+     * @brief Evaluates the brain using the 9-dimensional state space.
+     * 
+     * @param outAccelerate Calculated acceleration output.
+     * @param outTurn Calculated steering output.
+     */
+    void Think(float &outAccelerate, float &outTurn) {
+        brain.Evaluate(sensorDistances, frontSensorDelta, longitudinalVelocity, lateralVelocity, angularVelocity, outAccelerate, outTurn);
+    }
 
     /**
      * @brief Updates the physics of the car according to its inputs and calculates collisions.

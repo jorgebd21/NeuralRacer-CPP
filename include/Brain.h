@@ -5,15 +5,15 @@
 #include <algorithm>
 #include "Config.h"
 
-const int HIDDEN_NODES = 8;
-const int INPUT_NODES = 6;
+const int HIDDEN_NODES = 10;
+const int INPUT_NODES = 9;
 const int OUTPUT_NODES = 2;
 
 /**
  * @brief Structure representing the brain (Neural Network) of a car.
  * 
- * Implements a simple feedforward neural network with one hidden layer.
- * Used to evaluate sensor readings and decide acceleration and turn.
+ * Implements a simple feedforward neural network with one hidden layer (9-10-2).
+ * Used to evaluate sensor readings, temporal delta, velocities and decide acceleration and turn.
  */
 struct Brain {
     float weights_input_hidden[HIDDEN_NODES][INPUT_NODES];
@@ -54,40 +54,46 @@ struct Brain {
     }
 
     /**
-     * @brief Evaluates sensor inputs via feedforward to obtain control outputs.
+     * @brief Evaluates normalized inputs via feedforward to obtain control outputs.
      * 
-     * @param sensorDistances Array of sensor distances.
-     * @param speed The current speed of the car.
+     * @param sensorDistances Array of 5 sensor distances.
+     * @param frontSensorDelta Temporal delta of front sensor (Time-to-Collision).
+     * @param vLong Longitudinal velocity.
+     * @param vLat Lateral velocity (slip).
+     * @param angularVelocity Angular velocity (yaw rate).
      * @param outAccelerate Reference where the calculated acceleration value will be stored.
      * @param outTurn Reference where the calculated turn value will be stored.
      */
-    void Evaluate(float sensorDistances[5], float speed, float &outAccelerate, float &outTurn) {
-        float input[6];
-        for(int i=0; i<5; i++){
-            input[i] = sensorDistances[i] / Config::CAR_MAX_SENSOR_DIST;
+    void Evaluate(const float sensorDistances[5], float frontSensorDelta, float vLong, float vLat, float angularVelocity, float &outAccelerate, float &outTurn) {
+        float input[INPUT_NODES];
+        for(int i = 0; i < 5; i++) {
+            float maxDist = (i == 2) ? Config::CAR_FRONT_SENSOR_DIST : Config::CAR_MAX_SENSOR_DIST;
+            input[i] = std::clamp(sensorDistances[i] / maxDist, 0.0f, 1.0f);
         }
-        input[5] = std::clamp(speed / 20.0f, -1.0f, 1.0f); // Normalize speed (max approx 20)
+        input[5] = std::clamp(frontSensorDelta / 200.0f, -1.0f, 1.0f);
+        input[6] = std::clamp(vLong / 20.0f, -1.0f, 1.0f);
+        input[7] = std::clamp(vLat / 10.0f, -1.0f, 1.0f);
+        input[8] = std::clamp(angularVelocity / Config::CAR_TURN_SPEED, -1.0f, 1.0f);
 
-        for(int i=0; i<INPUT_NODES; i++) last_input[i] = input[i];
+        for(int i = 0; i < INPUT_NODES; i++) last_input[i] = input[i];
         
         float hidden_values[HIDDEN_NODES];
-        for(int i=0; i<HIDDEN_NODES; i++) {
+        for(int i = 0; i < HIDDEN_NODES; i++) {
             hidden_values[i] = 0.0f;
-            for(int j=0; j<INPUT_NODES; j++) {
+            for(int j = 0; j < INPUT_NODES; j++) {
                 hidden_values[i] += input[j] * weights_input_hidden[i][j];
             }
             hidden_values[i] += biases_hidden[i];
             
             // Use hyperbolic tangent to normalize values between -1 and 1
-            // since the car requires negative ranges (e.g. reverse or turning left)
             hidden_values[i] = tanh(hidden_values[i]);
             last_hidden[i] = hidden_values[i];
         }
 
         float output_values[OUTPUT_NODES];
-        for(int i=0; i<OUTPUT_NODES; i++) {
+        for(int i = 0; i < OUTPUT_NODES; i++) {
             output_values[i] = 0.0f;
-            for(int j=0; j<HIDDEN_NODES; j++) {
+            for(int j = 0; j < HIDDEN_NODES; j++) {
                 output_values[i] += hidden_values[j] * weights_hidden_output[i][j];
             }
             output_values[i] += biases_output[i];
@@ -97,6 +103,13 @@ struct Brain {
 
         outAccelerate = output_values[0];
         outTurn = output_values[1]; 
+    }
+
+    /**
+     * @brief Backward-compatible overload for evaluation with raw speed only.
+     */
+    void Evaluate(const float sensorDistances[5], float speed, float &outAccelerate, float &outTurn) {
+        Evaluate(sensorDistances, 0.0f, speed, 0.0f, 0.0f, outAccelerate, outTurn);
     }
     
     /**
