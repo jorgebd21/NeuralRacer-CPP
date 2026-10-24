@@ -185,12 +185,13 @@ void GenerateBordersFromCenterLine(const std::vector<Vector2>& centerPoints, flo
         outCheckpoints.push_back(centerPoints[idx]);
     }
 
+    // 1. Remove any potential local swallowtail loops from offset singularities
     RemoveSelfIntersections(outerPoints);
     RemoveSelfIntersections(innerPoints);
+
+    // 2. Smooth border vertices for clean continuous walls
     SmoothPoints(outerPoints, SMOOTH_RADIUS, SMOOTH_PASSES);
     SmoothPoints(innerPoints, SMOOTH_RADIUS, SMOOTH_PASSES);
-    RemoveSelfIntersections(outerPoints);
-    RemoveSelfIntersections(innerPoints);
     for (size_t i = 0; i < outerPoints.size(); i++) {
         size_t nextIdx = (i + 1) % outerPoints.size();
         outWalls.push_back({outerPoints[i], outerPoints[nextIdx]});
