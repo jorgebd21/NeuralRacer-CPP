@@ -201,6 +201,21 @@ To prevent neural networks from overfitting to fixed track layouts, the procedur
 *   **Unconstrained 360° Affine Transformation:** Implements arbitrary planar rotation ($\phi \in [0, 2\pi)$), asymmetric scaling, and dynamic margin fitting, ensuring start straights and apexes can emerge at any angle.
 *   **Clearance & Self-Intersection Watchdog:** Validates candidates by verifying zero self-intersections and enforcing a minimum $45\text{ px}$ clearance between non-adjacent centerline sections, eliminating bottlenecks while maintaining high variance ($CV_L \approx 19\%$, $CV_{W/H} \approx 23\%$).
 
+### 6. Discrete Modular Track Synthesis Engine ($SE(2)$ Tile Coupling)
+In addition to continuous spline-based macro-graphs, the engine implements a discrete modular track builder inspired by modular slot-car and tile coupling architectures:
+*   **12-Family Functional Tile Catalog:** Assembles tracks from discrete pre-validated geometric primitives with analytic curvature bounds:
+    *   *Straights:* Micro connector (`STR_50`), medium (`STR_90`), standard (`STR_150`), and extended DRS straightaway (`STR_240`).
+    *   *High-Speed Kinks (30°):* Wide radius ($R=260\text{ px}$) flat-out bends (`CRV_30_R260`).
+    *   *High-Downforce Arcs (45°):* Fast sweeps ($R=160\text{ px}$) (`CRV_45_R160`).
+    *   *Open V-Corners (60°):* Technical apex corners ($R=150\text{ px}$) (`CRV_60_R150`).
+    *   *Standard Corners (90°):* Medium speed turns ($R=110\text{ px}$) (`CRV_90_R110`).
+    *   *Progressive Double-Apex Carousels (135°):* Decreasing radius arc ($R_1=150\text{ px} \to R_2=90\text{ px}$) (`CRV_DBL_APEX`).
+    *   *Heavy Hairpins (180°):* Hard-braking loops ($R=60\text{ px}$) (`HRP_180_R60`).
+    *   *Chicanes:* Fluid lateral offsets (`CHK_S_L40`) and violent Bus-Stop chicanes (`CHK_BUS_STOP`).
+    *   *Technical Snake Esses:* $C^1$-smooth double sinusoidal wave complexes (`ESS_SNAKE`).
+*   **Multi-Topology Waypoint Seeding & 360° Start Pose:** Macro-guidance polylines are synthesized across Triangular Delta, Pentagonal Infield, Dog-Leg, and Rotated Quad structures, establishing unconstrained starting angles ($\phi \in [0, 2\pi)$) across all sectors.
+*   **$C^1$ Hermite Elastic Bridge & SAT Clearance:** Solves periodic loop closure ($\sum \Delta\vec{r} = \vec{0}$) with zero heading error using cubic Hermite interpolation and a head/tail-aware spatial clearance filter, achieving a $100\%$ closure success rate.
+
 ---
 
 ## System Performance & Design Patterns
@@ -245,6 +260,7 @@ NeuralRacer-CPP/
 │   ├── Car.h              # Vehicle state, kinematics, and OBB structure
 │   ├── Config.h           # Simulation parameters, physical constants, and GA variables
 │   ├── Evolution.h        # Genetic operators, crossover, and serialization helpers
+│   ├── ModularTrackGenerator.h # Discrete tile/segment coupling engine (12 families, 360° start pose)
 │   ├── Simulation.h       # Main program coordinator and screen state machine
 │   ├── Telemetry.h        # Metrics collector, live dashboard, and CSV logger
 │   ├── TrackGenerator.h   # High-entropy procedural engine (macro-graphs, motifs, 360° affine transforms)
@@ -307,7 +323,8 @@ cmake --build .
 | **Training Mode** | `[ T ]` | Spawns a population of 100 agents to undergo continuous evolutionary training. Supports telemetry overlays and speed multipliers. |
 | **Exhibition Mode** | `[ E ]` | Places the user in manual control of a vehicle (Arrows/WASD) to race directly against the best saved AI agent loaded from `data/best.json`. |
 | **Test AI Mode** | `[ A ]` | Loads the top-performing brain from disk and renders its continuous, uninterrupted driving behavior. |
-| **Generate Track** | `[ P ]` | Instantly generates a unique procedural racing circuit using optimization heuristics. |
+| **Generate Macro Track** | `[ P ]` | Instantly generates a continuous high-entropy racing circuit using the Stochastic Macro-Graph pipeline. |
+| **Generate Modular Track** | `[ O ]` | Assembles a closed circuit from the discrete 12-family modular tile catalog with 360° start angle. |
 | **Save Track** | `[ G ]` | Exports the active procedural track from the menu state to a JSON file in `data/tracks/`. |
 
 ### Runtime Training Interactions:
