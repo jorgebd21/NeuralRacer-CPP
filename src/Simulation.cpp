@@ -53,7 +53,7 @@ void Simulation::Init() {
     mapFiles = TrackManager::ScanMapFiles();
     if (mapFiles.empty()) {
         std::cerr << "Warning: No track files found in data/tracks/. Generating a procedural track." << std::endl;
-        proceduralPoints = TrackGenerator::GenerateProceduralCenterPoints();
+        proceduralPoints = ModularTrackGenerator::GenerateProceduralCenterPoints();
         std::vector<Vector2> denseCenterLine = TrackManager::GenerateSplinePoints(proceduralPoints, PROCEDURAL_SPLINE_SEGMENTS);
         TrackManager::CalculateStartGrid(proceduralPoints, startPosition, startRotation);
 
@@ -161,24 +161,8 @@ void Simulation::UpdateMenu() {
         currentState = TEST_AI;
     }
     if (IsKeyPressed(KEY_P)) {
-        proceduralPoints = TrackGenerator::GenerateProceduralCenterPoints();
-        std::vector<Vector2> denseCenterLine = TrackManager::GenerateSplinePoints(proceduralPoints, PROCEDURAL_SPLINE_SEGMENTS);
-        TrackManager::CalculateStartGrid(proceduralPoints, startPosition, startRotation);
-        trackWalls.clear();
-        trackCheckpoints.clear();
-        Telemetry::ResetHeatmap();
-        TrackManager::GenerateBordersFromCenterLine(denseCenterLine, PROCEDURAL_TRACK_WIDTH, trackWalls, trackCheckpoints, startPosition);
-        BuildSpatialGrid();
-        InitTrainingTracks();
-        
-        for (auto& car : population) car.Reset(startPosition.x, startPosition.y, startRotation);
-        playerCar.Reset(startPosition.x, startPosition.y, startRotation);
-        aiCar.Reset(startPosition.x, startPosition.y, startRotation);
-    }
-    if (IsKeyPressed(KEY_O)) {
-        std::vector<Vector2> modPts = ModularTrackGenerator::GenerateProceduralCenterPoints();
-        if (!modPts.empty()) {
-            proceduralPoints = modPts;
+        proceduralPoints = ModularTrackGenerator::GenerateProceduralCenterPoints();
+        if (!proceduralPoints.empty()) {
             std::vector<Vector2> denseCenterLine = TrackManager::GenerateSplinePoints(proceduralPoints, PROCEDURAL_SPLINE_SEGMENTS);
             TrackManager::CalculateStartGrid(proceduralPoints, startPosition, startRotation);
             trackWalls.clear();
@@ -229,7 +213,7 @@ void Simulation::UpdateMenu() {
                 if (!f.good()) break;
                 counter++;
             }
-            TrackGenerator::SaveTrackToFile(proceduralPoints, filename);
+            ModularTrackGenerator::SaveTrackToFile(proceduralPoints, filename);
         }
     }
 }
@@ -450,10 +434,9 @@ void Simulation::DrawMenu() {
     DrawText("[ T ] TRAINING MODE (AI vs AI)", Config::SCREEN_WIDTH/2 - 200, 350, 20, LIGHTGRAY);
     DrawText("[ E ] EXHIBITION MODE (Player vs Best AI)", Config::SCREEN_WIDTH/2 - 200, 400, 20, LIGHTGRAY);
     DrawText("[ A ] TEST AI (Only watch best AI)", Config::SCREEN_WIDTH/2 - 200, 450, 20, LIGHTGRAY);
-    DrawText("[ P ] GENERATE PROCEDURAL TRACK (Macro-Graph)", Config::SCREEN_WIDTH/2 - 200, 490, 20, YELLOW);
-    DrawText("[ O ] GENERATE MODULAR COUPLED TRACK (Tiles)", Config::SCREEN_WIDTH/2 - 200, 525, 20, ORANGE);
+    DrawText("[ P ] GENERATE PROCEDURAL TRACK (Modular Tiles)", Config::SCREEN_WIDTH/2 - 200, 500, 20, YELLOW);
     if (!proceduralPoints.empty()) {
-        DrawText("[ G ] SAVE CURRENT TRACK", Config::SCREEN_WIDTH/2 - 200, 560, 20, GREEN);
+        DrawText("[ G ] SAVE CURRENT TRACK", Config::SCREEN_WIDTH/2 - 200, 550, 20, GREEN);
     }
 }
 
@@ -712,7 +695,7 @@ void Simulation::InitTrainingTracks() {
 
 Simulation::TrainingTrack Simulation::GenerateProceduralTrainingTrack() {
     TrainingTrack tt;
-    std::vector<Vector2> pts = TrackGenerator::GenerateProceduralCenterPoints();
+    std::vector<Vector2> pts = ModularTrackGenerator::GenerateProceduralCenterPoints();
     std::vector<Vector2> denseLine = TrackManager::GenerateSplinePoints(pts, PROCEDURAL_SPLINE_SEGMENTS);
     TrackManager::CalculateStartGrid(pts, tt.startPos, tt.startRot);
 
