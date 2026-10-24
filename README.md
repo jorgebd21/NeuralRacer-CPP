@@ -261,7 +261,7 @@ NeuralRacer-CPP/
 │   ├── Car.h              # Vehicle state, kinematics, and OBB structure
 │   ├── Config.h           # Simulation parameters, physical constants, and GA variables
 │   ├── Evolution.h        # Genetic operators, crossover, and serialization helpers
-│   ├── ModularTrackGenerator.h # Discrete tile/segment coupling engine (12 families, 360° start pose)
+│   ├── ModularTrackGenerator.h # Discrete tile/segment coupling engine (12 families, 360° start pose, pre-flight geometric watchdog)
 │   ├── Simulation.h       # Main program coordinator and screen state machine
 │   ├── Telemetry.h        # Metrics collector, live dashboard, and CSV logger
 │   ├── TrackGenerator.h   # High-entropy procedural engine (macro-graphs, motifs, 360° affine transforms)

@@ -19,6 +19,7 @@
 namespace ModularTrackGenerator {
     constexpr float PI_F = 3.14159265358979323846f;
     constexpr float MIN_CLEARANCE = 38.0f;
+    constexpr float MIN_RADIUS = 24.0f;
 
     struct Port {
         Vector2 pos;
@@ -50,7 +51,10 @@ namespace ModularTrackGenerator {
         m.id = id;
         m.deltaHeading = 0.0f;
         m.localExitPos = { length, 0.0f };
-        if (length > 180.0f) {
+        if (length > 160.0f) {
+            m.localPoints.push_back({ length * 0.333f, 0.0f });
+            m.localPoints.push_back({ length * 0.666f, 0.0f });
+        } else if (length > 80.0f) {
             m.localPoints.push_back({ length * 0.5f, 0.0f });
         }
         m.localPoints.push_back({ length, 0.0f });
@@ -62,7 +66,7 @@ namespace ModularTrackGenerator {
         m.id = id;
         m.deltaHeading = turnLeft ? angleRad : -angleRad;
 
-        int numSteps = (angleRad > PI_F * 0.7f) ? 3 : (angleRad > PI_F * 0.35f) ? 2 : 1;
+        int numSteps = std::max(1, (int)std::round(radius * angleRad / 55.0f));
         float sign = turnLeft ? 1.0f : -1.0f;
 
         for (int i = 1; i <= numSteps; i++) {
@@ -102,8 +106,8 @@ namespace ModularTrackGenerator {
         m.id = id;
         m.deltaHeading = 0.0f;
         m.localExitPos = { length, lateralOffset };
-        m.localPoints.push_back({ length * 0.30f, lateralOffset * 0.35f });
-        m.localPoints.push_back({ length * 0.70f, lateralOffset * 0.85f });
+        m.localPoints.push_back({ length * 0.333f, lateralOffset * 0.40f });
+        m.localPoints.push_back({ length * 0.666f, lateralOffset * 0.90f });
         m.localPoints.push_back({ length, lateralOffset });
         return m;
     }
@@ -173,20 +177,25 @@ namespace ModularTrackGenerator {
 
     inline bool TryHermiteBridge(const Port& curPort, const Port& startPort, std::vector<Vector2>& outBridgePoints) {
         float d = Dist(curPort.pos, startPort.pos);
-        if (d < 50.0f || d > 480.0f) return false;
+        if (d < 120.0f || d > 450.0f) return false;
 
         float toStartX = startPort.pos.x - curPort.pos.x;
         float toStartY = startPort.pos.y - curPort.pos.y;
         float dirAngle = std::atan2(toStartY, toStartX);
-        float angleDiff = std::abs(NormalizeAngle(dirAngle - curPort.heading));
-        if (angleDiff > PI_F * 0.72f) return false;
+        
+        // Strict angular threshold: max 28.8 degrees deviation
+        float angleDiffCur = std::abs(NormalizeAngle(dirAngle - curPort.heading));
+        if (angleDiffCur > PI_F * 0.16f) return false;
 
-        float tangentLen = d * 0.5f;
+        float angleDiffStart = std::abs(NormalizeAngle(startPort.heading - dirAngle));
+        if (angleDiffStart > PI_F * 0.16f) return false;
+
+        float tangentLen = d * 0.45f;
         Vector2 m0 = { std::cos(curPort.heading) * tangentLen, std::sin(curPort.heading) * tangentLen };
         Vector2 m1 = { std::cos(startPort.heading) * tangentLen, std::sin(startPort.heading) * tangentLen };
 
         outBridgePoints.clear();
-        int steps = std::clamp((int)(d / 60.0f), 2, 4);
+        int steps = std::clamp((int)std::round(d / 55.0f), 2, 6);
         for (int i = 1; i <= steps; i++) {
             float t = (float)i / (steps + 1);
             float t2 = t * t;
@@ -213,6 +222,71 @@ namespace ModularTrackGenerator {
                 }
             }
         }
+        return true;
+    }
+
+    inline bool SegmentsStrictlyIntersect(Vector2 p1, Vector2 p2, Vector2 p3, Vector2 p4) {
+        float den = (p1.x - p2.x) * (p3.y - p4.y) - (p1.y - p2.y) * (p3.x - p4.x);
+        if (std::abs(den) < 1e-5f) return false;
+        float t = ((p1.x - p3.x) * (p3.y - p4.y) - (p1.y - p3.y) * (p3.x - p4.x)) / den;
+        float u = -((p1.x - p2.x) * (p1.y - p3.y) - (p1.y - p2.y) * (p1.x - p3.x)) / den;
+        return (t > 0.05f && t < 0.95f && u > 0.05f && u < 0.95f);
+    }
+
+    /**
+     * @brief Comprehensive pre-flight geometric quality watchdog for candidate tracks.
+     */
+    inline bool ValidateTrackCandidate(const std::vector<Vector2>& pts) {
+        if (pts.size() < 12) return false;
+        std::vector<Vector2> dense = TrackManager::GenerateSplinePoints(pts, 16);
+        int n = dense.size();
+        if (n < 60) return false;
+
+        // 1. Curvature radius check (3-point circumradius with numerical step = 3)
+        int step = 3;
+        for (int i = 0; i < n; i += step) {
+            Vector2 p0 = dense[(i - step + n) % n];
+            Vector2 p1 = dense[i];
+            Vector2 p2 = dense[(i + step) % n];
+            float a = std::hypot(p1.x - p0.x, p1.y - p0.y);
+            float b = std::hypot(p2.x - p1.x, p2.y - p1.y);
+            float c = std::hypot(p2.x - p0.x, p2.y - p0.y);
+            float area = 0.5f * std::abs((p1.x - p0.x)*(p2.y - p0.y) - (p1.y - p0.y)*(p2.x - p0.x));
+            if (area > 1e-4f && a > 1e-4f && b > 1e-4f && c > 1e-4f) {
+                float radius = (a * b * c) / (4.0f * area);
+                if (radius < MIN_RADIUS) return false;
+            }
+        }
+
+        // 2. Minimum non-adjacent clearance along periodic loop
+        for (int i = 0; i < n; i += 3) {
+            for (int j = i + 1; j < n; j += 3) {
+                int loopDist = std::min(j - i, n - (j - i));
+                if (loopDist < 26) continue;
+                if (DistSq(dense[i], dense[j]) < 40.0f * 40.0f) return false;
+            }
+        }
+
+        // 3. Wall self-intersection check
+        std::vector<std::pair<Vector2, Vector2>> walls;
+        std::vector<Vector2> checkpoints;
+        Vector2 startPos;
+        float startRot;
+        TrackManager::CalculateStartGrid(pts, startPos, startRot);
+        TrackManager::GenerateBordersFromCenterLine(dense, 35.0f, walls, checkpoints, startPos);
+
+        int wallCount = walls.size();
+        for (int i = 0; i < wallCount; i++) {
+            Vector2 a1 = walls[i].first;
+            Vector2 a2 = walls[i].second;
+            for (int j = i + 2; j < wallCount; j++) {
+                if (i == 0 && j == wallCount - 1) continue;
+                Vector2 b1 = walls[j].first;
+                Vector2 b2 = walls[j].second;
+                if (SegmentsStrictlyIntersect(a1, a2, b1, b2)) return false;
+            }
+        }
+
         return true;
     }
 
@@ -291,7 +365,7 @@ namespace ModularTrackGenerator {
     inline std::vector<Vector2> GenerateProceduralCenterPoints() {
         auto catalog = BuildCatalog();
 
-        for (int run = 0; run < 120; run++) {
+        for (int run = 0; run < 200; run++) {
             int topology = GetRandomValue(0, 3);
             float startHeading = 0.0f;
             std::vector<Vector2> waypoints = SeedWaypoints(topology, startHeading);
@@ -382,7 +456,7 @@ namespace ModularTrackGenerator {
                 curPort = nextPort;
             }
 
-            if (closed && trackPoints.size() >= 10) {
+            if (closed && trackPoints.size() >= 12) {
                 float minX = 1e9, maxX = -1e9, minY = 1e9, maxY = -1e9;
                 for (const auto& p : trackPoints) {
                     if (p.x < minX) minX = p.x;
@@ -414,7 +488,10 @@ namespace ModularTrackGenerator {
                     std::reverse(fitted.begin(), fitted.end());
                 }
 
-                return fitted;
+                // Enforce zero-defect pre-flight validation
+                if (ValidateTrackCandidate(fitted)) {
+                    return fitted;
+                }
             }
         }
         return {};
