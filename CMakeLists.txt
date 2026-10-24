@@ -15,6 +15,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 # Definir dónde guardar los binarios (ejecutable en build/bin)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+set(CMAKE_BUILD_RPATH "${CMAKE_SOURCE_DIR}/lib")
+set(CMAKE_INSTALL_RPATH "${CMAKE_SOURCE_DIR}/lib")
 
 
 # 3. Dile a CMake dónde están tus cabeceras y dónde buscar las librerías locales
@@ -28,5 +30,5 @@ file(GLOB SOURCES "src/*.cpp")
 add_executable(app ${SOURCES})
 
 # 6. Vincula las librerías necesarias
-# (Sustituye los ??? con GL, m, pthread, dl, rt, X11 tal como estaban en LDFLAGS)
-target_link_libraries(app raylib GL m pthread dl rt X11 tbb)
+find_package(OpenMP REQUIRED)
+target_link_libraries(app raylib GL m pthread dl rt X11 tbb OpenMP::OpenMP_CXX)

@@ -12,6 +12,7 @@
 #include <execution>
 #include <atomic>
 #include <csignal>
+#include <omp.h>
 
 static volatile sig_atomic_t stopRequested = 0;
 static void signalHandler(int) { stopRequested = 1; }
@@ -76,6 +77,8 @@ void Simulation::Init() {
     BuildSpatialGrid();
     if (trackWalls.empty()) trackWalls.push_back({{100, 100}, {900, 100}});
 
+    InitTrainingTracks();
+
     for (int i = 0; i < Config::POPULATION_SIZE; i++) {
         population.push_back(Car(startPosition.x, startPosition.y, startRotation));
     }
@@ -119,11 +122,16 @@ void Simulation::UpdateMenu() {
     }
     if (!aiCar.isCrashed) {
         float aiAccelerate = 0.0f, aiTurn = 0.0f;
-        aiCar.brain.Evaluate(aiCar.sensorDistances, aiCar.GetSpeed(), aiAccelerate, aiTurn);
+        aiCar.Think(aiAccelerate, aiTurn);
         aiCar.UpdatePhysics(aiAccelerate, aiTurn, spatialGrid, 0, trackCheckpoints);
     }
 
-    if (IsKeyPressed(KEY_T)) currentState = TRAINING;
+    if (IsKeyPressed(KEY_T)) {
+        currentEvaluationTrack = 0;
+        SetTrainingTrack(0);
+        for (auto& car : population) car.Reset(startPosition.x, startPosition.y, startRotation);
+        currentState = TRAINING;
+    }
     if (IsKeyPressed(KEY_E)) {
         playerCar.Reset(startPosition.x, startPosition.y, startRotation);
         aiCar.Reset(startPosition.x, startPosition.y, startRotation);
@@ -154,6 +162,7 @@ void Simulation::UpdateMenu() {
         Telemetry::ResetHeatmap();
         TrackManager::GenerateBordersFromCenterLine(denseCenterLine, PROCEDURAL_TRACK_WIDTH, trackWalls, trackCheckpoints, startPosition);
         BuildSpatialGrid();
+        InitTrainingTracks();
         
         for (auto& car : population) car.Reset(startPosition.x, startPosition.y, startRotation);
         playerCar.Reset(startPosition.x, startPosition.y, startRotation);
@@ -168,6 +177,7 @@ void Simulation::UpdateMenu() {
         Telemetry::ResetHeatmap();
         TrackManager::LoadTrackFromFile(trackFile, trackWalls, startPosition, startRotation, trackCheckpoints);
         BuildSpatialGrid();
+        InitTrainingTracks();
         for (auto& car : population) car.Reset(startPosition.x, startPosition.y, startRotation);
         aiCar.Reset(startPosition.x, startPosition.y, startRotation);
     }
@@ -180,6 +190,7 @@ void Simulation::UpdateMenu() {
         Telemetry::ResetHeatmap();
         TrackManager::LoadTrackFromFile(trackFile, trackWalls, startPosition, startRotation, trackCheckpoints);
         BuildSpatialGrid();
+        InitTrainingTracks();
         for (auto& car : population) car.Reset(startPosition.x, startPosition.y, startRotation);
         aiCar.Reset(startPosition.x, startPosition.y, startRotation);
     }
@@ -213,28 +224,27 @@ void Simulation::UpdateTraining() {
     for (int s = 0; s < simSpeed; s++) {
         std::atomic<int> carsAlive{0};
 
-        // par_unseq enables both multi-core AND SIMD vectorisation via TBB.
-        // Constraint: no blocking synchronisation (mutex/condition_variable) inside the lambda.
-        // carsAlive++ is an atomic increment — vectorisation-safe per the C++ standard.
-        std::for_each(std::execution::par_unseq, population.begin(), population.end(), [&](Car& car) {
+        // High-performance OpenMP multi-core parallelization across all available CPU threads
+        #pragma omp parallel for schedule(static)
+        for (int i = 0; i < (int)population.size(); i++) {
+            Car& car = population[i];
             if (!car.isCrashed) {
                 carsAlive++;
 
-                // 1. The brain decides what to do based on the sensors
+                // 1. The brain decides what to do based on the 9-dimensional state space
                 float inputAccelerate = 0.0f, inputTurn = 0.0f;
-                car.brain.Evaluate(car.sensorDistances, car.GetSpeed(), inputAccelerate, inputTurn);
+                car.Think(inputAccelerate, inputTurn);
 
                 // 2. The car moves according to the decision and checks if it crashed
                 car.UpdatePhysics(inputAccelerate, inputTurn, spatialGrid, generationTimer, trackCheckpoints);
             }
-        });
+        }
 
-        // Sequential post-step: record newly crashed cars to telemetry.
-        // Telemetry::RecordCrash uses a std::mutex which is forbidden inside par_unseq,
-        // so it runs here after the parallel section completes.
+        // Sequential post-step: record newly crashed cars only on the tick they impact
         for (auto& car : population) {
-            if (car.isCrashed) {
+            if (car.justCrashed) {
                 Telemetry::RecordCrash(car.position);
+                car.justCrashed = false;
             }
         }
         
@@ -257,23 +267,17 @@ void Simulation::UpdateTraining() {
                 Telemetry::RecordGeneration(generationCount, population, Config::MAX_GENERATION_TIME);
                 Telemetry::ExportDataAsync();
                 
-                Evolution::EvolvePopulation(population, startPosition, startRotation, generationCount);
+                Evolution::EvolvePopulation(population, trainingTracks[0].startPos, trainingTracks[0].startRot, generationCount);
                 generationTimer = 0;
                 generationCount++;
                 currentEvaluationTrack = 0;
+                SetTrainingTrack(0);
             } else {
                 for (auto& car : population) {
                     car.accumulatedFitness = car.fitness;
                 }
                 
-                proceduralPoints = TrackGenerator::GenerateProceduralCenterPoints();
-                std::vector<Vector2> denseCenterLine = TrackManager::GenerateSplinePoints(proceduralPoints, PROCEDURAL_SPLINE_SEGMENTS);
-                TrackManager::CalculateStartGrid(proceduralPoints, startPosition, startRotation);
-                trackWalls.clear();
-                trackCheckpoints.clear();
-                Telemetry::ResetHeatmap();
-                TrackManager::GenerateBordersFromCenterLine(denseCenterLine, PROCEDURAL_TRACK_WIDTH, trackWalls, trackCheckpoints, startPosition);
-                BuildSpatialGrid();
+                SetTrainingTrack(currentEvaluationTrack);
                 
                 for (auto& car : population) {
                     car.Reset(startPosition.x, startPosition.y, startRotation, false);
@@ -301,7 +305,7 @@ void Simulation::UpdateExhibition() {
         playerCar.UpdatePhysics(playerAccelerate, playerTurn, spatialGrid, 0, trackCheckpoints);
 
         float aiAccelerate = 0.0f, aiTurn = 0.0f;
-        aiCar.brain.Evaluate(aiCar.sensorDistances, aiCar.GetSpeed(), aiAccelerate, aiTurn);
+        aiCar.Think(aiAccelerate, aiTurn);
         aiCar.UpdatePhysics(aiAccelerate, aiTurn, spatialGrid, 0, trackCheckpoints);
 
         if (playerCar.isCrashed && !aiCar.isCrashed) exhibitionResult = 2;
@@ -506,8 +510,7 @@ void Simulation::DrawTraining() {
             for (int n = 0; n < nodesPerLayer[l]; n++) {
                 float val = 0.0f;
                 if (l == 0) {
-                    if (n < 5) val = bestBrain.last_input[n] / Config::CAR_MAX_SENSOR_DIST;
-                    else val = bestBrain.last_input[n] / 20.0f; // matches speed normalisation in Brain::Evaluate()
+                    val = bestBrain.last_input[n];
                 } else if (l == 1) {
                     val = bestBrain.last_hidden[n];
                 } else if (l == 2) {
@@ -559,7 +562,7 @@ void Simulation::UpdateTestAI() {
 
     if (!aiCar.isCrashed) {
         float aiAccelerate = 0.0f, aiTurn = 0.0f;
-        aiCar.brain.Evaluate(aiCar.sensorDistances, aiCar.GetSpeed(), aiAccelerate, aiTurn);
+        aiCar.Think(aiAccelerate, aiTurn);
         aiCar.UpdatePhysics(aiAccelerate, aiTurn, spatialGrid, 0, trackCheckpoints);
     }
 }
@@ -608,5 +611,54 @@ void Simulation::BuildSpatialGrid(){
                 spatialGrid[key].push_back(trackWalls[i]);
             }
         }
+    }
+}
+
+void Simulation::InitTrainingTracks() {
+    trainingTracks.clear();
+
+    // Track 0: Selected base circuit
+    TrainingTrack t0;
+    if (!trackWalls.empty()) {
+        t0.walls = trackWalls;
+        t0.checkpoints = trackCheckpoints;
+        t0.startPos = startPosition;
+        t0.startRot = startRotation;
+    } else {
+        TrackManager::LoadTrackFromFile(trackFile, t0.walls, t0.startPos, t0.startRot, t0.checkpoints);
+    }
+    trainingTracks.push_back(t0);
+
+    // Track 1: Deterministic intermediate circuit
+    TrainingTrack t1;
+    std::string path1 = "data/tracks/pista_medio.json";
+    std::ifstream f1(path1.c_str());
+    if (f1.good()) {
+        TrackManager::LoadTrackFromFile(path1, t1.walls, t1.startPos, t1.startRot, t1.checkpoints);
+    } else {
+        t1 = t0;
+    }
+    trainingTracks.push_back(t1);
+
+    // Track 2: Deterministic advanced circuit
+    TrainingTrack t2;
+    std::string path2 = "data/tracks/pista_dificil.json";
+    std::ifstream f2(path2.c_str());
+    if (f2.good()) {
+        TrackManager::LoadTrackFromFile(path2, t2.walls, t2.startPos, t2.startRot, t2.checkpoints);
+    } else {
+        t2 = t0;
+    }
+    trainingTracks.push_back(t2);
+}
+
+void Simulation::SetTrainingTrack(int trackIndex) {
+    if (trackIndex >= 0 && trackIndex < (int)trainingTracks.size()) {
+        trackWalls = trainingTracks[trackIndex].walls;
+        trackCheckpoints = trainingTracks[trackIndex].checkpoints;
+        startPosition = trainingTracks[trackIndex].startPos;
+        startRotation = trainingTracks[trackIndex].startRot;
+        BuildSpatialGrid();
+        Telemetry::ResetHeatmap();
     }
 }

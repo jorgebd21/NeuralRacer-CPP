@@ -60,6 +60,16 @@ private:
     void DrawCheckpoints(float alpha = 1.0f);
 
     void BuildSpatialGrid();
+    void InitTrainingTracks();
+    void SetTrainingTrack(int trackIndex);
+
+    struct TrainingTrack {
+        std::vector<std::pair<Vector2, Vector2>> walls;
+        std::vector<Vector2> checkpoints;
+        Vector2 startPos;
+        float startRot;
+    };
+    std::vector<TrainingTrack> trainingTracks;
 
     GameState currentState;
 
