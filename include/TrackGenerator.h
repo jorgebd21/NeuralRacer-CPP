@@ -8,201 +8,229 @@
 #include "raylib.h"
 
 /**
- * @brief High-Performance Procedural F1-style race track generation engine.
+ * @brief Professional Formula 1 Archetype Procedural Track Generator.
  * 
- * Implements a 2D convex-hull and sector-motif procedural pipeline:
- * 1. Elliptical polar seed distribution.
- * 2. Monotone Chain convex hull computation (ensuring zero self-intersections).
- * 3. F1 sector motif generation: DRS straight, high-speed sweeping S-curves, and controlled apexes.
- * 4. Multi-pass angular relaxation enforcing minimum radius and turn angle constraints (theta >= 115 deg).
- * 5. Deterministic counter-clockwise winding order for outward/inward boundary extrusion.
+ * Synthesizes flowing, realistic racing circuits inspired by genuine Grand Prix topologies:
+ * - Archetype 0: Out-and-Back Elongated Corridor (Monza, Montreal, Baku, Red Bull Ring).
+ * - Archetype 1: Infield Loop Complex (Bahrain/Sakhir, Shanghai, Silverstone, Interlagos).
+ * - Archetype 2: Triangular & Asymmetric Diagonal (Spa-Francorchamps, Paul Ricard, Jeddah).
+ * - Archetype 3: Asymmetric L-Shape & Carousel (Catalunya, Suzuka, Portimao, Zandvoort).
+ * 
+ * Features parametric random variations, orientation mirroring, guaranteed CCW winding,
+ * and curvature bounds designed for proportional F1 car scales (track width 35px, car 14x7px).
  */
 namespace TrackGenerator {
     constexpr float PI_F = 3.14159265358979323846f;
     constexpr float CENTER_X = 500.0f;
     constexpr float CENTER_Y = 400.0f;
-    constexpr float BOUNDS_PAD_X = 90.0f;
-    constexpr float BOUNDS_PAD_Y = 75.0f;
-
-    inline float CrossProduct(Vector2 a, Vector2 b, Vector2 c) {
-        return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
-    }
+    constexpr float BOUNDS_PAD_X = 80.0f;
+    constexpr float BOUNDS_PAD_Y = 70.0f;
 
     inline float DistanceSq(Vector2 a, Vector2 b) {
         return (a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y);
     }
 
     /**
-     * @brief Evaluates angular turn deflection between three consecutive nodes in degrees.
+     * @brief Archetype 0: Out-and-Back (Monza / Montreal / Red Bull Ring / Baku).
+     * Two parallel high-speed straights connected by wide hairpins and chicanes.
      */
-    inline float AngleChangeDeg(Vector2 pPrev, Vector2 pCurr, Vector2 pNext) {
-        Vector2 v1 = {pCurr.x - pPrev.x, pCurr.y - pPrev.y};
-        Vector2 v2 = {pNext.x - pCurr.x, pNext.y - pCurr.y};
-        float l1 = std::hypot(v1.x, v1.y);
-        float l2 = std::hypot(v2.x, v2.y);
-        if (l1 < 1e-4f || l2 < 1e-4f) return 0.0f;
-        float dot = (v1.x * v2.x + v1.y * v2.y) / (l1 * l2);
-        dot = std::clamp(dot, -1.0f, 1.0f);
-        return std::acos(dot) * (180.0f / PI_F);
+    inline std::vector<Vector2> GenerateOutAndBack() {
+        std::vector<Vector2> nodes;
+        float yBottom = (float)GetRandomValue(580, 640);
+        float yTop = (float)GetRandomValue(160, 240);
+        float xLeft = (float)GetRandomValue(120, 160);
+        float xRight = (float)GetRandomValue(840, 890);
+
+        // Bottom Main Straight
+        nodes.push_back({xRight, yBottom});
+        nodes.push_back({xRight * 0.65f + xLeft * 0.35f, yBottom});
+        nodes.push_back({xRight * 0.35f + xLeft * 0.65f, yBottom});
+        nodes.push_back({xLeft + 90.0f, yBottom});
+
+        // Left Hairpin (Turns 1 & 2)
+        nodes.push_back({xLeft + 20.0f, yBottom - 45.0f});
+        nodes.push_back({xLeft - 25.0f, (yTop + yBottom) * 0.5f});
+        nodes.push_back({xLeft + 20.0f, yTop + 45.0f});
+
+        // Top Straight with chicane
+        nodes.push_back({xLeft + 120.0f, yTop});
+        float chicaneX = (float)GetRandomValue(380, 520);
+        float chicaneDir = (GetRandomValue(0, 1) == 0) ? -1.0f : 1.0f;
+        float chicaneAmp = (float)GetRandomValue(35, 55);
+
+        nodes.push_back({chicaneX - 70.0f, yTop + chicaneDir * chicaneAmp});
+        nodes.push_back({chicaneX + 70.0f, yTop - chicaneDir * chicaneAmp});
+        nodes.push_back({xRight - 120.0f, yTop});
+
+        // Right Hairpin
+        nodes.push_back({xRight - 20.0f, yTop + 45.0f});
+        nodes.push_back({xRight + 30.0f, (yTop + yBottom) * 0.5f});
+        nodes.push_back({xRight - 20.0f, yBottom - 45.0f});
+
+        return nodes;
     }
 
     /**
-     * @brief Computes 2D Convex Hull using the Monotone Chain algorithm (O(N log N)).
-     * 
-     * Guarantees a strictly non-self-intersecting closed convex polygon.
+     * @brief Archetype 1: Infield Loop (Bahrain / Shanghai / Silverstone / Interlagos).
+     * High-speed outer ring combined with an internal technical hairpin loop.
      */
-    inline std::vector<Vector2> ComputeConvexHull(std::vector<Vector2>& pts) {
-        int n = pts.size();
-        if (n <= 3) return pts;
+    inline std::vector<Vector2> GenerateInfieldLoop() {
+        std::vector<Vector2> nodes;
+        float yBase = (float)GetRandomValue(620, 660);
+        float yTop = (float)GetRandomValue(140, 180);
+        float xLeft = (float)GetRandomValue(130, 170);
+        float xRight = (float)GetRandomValue(820, 880);
 
-        std::sort(pts.begin(), pts.end(), [](const Vector2& a, const Vector2& b) {
-            return (a.x < b.x) || (a.x == b.x && a.y < b.y);
-        });
+        // Main straight at bottom
+        nodes.push_back({xRight - 80.0f, yBase});
+        nodes.push_back({(xLeft + xRight) * 0.5f, yBase});
+        nodes.push_back({xLeft + 80.0f, yBase});
 
-        std::vector<Vector2> hull;
-        hull.reserve(2 * n);
+        // Left upward sweeper
+        nodes.push_back({xLeft - 10.0f, yBase - 80.0f});
+        nodes.push_back({xLeft, (yBase + yTop) * 0.5f});
+        nodes.push_back({xLeft + 60.0f, yTop + 60.0f});
 
-        // Lower hull
-        for (int i = 0; i < n; i++) {
-            while (hull.size() >= 2 && CrossProduct(hull[hull.size() - 2], hull[hull.size() - 1], pts[i]) <= 0.0f) {
-                hull.pop_back();
-            }
-            hull.push_back(pts[i]);
-        }
+        // Top straight
+        nodes.push_back({xLeft + 180.0f, yTop});
+        nodes.push_back({(xLeft + xRight) * 0.5f, yTop});
+        nodes.push_back({xRight - 100.0f, yTop});
 
-        // Upper hull
-        for (int i = n - 2, t = hull.size() + 1; i >= 0; i--) {
-            while (hull.size() >= t && CrossProduct(hull[hull.size() - 2], hull[hull.size() - 1], pts[i]) <= 0.0f) {
-                hull.pop_back();
-            }
-            hull.push_back(pts[i]);
-        }
+        // Outer curve entering Infield
+        nodes.push_back({xRight, yTop + 80.0f});
+        nodes.push_back({xRight + 15.0f, yTop + 200.0f});
 
-        hull.pop_back(); // Remove duplicate end point
-        return hull;
+        // Deep Infield loop dipping towards center
+        float loopDepth = (float)GetRandomValue(350, 430);
+        nodes.push_back({xRight - 120.0f, yTop + 220.0f});
+        nodes.push_back({loopDepth + 120.0f, 340.0f});
+        nodes.push_back({loopDepth, 420.0f}); // Inner apex
+        nodes.push_back({loopDepth + 100.0f, 500.0f});
+        nodes.push_back({xRight - 140.0f, 520.0f});
+        nodes.push_back({xRight - 30.0f, yBase - 70.0f});
+
+        return nodes;
     }
 
     /**
-     * @brief Generates high-fidelity F1-style procedural race track center nodes.
+     * @brief Archetype 2: Triangular Diagonal (Spa-Francorchamps / Paul Ricard / Jeddah).
+     * Diagonal high-speed run, peak chicane, flowing S-curves, and final chicane.
+     */
+    inline std::vector<Vector2> GenerateTriangularDiagonal() {
+        std::vector<Vector2> nodes;
+        float xStart = (float)GetRandomValue(160, 210);
+        float yStart = (float)GetRandomValue(630, 680);
+        float xApex = (float)GetRandomValue(780, 860);
+        float yApex = (float)GetRandomValue(140, 190);
+
+        // Main diagonal acceleration straight
+        nodes.push_back({xStart, yStart});
+        nodes.push_back({xStart * 0.65f + xApex * 0.35f, yStart * 0.65f + yApex * 0.35f});
+        nodes.push_back({xStart * 0.35f + xApex * 0.65f, yStart * 0.35f + yApex * 0.65f});
+        nodes.push_back({xApex - 40.0f, yApex + 20.0f});
+
+        // Chicane complex at high point
+        nodes.push_back({xApex + 30.0f, yApex + 40.0f});
+        nodes.push_back({xApex + 40.0f, yApex + 130.0f});
+        nodes.push_back({xApex - 50.0f, yApex + 210.0f});
+
+        // Technical S-curves descending
+        float midX = (xApex + xStart) * 0.5f + (float)GetRandomValue(40, 80);
+        float midY = (yApex + yStart) * 0.5f;
+        nodes.push_back({midX + 70.0f, midY - 20.0f});
+        nodes.push_back({midX, midY + 40.0f});
+        nodes.push_back({midX - 60.0f, midY + 100.0f});
+
+        // Return sweeper connecting back to start line cleanly
+        nodes.push_back({xStart + 90.0f, yStart + 25.0f});
+        nodes.push_back({xStart - 15.0f, yStart + 55.0f});
+        nodes.push_back({xStart - 40.0f, yStart + 10.0f});
+
+        return nodes;
+    }
+
+    /**
+     * @brief Archetype 3: Asymmetric L-Shape (Catalunya / Suzuka / Zandvoort / Portimao).
+     * Two orthogonal long straights connected by technical chicanes and carousel.
+     */
+    inline std::vector<Vector2> GenerateLShape() {
+        std::vector<Vector2> nodes;
+        float xBase = (float)GetRandomValue(130, 170);
+        float xMax = (float)GetRandomValue(830, 880);
+        float yBase = (float)GetRandomValue(620, 670);
+        float yTop = (float)GetRandomValue(140, 180);
+
+        // Main horizontal straight
+        nodes.push_back({xMax - 80.0f, yBase});
+        nodes.push_back({(xBase + xMax) * 0.5f, yBase});
+        nodes.push_back({xBase + 120.0f, yBase});
+
+        // 90-degree left sweeper into vertical straight
+        nodes.push_back({xBase, yBase - 70.0f});
+        nodes.push_back({xBase - 15.0f, (yBase + yTop) * 0.5f + 50.0f});
+        nodes.push_back({xBase + 10.0f, (yBase + yTop) * 0.5f - 50.0f});
+        nodes.push_back({xBase + 60.0f, yTop + 60.0f});
+
+        // Top technical sector (Esses / chicane)
+        nodes.push_back({xBase + 180.0f, yTop});
+        nodes.push_back({xBase + 340.0f, yTop + 60.0f});
+        nodes.push_back({xBase + 460.0f, yTop - 10.0f});
+
+        // Descending carousel sweeper
+        nodes.push_back({xMax - 140.0f, yTop + 100.0f});
+        nodes.push_back({xMax - 30.0f, yTop + 240.0f});
+        nodes.push_back({xMax - 120.0f, 380.0f});
+        nodes.push_back({xMax, 500.0f});
+
+        return nodes;
+    }
+
+    /**
+     * @brief Generates a procedural Formula 1 racing circuit using one of the Grand Prix archetypes.
      * 
-     * @return std::vector<Vector2> List of ordered, smoothly curved center points.
+     * @return std::vector<Vector2> Ordered centerline nodes.
      */
     inline std::vector<Vector2> GenerateProceduralCenterPoints() {
-        // 1. Generate random seed points distributed across an elliptical bounding zone
-        std::vector<Vector2> seeds;
-        seeds.reserve(36);
+        int archetype = GetRandomValue(0, 3);
+        std::vector<Vector2> nodes;
 
-        float rx = (float)GetRandomValue(350, 390);
-        float ry = (float)GetRandomValue(240, 275);
-
-        for (int i = 0; i < 28; i++) {
-            float angle = ((float)GetRandomValue(0, 360)) * (PI_F / 180.0f);
-            float rFraction = std::sqrt((float)GetRandomValue(65, 100) / 100.0f);
-            float px = CENTER_X + rx * rFraction * std::cos(angle);
-            float py = CENTER_Y + ry * rFraction * std::sin(angle);
-            seeds.push_back({px, py});
+        switch (archetype) {
+            case 0: nodes = GenerateOutAndBack(); break;
+            case 1: nodes = GenerateInfieldLoop(); break;
+            case 2: nodes = GenerateTriangularDiagonal(); break;
+            case 3: default: nodes = GenerateLShape(); break;
         }
 
-        // 2. Compute convex hull to form the topological baseline
-        std::vector<Vector2> hull = ComputeConvexHull(seeds);
+        // Random horizontal flip (50% probability) for layout variety
+        if (GetRandomValue(0, 1) == 1) {
+            for (auto& pt : nodes) {
+                pt.x = (2.0f * CENTER_X) - pt.x;
+            }
+        }
 
-        // 3. Ensure Counter-Clockwise (CCW) winding order via Shoelace formula
+        // Ensure Counter-Clockwise (CCW) winding order via Shoelace formula
         float shoelace = 0.0f;
-        int m = hull.size();
-        for (int i = 0; i < m; i++) {
-            Vector2 a = hull[i];
-            Vector2 b = hull[(i + 1) % m];
+        int n = nodes.size();
+        for (int i = 0; i < n; i++) {
+            Vector2 a = nodes[i];
+            Vector2 b = nodes[(i + 1) % n];
             shoelace += (b.x - a.x) * (b.y + a.y);
         }
         if (shoelace < 0.0f) {
-            std::reverse(hull.begin(), hull.end());
+            std::reverse(nodes.begin(), nodes.end());
         }
 
-        // 4. Identify the longest edge to designate as the primary DRS Straight
-        float maxEdgeDistSq = 0.0f;
-        int straightIdx = 0;
-        m = hull.size();
-        for (int i = 0; i < m; i++) {
-            float d2 = DistanceSq(hull[i], hull[(i + 1) % m]);
-            if (d2 > maxEdgeDistSq) {
-                maxEdgeDistSq = d2;
-                straightIdx = i;
-            }
-        }
-
-        // 5. Subdivide edges into distinct F1 racing sectors (Straight, Sweepers, Chicanes)
-        std::vector<Vector2> trackNodes;
-        trackNodes.reserve(m * 3);
-
-        for (int i = 0; i < m; i++) {
-            Vector2 p1 = hull[i];
-            Vector2 p2 = hull[(i + 1) % m];
-            trackNodes.push_back(p1);
-
-            float edgeLen = std::sqrt(DistanceSq(p1, p2));
-            if (i == straightIdx) {
-                // Main DRS straight: insert 2 collinear points to guarantee high-speed acceleration corridor
-                trackNodes.push_back({p1.x + 0.33f * (p2.x - p1.x), p1.y + 0.33f * (p2.y - p1.y)});
-                trackNodes.push_back({p1.x + 0.67f * (p2.x - p1.x), p1.y + 0.67f * (p2.y - p1.y)});
-            } else if (edgeLen > 180.0f) {
-                // Wide edge: smooth F1 curve / gentle chicane using 2 transition nodes
-                if (GetRandomValue(0, 100) < 45) {
-                    Vector2 mid1 = {p1.x + 0.35f * (p2.x - p1.x), p1.y + 0.35f * (p2.y - p1.y)};
-                    Vector2 mid2 = {p1.x + 0.65f * (p2.x - p1.x), p1.y + 0.65f * (p2.y - p1.y)};
-
-                    Vector2 toCenter1 = {CENTER_X - mid1.x, CENTER_Y - mid1.y};
-                    Vector2 toCenter2 = {CENTER_X - mid2.x, CENTER_Y - mid2.y};
-                    float d1 = std::hypot(toCenter1.x, toCenter1.y);
-                    float d2 = std::hypot(toCenter2.x, toCenter2.y);
-                    if (d1 > 1e-4f) { toCenter1.x /= d1; toCenter1.y /= d1; }
-                    if (d2 > 1e-4f) { toCenter2.x /= d2; toCenter2.y /= d2; }
-
-                    float disp = (float)GetRandomValue(25, 40);
-                    mid1.x += toCenter1.x * disp;
-                    mid1.y += toCenter1.y * disp;
-                    mid2.x += toCenter2.x * disp;
-                    mid2.y += toCenter2.y * disp;
-
-                    trackNodes.push_back(mid1);
-                    trackNodes.push_back(mid2);
-                } else {
-                    // Natural sweeping midpoint
-                    trackNodes.push_back({(p1.x + p2.x) * 0.5f, (p1.y + p2.y) * 0.5f});
-                }
-            }
-        }
-
-        // 6. Multi-pass Laplacian relaxation enforcing minimum angle constraint (max 50 deg deflection)
-        int n = trackNodes.size();
-        for (int pass = 0; pass < 8; pass++) {
-            for (int i = 0; i < n; i++) {
-                Vector2 pPrev = trackNodes[(i - 1 + n) % n];
-                Vector2 pCurr = trackNodes[i];
-                Vector2 pNext = trackNodes[(i + 1) % n];
-
-                float dev = AngleChangeDeg(pPrev, pCurr, pNext);
-                if (dev > 50.0f) {
-                    // Relax sharp corner toward adjacent chord midpoint
-                    trackNodes[i].x = 0.35f * pCurr.x + 0.325f * (pPrev.x + pNext.x);
-                    trackNodes[i].y = 0.35f * pCurr.y + 0.325f * (pPrev.y + pNext.y);
-                }
-            }
-        }
-
-        // 7. Clamp within safe viewport margins
-        for (auto& pt : trackNodes) {
+        // Clamp nodes inside safe screen margins
+        for (auto& pt : nodes) {
             pt.x = std::clamp(pt.x, BOUNDS_PAD_X, 1000.0f - BOUNDS_PAD_X);
             pt.y = std::clamp(pt.y, BOUNDS_PAD_Y, 800.0f - BOUNDS_PAD_Y);
         }
 
-        return trackNodes;
+        return nodes;
     }
 
     /**
      * @brief Serializes and saves the center structure of the track to disk.
-     * 
-     * @param centerPoints Vector of nodes to save.
-     * @param filename Path and name of the resulting file.
      */
     inline void SaveTrackToFile(const std::vector<Vector2>& centerPoints, const std::string& filename) {
         std::ofstream file(filename);
