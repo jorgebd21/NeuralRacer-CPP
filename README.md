@@ -165,7 +165,9 @@ Includes a complete procedural generation framework to ensure agent robustness a
 
 ### 5. Advanced Kinematics & Race Physics
 The vehicle kinematics engine bypasses simplified movement models in favor of real-world race physics:
-*   **Tire Slip and Lateral Drift:** Simulates lateral slip angle and cornering stiffness coefficients ($C_{\alpha}$). Exceeding traction thresholds induces realistic rotational slipping.
+*   **Inertial Decoupling & Slip Angle:** Decouples chassis yaw from the world velocity vector. When the chassis rotates by $\Delta\theta$, linear momentum is preserved, naturally yielding an authentic lateral slip velocity ($v_{\text{lat}}$).
+*   **Tire Saturation & Dynamic Drift:** Evaluates restoring cornering grip against a physical adhesion limit ($F_{\text{max\_grip}} = \mu_{\text{tire}} \cdot M$). Exceeding this threshold saturates the tires, causing genuine centrifugal drifting.
+*   **Tire Cornering Scrub Drag:** Steering or sliding sideways dissipates forward kinetic energy through induced friction ($F_{\text{scrub}} = -v_{\text{long}} \cdot |v_{\text{lat}}| \cdot K_{\text{scrub}}$), penalizing erratic zig-zagging and forcing agents to brake realistically before tight turns.
 *   **Dynamic Weight Transfer:** Acceleration shifts normal forces rearward, reducing steering capacity (understeer); braking transfers load forward, sharpening steering response.
 *   **Aerodynamics:** Applies quadratic drag force and speed-scaled downforce to stabilize tire cornering capabilities.
 
@@ -296,20 +298,26 @@ $$h_i = \tanh\left( \sum_{j=1}^{9} (x_j \cdot W_{ij}) + b_i \right) \quad \text{
 Continuous output controls (throttle/steering) are subsequently computed as:
 $$\text{Output}_k = \tanh\left( \sum_{i=1}^{10} (h_i \cdot W'_{ki}) + b'_k \right) \quad \text{for } k \in [1, 2]$$
 
-### 2. Kinematic Velocity Projection
-World velocity vector $\vec{v} = (v_x, v_y)$ is transformed from local body-frame longitudinal ($v_{\text{long}}$) and lateral ($v_{\text{lat}}$) velocities using vehicle heading $\theta$:
-$$v_x = v_{\text{long}} \cos(\theta) - v_{\text{lat}} \sin(\theta)$$
-$$v_y = v_{\text{long}} \sin(\theta) + v_{\text{lat}} \cos(\theta)$$
+### 2. Inertial Slip Angle & Velocity Decomposition
+When the vehicle changes its heading to $\theta_{t} = \theta_{t-1} + \Delta\theta$, its conserved world velocity $\vec{v} = (v_x, v_y)$ is decomposed into the new chassis coordinate frame, naturally producing the lateral slip velocity:
+$$v_{\text{long}} = v_x \cos(\theta_t) + v_y \sin(\theta_t)$$
+$$v_{\text{lat}} = -v_x \sin(\theta_t) + v_y \cos(\theta_t)$$
 
-### 3. Physical Weight-Transfer & Restoring Lateral Slip Force
-Longitudinal acceleration $a_{\text{long}}$ dynamically scales the tire normal force distribution, shifting front and rear cornering grip. Symmetrical restoring slip forces are evaluated by:
-$$F_{\text{lateral}} = -v_{\text{lateral}} \cdot \left( C_{\alpha} \cdot \left( 1.0 + a_{\text{long}} \cdot k_{\text{weight}} \right) \right)$$
-$$a_{\text{lateral}} = \frac{F_{\text{lateral}}}{M}$$
-Where $C_{\alpha}$ is the tire cornering stiffness, $k_{\text{weight}}$ is the weight transfer factor, and $M$ is the vehicle mass. If $|a_{\text{lateral}}| > |v_{\text{lateral}}|$, $v_{\text{lateral}}$ is clamped directly to $0.0$ to eliminate residual sliding oscillation.
-
-### 4. Aerodynamics Drag
-Air resistance is calculated quadratically based on the current longitudinal speed:
+### 3. Tire Cornering Scrub Drag & Aerodynamics
+In addition to quadratic aerodynamic drag, turning the wheels or sliding sideways creates induced tire scrub resistance that decelerates forward speed:
 $$F_{\text{drag}} = -v_{\text{long}} \cdot |v_{\text{long}}| \cdot C_d$$
+$$F_{\text{scrub}} = -v_{\text{long}} \cdot |v_{\text{lat}}| \cdot K_{\text{scrub}}$$
+$$F_{\text{total\_long}} = F_{\text{engine}} + F_{\text{drag}} + F_{\text{scrub}}$$
+
+### 4. Dynamic Tire Grip Saturation & Restoring Force
+Cornering grip scales dynamically with weight transfer. When the required lateral force exceeds the tire adhesion limit $F_{\text{max\_grip}}$, the tire breaks traction and enters dynamic drift:
+$$F_{\text{max\_grip}} = \mu_{\text{tire}} \cdot M \cdot \left( 1.0 + a_{\text{long}} \cdot k_{\text{weight}} \right)$$
+$$F_{\text{lateral}} = \begin{cases} \text{sgn}(-v_{\text{lat}}) \cdot F_{\text{max\_grip}} & \text{if } |v_{\text{lat}} \cdot C_{\alpha}| > F_{\text{max\_grip}} \text{ (Drift)} \\ -v_{\text{lat}} \cdot C_{\alpha} \cdot \text{tractionMultiplier} & \text{otherwise (Adhesion)} \end{cases}$$
+
+### 5. Kinematic World Velocity Projection
+Following force integration, updated local chassis velocities are projected back to global space:
+$$v_x = v_{\text{long}} \cos(\theta_t) - v_{\text{lat}} \sin(\theta_t)$$
+$$v_y = v_{\text{long}} \sin(\theta_t) + v_{\text{lat}} \cos(\theta_t)$$
 
 ---
 
