@@ -5,7 +5,7 @@ A High-Performance 2D Autonomous Driving Simulation and Neuroevolution Engine in
 [![C++ Version](https://img.shields.io/badge/C%2B%2B-17-blue.svg?style=flat-square&logo=c%2B%2B)](https://en.cppreference.com/w/cpp/17)
 [![Graphics Library](https://img.shields.io/badge/Graphics-Raylib-red.svg?style=flat-square)](https://www.raylib.com/)
 [![Build System](https://img.shields.io/badge/Build-CMake-orange.svg?style=flat-square&logo=cmake)](https://cmake.org/)
-[![Concurrency](https://img.shields.io/badge/Concurrency-Intel%20TBB-yellow.svg?style=flat-square)](https://oneapi-src.github.io/oneTBB/)
+[![Concurrency](https://img.shields.io/badge/Concurrency-OpenMP%20%2F%20Intel%20TBB-yellow.svg?style=flat-square)](https://www.openmp.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](LICENSE)
 
 ---
@@ -24,10 +24,10 @@ NeuralRacer-CPP is a high-performance simulation engine designed to explore auto
 
 To achieve maximum computational efficiency and real-time responsiveness, the entire system is built **completely from scratch** in Modern C++17 without relying on high-level machine learning frameworks or pre-existing physics engines.
 
-*   **Spatial Partitioning:** Utilizes a custom **Spatial Hashing Grid** to reduce narrow-phase collision checks and sensor raycasting from $O(N)$ to $O(1)$, enabling hundreds of frames per second.
-*   **Hardware Concurrency:** Exploits multi-core architectures by parallelizing the physics engine and neural network evaluations using C++17 `std::execution::par_unseq` backed by **Intel OneTBB**.
+*   **Spatial Partitioning:** Utilizes a custom **Spatial Hashing Grid** to reduce narrow-phase collision checks and sensor raycasting from $O(N)$ to $O(1)$, limiting OBB checks to immediate $3\times3$ neighboring cells and raycasts to local grid bounding boxes.
+*   **Hardware Concurrency:** Exploits multi-core architectures by parallelizing the physics engine and neural network evaluations using native **OpenMP** multi-threading and C++17 vectorization across all CPU cores.
 *   **Asynchronous Subsystems:** Implements non-blocking disk serialization (`std::async`/`std::future`) to isolate high-frequency hot paths from storage delays during generational checkpoints.
-*   **Custom Neural Control:** Employs a custom Feedforward Neural Network (FNN) and a Genetic Algorithm featuring dynamic Gaussian mutation decay and elitism, all written from first principles.
+*   **Custom Neural Control:** Employs a custom 9-10-2 Feedforward Neural Network (FNN) and a Genetic Algorithm featuring dynamic Gaussian mutation decay with a sustained exploration floor, Time-to-Collision observation, and deterministic multi-circuit elitism, all written from first principles.
 
 ---
 
@@ -49,24 +49,24 @@ The following diagram illustrates the execution lifecycle, data pipelines, and c
 ```mermaid
 flowchart TD
     subgraph Initialization
-        A[Procedural Generation / Track Loader] --> B[Generate Spatial Hashing Grid]
+        A[Curriculum Loader / Procedural Tracks] --> B[Generate Spatial Hashing Grid]
         B --> C[Initialize Population: 100 Agents]
     end
 
-    subgraph ParallelLoop ["Multi-threaded via Intel TBB"]
-        C --> D[Compute Sensor Raycasts]
-        D --> E[Evaluate Neural Network - 6-8-2]
-        E --> F[Apply Vehicle Dynamics - Drift & Inertia]
+    subgraph ParallelLoop ["Multi-threaded via OpenMP"]
+        C --> D[Compute Sensor Raycasts & Delay Buffer]
+        D --> E[Evaluate Neural Network - 9-10-2]
+        E --> F[Apply Vehicle Dynamics - Drift, Inertia & Weight Transfer]
         F --> G{Collision or Timeout Detected?}
-        G -- Yes --> H[Register Crash & Update Telemetry]
-        G -- No --> I[Accumulate Fitness & Cross Checkpoints]
+        G -- Yes --> H[Register Single Impact & Update Telemetry]
+        G -- No --> I[Accumulate Continuous Fitness & Cross Checkpoints]
     end
 
-    subgraph EvolutionaryPipeline ["End of Generation Cycle"]
-        H & I --> J[Sort Population by Fitness]
-        J --> K[Elitism: Preserve Top 10% Intact]
-        J --> L[Two-Parent Crossover & Decaying Gaussian Mutation]
-        K & L --> M[Reset Agents to Starting Grid]
+    subgraph EvolutionaryPipeline ["End of Generation Cycle (3-Track Curriculum)"]
+        H & I --> J[Sort Population by Accumulated Fitness]
+        J --> K[Elitism: Preserve Top 10% Intact Across Deterministic Tracks]
+        J --> L[Two-Parent Crossover & Gaussian Mutation with Minimum Floor]
+        K & L --> M[Reset Agents to Starting Grid of Track 0]
         M --> C
     end
 
@@ -85,59 +85,76 @@ flowchart TD
 ## Core Technical Features & Code Highlights
 
 ### 1. High-Concurrency Physics and Inference Loop
-To simulate 100 agents concurrently under tight real-time constraints, the engine leverages C++17 vectorization and multi-core processing. Inferences and kinematics are updated in parallel using a thread-safe implementation.
+To simulate 100 agents concurrently under tight real-time constraints, the engine leverages multi-core processing through **OpenMP** dynamic work distribution. Inferences and kinematics are updated in parallel using a thread-safe implementation, with crash event telemetry isolated to single-trigger occurrences:
 
 ```cpp
 // From src/Simulation.cpp
-// Fully parallelized evaluation of the active population using STL Execution Policies
-std::for_each(std::execution::par_unseq, population.begin(), population.end(), [&](Car& car) {
+// Fully parallelized evaluation of the active population across all CPU threads
+#pragma omp parallel for schedule(static)
+for (int i = 0; i < (int)population.size(); i++) {
+    Car& car = population[i];
     if (!car.isCrashed) {
-        float inputAccelerate = 0.0f, inputTurn = 0.0f;
+        carsAlive++;
         
-        // 1. Evaluate the custom neural network
-        car.brain.Evaluate(car.sensorDistances, car.GetSpeed(), inputAccelerate, inputTurn);
+        // 1. Evaluate the custom neural network with 9-dimensional state space
+        float inputAccelerate = 0.0f, inputTurn = 0.0f;
+        car.Think(inputAccelerate, inputTurn);
         
         // 2. Perform narrow-phase physics and collision routines
         car.UpdatePhysics(inputAccelerate, inputTurn, spatialGrid, generationTimer, trackCheckpoints);
-        
-        if (car.isCrashed) {
-            Telemetry::RecordCrash(car.position);
-        }
     }
-});
+}
+
+// Single-trigger telemetry logging on the exact frame of impact
+for (auto& car : population) {
+    if (car.justCrashed) {
+        Telemetry::RecordCrash(car.position);
+        car.justCrashed = false;
+    }
+}
 ```
 
 ### 2. Spatial Grid Partitioning (Collision Optimization)
-Instead of executing naive $O(N)$ collision tests against all boundary segments, the track is divided into a static $100\times100\text{px}$ spatial hashing grid. This limits collision tests and sensor raycasts to immediately adjacent walls, resulting in a true $O(1)$ narrow-phase query.
+Instead of executing naive $O(N)$ collision tests against all boundary segments, the track is divided into a static $100\times100\text{px}$ spatial hashing grid. Narrow-phase OBB vehicle checks are restricted to an immediate $3\times3$ cell neighborhood, and sensor raycasts query only the specific axis-aligned grid bounding boxes of each ray:
 
 ```cpp
 // From src/Car.cpp
-// O(1) Localized Wall Lookup using a Spatial Hashing Grid
-int myCellX = position.x / TrackManager::GRID_CELL_SIZE;
-int myCellY = position.y / TrackManager::GRID_CELL_SIZE;
+// 1. Immediate 3x3 OBB Narrow-Phase Check
+int myCellX = (int)std::floor(position.x / TrackManager::GRID_CELL_SIZE);
+int myCellY = (int)std::floor(position.y / TrackManager::GRID_CELL_SIZE);
 
-// Retrieve segments from a localized 5x5 cell viewport around the vehicle
-for (int gridX = myCellX - 2; gridX <= myCellX + 2; gridX++) {
-    for (int gridY = myCellY - 2; gridY <= myCellY + 2; gridY++) {
-        uint64_t key = TrackManager::GetGridKey(gridX, gridY);
-        if (spatialGrid.find(key) != spatialGrid.end()) {
-            for (auto wallLine : spatialGrid.at(key)) {
-                // Narrow-phase OBB vehicle segment intersection
+for (int gx = myCellX - 1; gx <= myCellX + 1 && !isCrashed; gx++) {
+    for (int gy = myCellY - 1; gy <= myCellY + 1 && !isCrashed; gy++) {
+        uint64_t key = TrackManager::GetGridKey(gx, gy);
+        auto it = spatialGrid.find(key);
+        if (it != spatialGrid.end()) {
+            for (const auto& wallLine : it->second) {
                 if (CheckSegmentIntersection(carCorners, wallLine)) {
                     isCrashed = true;
+                    justCrashed = true;
+                    break;
                 }
             }
         }
     }
 }
+
+// 2. Localized Raycasting along the ray's bounding box
+for (int i = 0; i < 5; i++) {
+    int rMinX = (int)std::floor(std::min(position.x, rayEnd[i].x) / TrackManager::GRID_CELL_SIZE);
+    int rMaxX = (int)std::floor(std::max(position.x, rayEnd[i].x) / TrackManager::GRID_CELL_SIZE);
+    int rMinY = (int)std::floor(std::min(position.y, rayEnd[i].y) / TrackManager::GRID_CELL_SIZE);
+    int rMaxY = (int)std::floor(std::max(position.y, rayEnd[i].y) / TrackManager::GRID_CELL_SIZE);
+    // Scan only bounding grid cells
+}
 ```
 
 ### 3. Custom Neural Network & Dynamic Neuroevolution
 The behavioral engine models decision-making processes from first principles:
-*   **6-8-2 FNN Topology:** Integrates 5 directional proximity inputs and speed, processed through a hidden layer with hyperbolic tangent ($\tanh$) activation to yield symmetrical control metrics.
-*   **Hyperbolic Mutation Decay:** Implements an adaptive genetic algorithm. As generations advance, the mutation probability decays dynamically, transitioning smoothly from high-frequency exploration to high-precision exploitation:
-    $$\text{Mutation Rate} = \frac{\text{Max Mutation}}{1.0 + (\text{Drop Rate} \times \text{Generation})}$$
-*   **Two-Parent Crossover & Elitism:** Keeps the top 10% elite brains completely intact across generations. The rest of the population is bred using a random genetic weight blend of two parents chosen exclusively from the elite group.
+*   **9-10-2 FNN Topology:** Integrates 5 directional proximity inputs, 1 Time-to-Collision front delta (from an 8-tick circular delay line), longitudinal velocity, lateral slip velocity, and angular yaw rate. Processed through a 10-node hidden layer with hyperbolic tangent ($\tanh$) activation to yield symmetrical continuous controls.
+*   **Hyperbolic Mutation Decay with Floor:** Implements an adaptive genetic algorithm. As generations advance, the mutation probability decays with an exploration safety floor (`Config::MIN_MUTATION = 15`) to maintain learning capacity for non-linear drifting maneuvers:
+    $$\text{Mutation Rate} = \max\left(15, \left\lfloor \frac{\text{Max Mutation}}{1.0 + (\text{Drop Rate} \times \text{Generation})} \right\rfloor \right)$$
+*   **Deterministic Multi-Track Curriculum:** Evaluates agents across a fixed progression of 3 tracks (`pista_facil`, `pista_medio`, `pista_dificil`), eliminating environmental noise to safeguard elitism and promote generalizable driving policies.
 
 ### 4. Mathematical Track Generation Pipeline
 Includes a complete procedural generation framework to ensure agent robustness and avoid track-specific overfitting:
@@ -161,7 +178,7 @@ The engineering challenges resolved in the codebase are mapped below to show the
 | Engineering Challenge | Architectural Solution | System Outcome |
 | :--- | :--- | :--- |
 | **Low Latency Updates** | Minimizing heap allocations on runtime hot paths, adopting cache-friendly static structures, and strict RAII usage. | Eliminates garbage collection spikes, ensuring consistent frame pacing under heavy computational loads. |
-| **Parallel CPU Execution** | Vectorized loop parallelism via parallel STL algorithms and dynamic work stealing. | Maximizes multi-core occupancy, scaling updates seamlessly across available CPU cores. |
+| **Parallel CPU Execution** | OpenMP dynamic loop multi-threading and zero-allocation stack evaluation. | Maximizes multi-core occupancy, scaling raycasts and physical updates seamlessly across available CPU cores. |
 | **Geometric Complexity** | Procedural Catmull-Rom splines, TSP heuristics, oriented bounding boxes (OBB), and localized vector intersections. | Delivers robust spatial generation and pixel-perfect collision checks. |
 | **Storage Bottlenecks** | Isolating persistent disk writing operations (JSON and CSV) to asynchronous `std::async` worker threads. | Prevents main-thread rendering hiccups when saving elite brains or generational logs. |
 
@@ -171,7 +188,7 @@ The engineering challenges resolved in the codebase are mapped below to show the
 
 *   **Language Standard:** Modern C++ (C++17)
 *   **Graphics & Input Polling:** [raylib](https://www.raylib.com/) (Used strictly for windowing, hardware-accelerated 2D rendering, and keyboard input polling)
-*   **Task Concurrency:** [Intel OneTBB (Threading Building Blocks)](https://oneapi-src.github.io/oneTBB/)
+*   **Task Concurrency & Parallelism:** OpenMP multi-threading and [Intel OneTBB (Threading Building Blocks)](https://oneapi-src.github.io/oneTBB/)
 *   **Build Automation:** CMake 3.10+
 *   **Data Serialization:** [nlohmann/json](https://github.com/nlohmann/json) (Header-only serialization for agents and tracks)
 
@@ -221,12 +238,12 @@ NeuralRacer-CPP/
 
 ### Prerequisites
 
-Ensure a C++17 compatible compiler (GCC 8+, Clang 7+, or MSVC 2019+) is installed alongside CMake, raylib development libraries, and Intel TBB headers.
+Ensure a C++17 compatible compiler (GCC 8+, Clang 7+, or MSVC 2019+) is installed alongside CMake, raylib development libraries, OpenMP, and Intel TBB headers.
 
 #### Ubuntu / Debian Installation:
 ```bash
 sudo apt update
-sudo apt install build-essential cmake libraylib-dev libtbb-dev
+sudo apt install build-essential cmake libraylib-dev libomp-dev libtbb-dev
 ```
 
 ### Compilation
@@ -273,19 +290,24 @@ cmake --build .
 ## Mathematical Formulations
 
 ### 1. Neural Forward Pass
-For hidden layer node $i$, activation $h_i$ is computed from normalized inputs $x_j$, synaptic weights $W_{ij}$, and node bias $b_i$:
-$$h_i = \tanh\left( \sum_{j=1}^{6} (x_j \cdot W_{ij}) + b_i \right)$$
+For hidden layer node $i$, activation $h_i$ is computed from 9 normalized inputs $x_j$, synaptic weights $W_{ij}$, and node bias $b_i$:
+$$h_i = \tanh\left( \sum_{j=1}^{9} (x_j \cdot W_{ij}) + b_i \right) \quad \text{for } i \in [1, 10]$$
 
 Continuous output controls (throttle/steering) are subsequently computed as:
-$$\text{Output}_k = \tanh\left( \sum_{i=1}^{8} (h_i \cdot W'_{ki}) + b'_k \right)$$
+$$\text{Output}_k = \tanh\left( \sum_{i=1}^{10} (h_i \cdot W'_{ki}) + b'_k \right) \quad \text{for } k \in [1, 2]$$
 
-### 2. Physical Weight-Transfer & Kinematics
+### 2. Kinematic Velocity Projection
+World velocity vector $\vec{v} = (v_x, v_y)$ is transformed from local body-frame longitudinal ($v_{\text{long}}$) and lateral ($v_{\text{lat}}$) velocities using vehicle heading $\theta$:
+$$v_x = v_{\text{long}} \cos(\theta) - v_{\text{lat}} \sin(\theta)$$
+$$v_y = v_{\text{long}} \sin(\theta) + v_{\text{lat}} \cos(\theta)$$
+
+### 3. Physical Weight-Transfer & Restoring Lateral Slip Force
 Longitudinal acceleration $a_{\text{long}}$ dynamically scales the tire normal force distribution, shifting front and rear cornering grip. Symmetrical restoring slip forces are evaluated by:
 $$F_{\text{lateral}} = -v_{\text{lateral}} \cdot \left( C_{\alpha} \cdot \left( 1.0 + a_{\text{long}} \cdot k_{\text{weight}} \right) \right)$$
-$$a_{\text{lateral}} = \frac{F_{\text{lateral}}}{M}$
-Where $C_{\alpha}$ is the tire cornering stiffness, $k_{\text{weight}}$ is the weight transfer factor, and $M$ is the vehicle mass.
+$$a_{\text{lateral}} = \frac{F_{\text{lateral}}}{M}$$
+Where $C_{\alpha}$ is the tire cornering stiffness, $k_{\text{weight}}$ is the weight transfer factor, and $M$ is the vehicle mass. If $|a_{\text{lateral}}| > |v_{\text{lateral}}|$, $v_{\text{lateral}}$ is clamped directly to $0.0$ to eliminate residual sliding oscillation.
 
-### 3. Aerodynamics drag
+### 4. Aerodynamics Drag
 Air resistance is calculated quadratically based on the current longitudinal speed:
 $$F_{\text{drag}} = -v_{\text{long}} \cdot |v_{\text{long}}| \cdot C_d$$
 
