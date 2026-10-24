@@ -159,12 +159,15 @@ The behavioral engine models decision-making processes from first principles:
     *   *Stage 2: Consolidation (Gens 15-49):* Evaluates on a deterministic 3-track rotation (`pista_facil` $\to$ `pista_medio` $\to$ `pista_dificil`) with accumulated multi-track fitness, mastering tight turns and weight-transfer management.
     *   *Stage 3: Procedural Generalization (Gens 50+):* Evaluates each generation against 1 fixed control benchmark (`pista_medio.json`) and 2 dynamically generated procedural tracks, preventing track overfitting and forging truly generalized autonomous racers.
 
-### 4. Mathematical F1-Style Track Generation Pipeline
-Includes an enterprise-grade procedural generation framework producing flowing, realistic racing circuits inspired by Formula 1 layouts:
-*   **Convex Hull Base Topology:** Generates an elliptical distribution of polar seed points and computes the 2D **Convex Hull** using the **Monotone Chain** algorithm ($O(N \log N)$), mathematically guaranteeing a non-self-intersecting baseline loop.
-*   **F1 Sector Motifs & DRS Straight:** Identifies the longest polygon edge to anchor a high-speed **DRS Main Straight** with collinear stabilization nodes, alongside high-speed sweeping S-curves and controlled inward technical chicanes.
-*   **Multi-Pass Angular Relaxation:** Applies iterative Laplacian smoothing enforcing a strict deflection boundary (maximum deflection $50^\circ$, interior angle $\theta \ge 130^\circ$) to eliminate acute hairpins and guarantee wide cornering radii ($R \ge 80\text{ px}$).
-*   **Winding-Order Validation & Analytical Extrusion:** Enforces counter-clockwise winding via the signed **Gauss Area** (Shoelace formula), producing singularity-free inward and outward wall offsets with sub-millisecond generation latency ($<0.5\text{ ms}$).
+### 4. Mathematical Formula 1 Grand Prix Procedural Architecture
+Includes an enterprise-grade procedural generation framework producing authentic, flowing race circuits based on real-world Grand Prix layout archetypes:
+*   **Four Grand Prix Archetypes:** Dynamically synthesizes circuits using 4 core morphological paradigms:
+    *   *Archetype 0 (Out-and-Back Corridor):* Parallel DRS straights with dual terminal hairpins and chicane complexes (inspired by Monza, Gilles-Villeneuve, and Red Bull Ring).
+    *   *Archetype 1 (Infield Loop Complex):* High-speed outer perimeter connected to a deep, technical internal hairpin loop (inspired by Bahrain/Sakhir, Shanghai, and Silverstone).
+    *   *Archetype 2 (Triangular & Diagonal):* Massive diagonal acceleration run, peak chicane, descending sweeping esses, and return chicane (inspired by Spa-Francorchamps, Paul Ricard, and Jeddah).
+    *   *Archetype 3 (Asymmetric L-Shape):* Orthogonal dual straights, technical mid-sector esses, and descending carousel (inspired by Suzuka, Catalunya, and Zandvoort).
+*   **FIA Proportional Scale Overhaul:** Re-calibrated track width to $35\text{ px}$ and vehicle dimensions to $17 \times 8\text{ px}$ (preserving the realistic $23\%$ car-to-track width ratio). This scale unlocks $3\times$ greater relative spatial canvas, enabling multi-lane overtakes, deep infield loops, and authentic racing lines without artificial boundary collisions.
+*   **Curvature & Viewport Bounds:** Generates smooth Catmull-Rom centerlines with guaranteed non-intersecting geometries, counter-clockwise winding (Gauss Shoelace validation), and strict $80\text{ px}$ viewport margins with sub-millisecond generation speed ($<0.5\text{ ms}$).
 
 ### 5. Advanced Kinematics & Race Physics
 The vehicle kinematics engine bypasses simplified movement models in favor of real-world race physics:
