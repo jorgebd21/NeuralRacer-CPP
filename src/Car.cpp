@@ -13,11 +13,13 @@ Car::Car(float startX, float startY, float startRot) {
 void Car::Reset(float startX, float startY, float startRot, bool fullReset) {
     position = {startX, startY};
     rotation = startRot;
+    prevRotation = startRot;
     velocity = {0.0f, 0.0f};
     acceleration = {0.0f, 0.0f};
     width = Config::CAR_HALF_WIDTH * 2.0f;
     height = Config::CAR_HALF_LENGTH * 2.0f;
     isCrashed = false;
+    justCrashed = false;
     nextCheckPointIndex = -1;
     totalCheckPointsCrossed = 0;
     if (fullReset) {
@@ -27,7 +29,19 @@ void Car::Reset(float startX, float startY, float startRot, bool fullReset) {
     timeAlive = 0;
     timeSinceLastCheckpoint = 0;
     distanceTraveled = 0.0f;
-    for(int i = 0; i < 5; i++) sensorDistances[i] = Config::CAR_MAX_SENSOR_DIST;
+    angularVelocity = 0.0f;
+    longitudinalVelocity = 0.0f;
+    lateralVelocity = 0.0f;
+    frontSensorDelta = 0.0f;
+    frontSensorHistoryIdx = 0;
+    stallTicks = 0;
+
+    for (int i = 0; i < FRONT_HISTORY_SIZE; i++) {
+        frontSensorHistory[i] = Config::CAR_FRONT_SENSOR_DIST;
+    }
+    for (int i = 0; i < 5; i++) {
+        sensorDistances[i] = (i == 2) ? Config::CAR_FRONT_SENSOR_DIST : Config::CAR_MAX_SENSOR_DIST;
+    }
 }
 
 void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const std::unordered_map<uint64_t, std::vector<std::pair<Vector2, Vector2>>> &spatialGrid, int timer, const std::vector<Vector2>& trackCheckpoints) {
@@ -35,11 +49,12 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const std::unord
     timeAlive++;
     timeSinceLastCheckpoint++;
 
-    float longitudinalVelocity = (velocity.x * cos(rotation * DEG2RAD)) + (velocity.y * sin(rotation * DEG2RAD));
-    float lateralVelocity = (-velocity.x * sin(rotation * DEG2RAD)) + (velocity.y * cos(rotation * DEG2RAD));
+    float rad = rotation * DEG2RAD;
+    longitudinalVelocity = (velocity.x * cos(rad)) + (velocity.y * sin(rad));
+    lateralVelocity = (-velocity.x * sin(rad)) + (velocity.y * cos(rad));
 
-    float engineForce = 0.0;
-    if(inputAccelerate > 0.0f) {
+    float engineForce = 0.0f;
+    if (inputAccelerate > 0.0f) {
         engineForce = inputAccelerate * Config::ENGINE_POWER;
     } else {
         engineForce = inputAccelerate * Config::BRAKING_POWER;
@@ -56,19 +71,26 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const std::unord
 
     float lateralForce = -lateralVelocity * (Config::CORNERING_STIFFNESS * tractionMultiplier);
     float lateralAcceleration = lateralForce / Config::CAR_MASS;
-    if(std::abs(lateralAcceleration) > std::abs(lateralVelocity)) {
+    if (std::abs(lateralAcceleration) > std::abs(lateralVelocity)) {
+        lateralVelocity = 0.0f;
         lateralAcceleration = 0.0f;
+    } else {
+        lateralVelocity += lateralAcceleration;
     }
-    lateralVelocity += lateralAcceleration;
 
-    rotation += inputTurn * turnMultiplier * Config::CAR_TURN_SPEED * (longitudinalVelocity > 0 ? 1.0f : -1.0f);
+    // Steering without sudden reverse inversion when coasting/braking around zero
+    float rotationDelta = inputTurn * turnMultiplier * Config::CAR_TURN_SPEED;
+    rotation += rotationDelta;
+    angularVelocity = rotationDelta;
+    prevRotation = rotation;
 
-    velocity.x = longitudinalVelocity * cos(rotation * DEG2RAD) + lateralVelocity * sin(rotation * DEG2RAD);
-    velocity.y = longitudinalVelocity * sin(rotation * DEG2RAD) - lateralVelocity * cos(rotation * DEG2RAD);
+    // Correct local-to-world rotation projection
+    rad = rotation * DEG2RAD;
+    velocity.x = longitudinalVelocity * cos(rad) - lateralVelocity * sin(rad);
+    velocity.y = longitudinalVelocity * sin(rad) + lateralVelocity * cos(rad);
 
     // Store old position to check if a checkpoint has been crossed
-    Vector2 oldPosition;
-    oldPosition = position;
+    Vector2 oldPosition = position;
 
     position.x = position.x + velocity.x;
     position.y = position.y + velocity.y;
@@ -109,33 +131,52 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const std::unord
 
     Vector2 rayEnd[5];
     for (int i = 0; i < 5; i++) {
-        sensorDistances[i] = Config::CAR_MAX_SENSOR_DIST; // Reset impact memory here
+        float maxDist = (i == 2) ? Config::CAR_FRONT_SENSOR_DIST : Config::CAR_MAX_SENSOR_DIST;
+        sensorDistances[i] = maxDist; // Reset impact memory here
         float rayAngle = (rotation + Config::SENSOR_ANGLES[i]) * DEG2RAD;
-        rayEnd[i] = { position.x + cos(rayAngle) * Config::CAR_MAX_SENSOR_DIST, position.y + sin(rayAngle) * Config::CAR_MAX_SENSOR_DIST };
+        rayEnd[i] = { position.x + cos(rayAngle) * maxDist, position.y + sin(rayAngle) * maxDist };
     }
 
     int myCellX = (int)std::floor(position.x / TrackManager::GRID_CELL_SIZE);
     int myCellY = (int)std::floor(position.y / TrackManager::GRID_CELL_SIZE);
-    const int sensorGridRadius = (int)std::ceil(Config::CAR_MAX_SENSOR_DIST / (float)TrackManager::GRID_CELL_SIZE) + 1;
-    for(int gridX = myCellX - sensorGridRadius; gridX <= myCellX + sensorGridRadius; gridX++){
-        for(int gridY = myCellY - sensorGridRadius; gridY <= myCellY + sensorGridRadius; gridY++){
-            uint64_t key = TrackManager::GetGridKey(gridX, gridY);
-            if(spatialGrid.find(key) != spatialGrid.end()){
-                for (const auto& wallLine : spatialGrid.at(key)){
-                    if (!isCrashed) {
-                        Vector2 unused;
-                        bool noseHit = TrackManager::GetSegmentIntersection(cornerFL, cornerFR, wallLine.first, wallLine.second, unused);
-                        bool tailHit = TrackManager::GetSegmentIntersection(cornerRL, cornerRR, wallLine.first, wallLine.second, unused);
-                        bool rightHit = TrackManager::GetSegmentIntersection(cornerRR, cornerFR, wallLine.first, wallLine.second, unused);
-                        bool leftHit = TrackManager::GetSegmentIntersection(cornerRL, cornerFL, wallLine.first, wallLine.second, unused);
-                        if (noseHit || tailHit || rightHit || leftHit) isCrashed = true;
+
+    // 1. OBB Collision against immediate 3x3 neighboring cells around the vehicle
+    for (int gx = myCellX - 1; gx <= myCellX + 1 && !isCrashed; gx++) {
+        for (int gy = myCellY - 1; gy <= myCellY + 1 && !isCrashed; gy++) {
+            uint64_t key = TrackManager::GetGridKey(gx, gy);
+            auto it = spatialGrid.find(key);
+            if (it != spatialGrid.end()) {
+                for (const auto& wallLine : it->second) {
+                    Vector2 unused;
+                    if (TrackManager::GetSegmentIntersection(cornerFL, cornerFR, wallLine.first, wallLine.second, unused) ||
+                        TrackManager::GetSegmentIntersection(cornerRL, cornerRR, wallLine.first, wallLine.second, unused) ||
+                        TrackManager::GetSegmentIntersection(cornerRR, cornerFR, wallLine.first, wallLine.second, unused) ||
+                        TrackManager::GetSegmentIntersection(cornerRL, cornerFL, wallLine.first, wallLine.second, unused)) {
+                        isCrashed = true;
+                        justCrashed = true;
+                        break;
                     }
-              
-                    for (int i = 0; i < 5; i++) {
+                }
+            }
+        }
+    }
+
+    // 2. Localized Raycasting: test only grid cells covered by each ray's bounding box
+    for (int i = 0; i < 5; i++) {
+        int rMinX = (int)std::floor(std::min(position.x, rayEnd[i].x) / TrackManager::GRID_CELL_SIZE);
+        int rMaxX = (int)std::floor(std::max(position.x, rayEnd[i].x) / TrackManager::GRID_CELL_SIZE);
+        int rMinY = (int)std::floor(std::min(position.y, rayEnd[i].y) / TrackManager::GRID_CELL_SIZE);
+        int rMaxY = (int)std::floor(std::max(position.y, rayEnd[i].y) / TrackManager::GRID_CELL_SIZE);
+
+        for (int gx = rMinX; gx <= rMaxX; gx++) {
+            for (int gy = rMinY; gy <= rMaxY; gy++) {
+                uint64_t key = TrackManager::GetGridKey(gx, gy);
+                auto it = spatialGrid.find(key);
+                if (it != spatialGrid.end()) {
+                    for (const auto& wallLine : it->second) {
                         float dist;
-                        // Passing rayEnd[i] from the array calculated above
                         if (TrackManager::GetLineIntersectionDist(position, rayEnd[i], wallLine.first, wallLine.second, dist)) {
-                            if (dist < sensorDistances[i]) sensorDistances[i] = dist; // Keep the closest collision
+                            if (dist < sensorDistances[i]) sensorDistances[i] = dist;
                         }
                     }
                 }
@@ -143,20 +184,34 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const std::unord
         }
     }
 
+    // Update temporal delta for front sensor (index 2) via circular history buffer
+    frontSensorDelta = sensorDistances[2] - frontSensorHistory[frontSensorHistoryIdx];
+    frontSensorHistory[frontSensorHistoryIdx] = sensorDistances[2];
+    frontSensorHistoryIdx = (frontSensorHistoryIdx + 1) % FRONT_HISTORY_SIZE;
+
     // Fitness breakdown:
-    //  - Checkpoints (2000 each): dominant signal — crossing checkpoints fast is the primary goal
-    //  - Distance * 0.1:          secondary — rewards net progress, prevents pure checkpoint camping
-    //  - Speed * 0.5:             per-frame bonus — incentivises pushing the throttle at all times
-    if (GetSpeed() > 0){
+    //  - Checkpoints (250 each): balanced milestone reward
+    //  - Distance * 1.0:         dominant continuous progress signal
+    //  - Speed * 0.5:            cruising speed bonus
+    if (GetSpeed() > 0.0f) {
         distanceTraveled += GetSpeed();
     }
     fitness = accumulatedFitness
-            + (totalCheckPointsCrossed * 2000.0f)
-            + (distanceTraveled * 0.1f)
+            + (totalCheckPointsCrossed * 250.0f)
+            + (distanceTraveled * 1.0f)
             + (GetSpeed() * 0.5f);
 
-    float currentLongitudinalVelocity = (velocity.x * cos(rotation * DEG2RAD)) + (velocity.y * sin(rotation * DEG2RAD));
-    if (timeSinceLastCheckpoint > Config::CAR_MAX_TIME_WITHOUT_CHECKPOINT || currentLongitudinalVelocity < Config::CAR_STALL_SPEED_THRESHOLD) {
+    // Controlled braking / stall filter
+    if (GetSpeed() < 0.1f) {
+        stallTicks++;
+    } else {
+        stallTicks = 0;
+    }
+
+    if (!isCrashed && (timeSinceLastCheckpoint > Config::CAR_MAX_TIME_WITHOUT_CHECKPOINT || 
+        longitudinalVelocity < Config::CAR_STALL_SPEED_THRESHOLD ||
+        stallTicks > Config::CAR_STALL_TIME_THRESHOLD)) {
         isCrashed = true; 
+        justCrashed = true;
     }
 }
