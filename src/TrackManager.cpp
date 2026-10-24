@@ -177,41 +177,12 @@ void GenerateBordersFromCenterLine(const std::vector<Vector2>& centerPoints, flo
         }
     }
 
-    int numCheckpoints = std::min(5, n);
-    if (numCheckpoints > 0) {
-        std::vector<int> midpoints;
-        for (int i = TRACK_SPLINE_SEGMENTS / 2; i < n; i += TRACK_SPLINE_SEGMENTS) {
-            midpoints.push_back(i);
-        }
-
-        if (midpoints.size() > 0) {
-            int startMidpointIdx = 0;
-            int minMidpointDist = 1e9;
-            for (size_t i = 0; i < midpoints.size(); i++) {
-                int dist = std::min(std::abs(midpoints[i] - startIndex), n - std::abs(midpoints[i] - startIndex));
-                if (dist < minMidpointDist) {
-                    minMidpointDist = dist;
-                    startMidpointIdx = i;
-                }
-            }
-
-            int midpointsCount = midpoints.size();
-            for (int c = 1; c < numCheckpoints; c++) {
-                int mIdx = (startMidpointIdx + (c * midpointsCount) / numCheckpoints) % midpointsCount;
-                int centerIdx = midpoints[mIdx];
-                
-                Vector2 prev = centerPoints[(centerIdx - 1 + n) % n];
-                Vector2 next = centerPoints[(centerIdx + 1) % n];
-                Vector2 dir = {next.x - prev.x, next.y - prev.y};
-                float length = sqrt(dir.x * dir.x + dir.y * dir.y);
-                if (length > 0.0001f) { dir.x /= length; dir.y /= length; }
-                else { dir = {1.0f, 0.0f}; }
-                
-                outCheckpoints.push_back(centerPoints[centerIdx]);
-            }
-        }
-        
-        outCheckpoints.push_back(centerPoints[startIndex]);
+    // Generate dense, sequentially ordered checkpoints along the track (1 every ~8-12 spline nodes)
+    outCheckpoints.clear();
+    int desiredCheckpoints = std::clamp(n / 10, 16, 32);
+    for (int c = 0; c < desiredCheckpoints; c++) {
+        int idx = (startIndex + (c + 1) * n / desiredCheckpoints) % n;
+        outCheckpoints.push_back(centerPoints[idx]);
     }
 
     RemoveSelfIntersections(outerPoints);

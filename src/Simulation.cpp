@@ -228,7 +228,7 @@ void Simulation::UpdateTraining() {
         #pragma omp parallel for schedule(static)
         for (int i = 0; i < (int)population.size(); i++) {
             Car& car = population[i];
-            if (!car.isCrashed) {
+            if (!car.isCrashed && !car.isFinished) {
                 carsAlive++;
 
                 // 1. The brain decides what to do based on the 9-dimensional state space
@@ -308,7 +308,9 @@ void Simulation::UpdateExhibition() {
         aiCar.Think(aiAccelerate, aiTurn);
         aiCar.UpdatePhysics(aiAccelerate, aiTurn, spatialGrid, 0, trackCheckpoints);
 
-        if (playerCar.isCrashed && !aiCar.isCrashed) exhibitionResult = 2;
+        if (playerCar.isFinished && !aiCar.isFinished) exhibitionResult = 1;
+        else if (aiCar.isFinished && !playerCar.isFinished) exhibitionResult = 2;
+        else if (playerCar.isCrashed && !aiCar.isCrashed) exhibitionResult = 2;
         else if (aiCar.isCrashed && !playerCar.isCrashed) exhibitionResult = 1;
         else if (aiCar.isCrashed && playerCar.isCrashed) exhibitionResult = 2; 
     }
@@ -332,9 +334,8 @@ constexpr int FINISH_LINE_BLOCK_COUNT = 10;
 void Simulation::DrawCheckpoints(float alpha) {
     for (size_t i = 0; i < trackCheckpoints.size(); i++) {
         auto& cp = trackCheckpoints[i];
-        DrawCircleLines(cp.x, cp.y, 65.0f, Fade(YELLOW, alpha));
-        
-        DrawText(TextFormat("%zu", i + 1), cp.x - 5, cp.y - 10, 20, Fade(ORANGE, alpha));
+        DrawCircleLines(cp.x, cp.y, Config::CHECKPOINT_RADIUS, Fade(YELLOW, alpha));
+        DrawText(TextFormat("%zu", i + 1), cp.x - 5, cp.y - 10, 16, Fade(ORANGE, alpha));
     }
 }
 
@@ -429,7 +430,8 @@ void Simulation::DrawTraining() {
     for (auto& car : population) {
         if (!car.isCrashed) {
             aliveCount++;
-            DrawRectanglePro({ car.position.x, car.position.y, Config::CAR_HALF_LENGTH * 2.0f, Config::CAR_HALF_WIDTH * 2.0f }, { Config::CAR_HALF_LENGTH, Config::CAR_HALF_WIDTH }, car.rotation, Fade(RED, 0.5f));
+            Color carColor = car.isFinished ? GOLD : Fade(RED, 0.5f);
+            DrawRectanglePro({ car.position.x, car.position.y, Config::CAR_HALF_LENGTH * 2.0f, Config::CAR_HALF_WIDTH * 2.0f }, { Config::CAR_HALF_LENGTH, Config::CAR_HALF_WIDTH }, car.rotation, carColor);
             if (aliveCount == 1) {
                 for (int i = 0; i < 5; i++) {
                     float rayAngle = (car.rotation + Config::SENSOR_ANGLES[i]) * DEG2RAD;

@@ -20,7 +20,8 @@ void Car::Reset(float startX, float startY, float startRot, bool fullReset) {
     height = Config::CAR_HALF_LENGTH * 2.0f;
     isCrashed = false;
     justCrashed = false;
-    nextCheckPointIndex = -1;
+    isFinished = false;
+    nextCheckPointIndex = 0;
     totalCheckPointsCrossed = 0;
     if (fullReset) {
         accumulatedFitness = 0.0f;
@@ -45,7 +46,7 @@ void Car::Reset(float startX, float startY, float startRot, bool fullReset) {
 }
 
 void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const std::unordered_map<uint64_t, std::vector<std::pair<Vector2, Vector2>>> &spatialGrid, int timer, const std::vector<Vector2>& trackCheckpoints) {
-    if (isCrashed) return;
+    if (isCrashed || isFinished) return;
     timeAlive++;
     timeSinceLastCheckpoint++;
 
@@ -105,25 +106,39 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const std::unord
     position.x = position.x + velocity.x;
     position.y = position.y + velocity.y;
 
-    // Check if the car has passed through a checkpoint
-    if (nextCheckPointIndex == -1) {
-        for (size_t i = 0; i < trackCheckpoints.size(); i++) {
-            Vector2 cp = trackCheckpoints[i];
-            float dist = sqrt(pow(position.x - cp.x, 2) + pow(position.y - cp.y, 2));
-            if(dist <= Config::CHECKPOINT_RADIUS){
-                nextCheckPointIndex = (int)(i + 1) % (int)trackCheckpoints.size();
+    // Check if the car has passed through the target checkpoint
+    if (!trackCheckpoints.empty() && nextCheckPointIndex >= 0 && nextCheckPointIndex < (int)trackCheckpoints.size()) {
+        Vector2 cpCurr = trackCheckpoints[nextCheckPointIndex];
+        float distSq = (position.x - cpCurr.x) * (position.x - cpCurr.x) + (position.y - cpCurr.y) * (position.y - cpCurr.y);
+        if (distSq <= Config::CHECKPOINT_RADIUS * Config::CHECKPOINT_RADIUS) {
+            int numCp = (int)trackCheckpoints.size();
+            Vector2 cpPrev = trackCheckpoints[(nextCheckPointIndex - 1 + numCp) % numCp];
+            Vector2 trackDir = { cpCurr.x - cpPrev.x, cpCurr.y - cpPrev.y };
+            float trackLen = std::sqrt(trackDir.x * trackDir.x + trackDir.y * trackDir.y);
+            if (trackLen > 0.001f) {
+                trackDir.x /= trackLen;
+                trackDir.y /= trackLen;
+            } else {
+                trackDir = { 1.0f, 0.0f };
+            }
+
+            float carHeadingX = cos(rotation * DEG2RAD);
+            float carHeadingY = sin(rotation * DEG2RAD);
+            float headingAlignment = carHeadingX * trackDir.x + carHeadingY * trackDir.y;
+            float velocityAlignment = (velocity.x * trackDir.x + velocity.y * trackDir.y);
+
+            // Directional validation: vehicle must be oriented and moving in the track progression direction
+            if (headingAlignment > 0.2f && velocityAlignment > 0.0f) {
                 totalCheckPointsCrossed++;
                 timeSinceLastCheckpoint = 0;
-                break;
+                nextCheckPointIndex = (nextCheckPointIndex + 1) % numCp;
+
+                // One complete lap finished
+                if (totalCheckPointsCrossed >= numCp) {
+                    isFinished = true;
+                    fitness += 2000.0f + (Config::MAX_GENERATION_TIME - timeAlive) * 2.0f;
+                }
             }
-        }
-    } else {
-        Vector2 cp = trackCheckpoints[nextCheckPointIndex];
-        float dist = sqrt(pow(position.x - cp.x, 2) + pow(position.y - cp.y, 2));
-        if(dist <= Config::CHECKPOINT_RADIUS){
-            nextCheckPointIndex = (nextCheckPointIndex + 1) % trackCheckpoints.size();
-            totalCheckPointsCrossed++;
-            timeSinceLastCheckpoint = 0;
         }
     }
 
@@ -218,7 +233,7 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const std::unord
         stallTicks = 0;
     }
 
-    if (!isCrashed && (timeSinceLastCheckpoint > Config::CAR_MAX_TIME_WITHOUT_CHECKPOINT || 
+    if (!isCrashed && !isFinished && (timeSinceLastCheckpoint > Config::CAR_MAX_TIME_WITHOUT_CHECKPOINT || 
         longitudinalVelocity < Config::CAR_STALL_SPEED_THRESHOLD ||
         stallTicks > Config::CAR_STALL_TIME_THRESHOLD)) {
         isCrashed = true; 

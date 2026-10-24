@@ -24,7 +24,7 @@ namespace Config {
     constexpr float CAR_FRONT_SENSOR_DIST = 600.0f;
     constexpr int CAR_STALL_TIME_THRESHOLD = 100;
     constexpr float CAR_STALL_SPEED_THRESHOLD = -1.5f;
-    constexpr int CAR_MAX_TIME_WITHOUT_CHECKPOINT = 800;
+    constexpr int CAR_MAX_TIME_WITHOUT_CHECKPOINT = 150;
 
     constexpr float CAR_MASS = 1200.0f;
     constexpr float ENGINE_POWER = 35.0f;
@@ -37,7 +37,7 @@ namespace Config {
 
     constexpr float CAR_HALF_WIDTH = 6.0f;
     constexpr float CAR_HALF_LENGTH = 13.0f;
-    constexpr float CHECKPOINT_RADIUS = 65.0f;
+    constexpr float CHECKPOINT_RADIUS = 45.0f;
     
     constexpr float SIM_START_POS_X = 400.0f;
     constexpr float SIM_START_POS_Y = 650.0f;
