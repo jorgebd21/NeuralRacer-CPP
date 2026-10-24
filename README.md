@@ -181,6 +181,14 @@ To eradicate circular reward-hacking and endless idling loops:
 *   **Strict Sector Timeout:** Reduces the allowed time between checkpoints (`Config::CAR_MAX_TIME_WITHOUT_CHECKPOINT = 150` ticks / 2.5s) to eliminate idle drifting and donut-spinning exploitation.
 *   **Continuous Multi-Lap Evaluation:** Agents run continuous sequential laps across the circuit for the full generational duration (`Config::MAX_GENERATION_TIME = 2000` ticks), rewarding each completed lap with a milestone bonus ($+1000$) to maximize high-speed endurance training.
 
+### 7. Longitudinal Telemetry & Scientific Dataset Pipeline
+To support empirical machine learning research, the telemetry subsystem records a 14-parameter longitudinal dataset (`data/telemetry_log.csv`) persisting across application restarts:
+*   **Macro Convergence Metrics:** `Generation`, `MaxFitness`, `MinFitness`, `AvgFitness`.
+*   **Viability & Diversity Metrics:** `SurvivalRate`, `AvgLifeTime`, `WeightVariance` (synaptic diversity metric), `ActiveMutationRate`.
+*   **Curriculum & Generalization Analytics:** `CurriculumPhase` (1, 2, or 3), `BenchmarkFitness` (fixed control track score), `ProceduralFitness` (zero-shot transfer performance on procedural circuits).
+*   **Kinematic & Control Quality:** `TotalLapsCompleted`, `TopSpeedAvg` (cruising speed in px/tick), `SteeringSmoothness` (control stability factor $[0.0 - 1.0]$).
+*   **Non-Blocking Persistence:** Asynchronous disk export (`std::async`/`std::future`) with automatic history loading on startup and synchronous flush on exit (`SIGINT`/`SIGTERM`/window close).
+
 ---
 
 ## System Performance & Design Patterns
