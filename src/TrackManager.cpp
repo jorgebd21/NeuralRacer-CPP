@@ -17,7 +17,7 @@ constexpr int BORDER_STEP = 8;
 constexpr int SMOOTH_RADIUS = 4;
 constexpr int SMOOTH_PASSES = 5;
 constexpr int TRACK_SPLINE_SEGMENTS = 50;
-constexpr float TRACK_WIDTH = 65.0f;
+constexpr float TRACK_WIDTH = 35.0f;
 
 bool GetLineIntersectionDist(Vector2 p1, Vector2 p2, Vector2 p3, Vector2 p4, float &outDist) {
     // Calculate the denominator with the determinant of the lines
