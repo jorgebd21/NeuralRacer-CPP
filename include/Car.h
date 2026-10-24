@@ -25,7 +25,6 @@ struct Car {
     float sensorDistances[5];
     bool isCrashed;
     bool justCrashed;
-    bool isFinished;
     
     float fitness;
     float accumulatedFitness;

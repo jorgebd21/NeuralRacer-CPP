@@ -228,7 +228,7 @@ void Simulation::UpdateTraining() {
         #pragma omp parallel for schedule(static)
         for (int i = 0; i < (int)population.size(); i++) {
             Car& car = population[i];
-            if (!car.isCrashed && !car.isFinished) {
+            if (!car.isCrashed) {
                 carsAlive++;
 
                 // 1. The brain decides what to do based on the 9-dimensional state space
@@ -308,9 +308,7 @@ void Simulation::UpdateExhibition() {
         aiCar.Think(aiAccelerate, aiTurn);
         aiCar.UpdatePhysics(aiAccelerate, aiTurn, spatialGrid, 0, trackCheckpoints);
 
-        if (playerCar.isFinished && !aiCar.isFinished) exhibitionResult = 1;
-        else if (aiCar.isFinished && !playerCar.isFinished) exhibitionResult = 2;
-        else if (playerCar.isCrashed && !aiCar.isCrashed) exhibitionResult = 2;
+        if (playerCar.isCrashed && !aiCar.isCrashed) exhibitionResult = 2;
         else if (aiCar.isCrashed && !playerCar.isCrashed) exhibitionResult = 1;
         else if (aiCar.isCrashed && playerCar.isCrashed) exhibitionResult = 2; 
     }
@@ -430,7 +428,7 @@ void Simulation::DrawTraining() {
     for (auto& car : population) {
         if (!car.isCrashed) {
             aliveCount++;
-            Color carColor = car.isFinished ? GOLD : Fade(RED, 0.5f);
+            Color carColor = (car.totalCheckPointsCrossed >= (int)trackCheckpoints.size()) ? GOLD : Fade(RED, 0.5f);
             DrawRectanglePro({ car.position.x, car.position.y, Config::CAR_HALF_LENGTH * 2.0f, Config::CAR_HALF_WIDTH * 2.0f }, { Config::CAR_HALF_LENGTH, Config::CAR_HALF_WIDTH }, car.rotation, carColor);
             if (aliveCount == 1) {
                 for (int i = 0; i < 5; i++) {

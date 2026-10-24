@@ -20,7 +20,6 @@ void Car::Reset(float startX, float startY, float startRot, bool fullReset) {
     height = Config::CAR_HALF_LENGTH * 2.0f;
     isCrashed = false;
     justCrashed = false;
-    isFinished = false;
     nextCheckPointIndex = 0;
     totalCheckPointsCrossed = 0;
     if (fullReset) {
@@ -46,7 +45,7 @@ void Car::Reset(float startX, float startY, float startRot, bool fullReset) {
 }
 
 void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const std::unordered_map<uint64_t, std::vector<std::pair<Vector2, Vector2>>> &spatialGrid, int timer, const std::vector<Vector2>& trackCheckpoints) {
-    if (isCrashed || isFinished) return;
+    if (isCrashed) return;
     timeAlive++;
     timeSinceLastCheckpoint++;
 
@@ -133,10 +132,9 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const std::unord
                 timeSinceLastCheckpoint = 0;
                 nextCheckPointIndex = (nextCheckPointIndex + 1) % numCp;
 
-                // One complete lap finished
-                if (totalCheckPointsCrossed >= numCp) {
-                    isFinished = true;
-                    fitness += 2000.0f + (Config::MAX_GENERATION_TIME - timeAlive) * 2.0f;
+                // Milestone bonus for each completed lap (supports infinite continuous laps up to MAX_GENERATION_TIME)
+                if (totalCheckPointsCrossed % numCp == 0) {
+                    fitness += 1000.0f;
                 }
             }
         }
@@ -233,7 +231,7 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const std::unord
         stallTicks = 0;
     }
 
-    if (!isCrashed && !isFinished && (timeSinceLastCheckpoint > Config::CAR_MAX_TIME_WITHOUT_CHECKPOINT || 
+    if (!isCrashed && (timeSinceLastCheckpoint > Config::CAR_MAX_TIME_WITHOUT_CHECKPOINT || 
         longitudinalVelocity < Config::CAR_STALL_SPEED_THRESHOLD ||
         stallTicks > Config::CAR_STALL_TIME_THRESHOLD)) {
         isCrashed = true; 
