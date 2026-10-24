@@ -32,6 +32,8 @@ namespace Config {
     constexpr float DRAG_MULTIPLIER = 0.35f;
     constexpr float CORNERING_STIFFNESS = 1000.0f;
     constexpr float WEIGHT_TRANSFER_FACTOR = 0.05f;
+    constexpr float TIRE_GRIP_LIMIT = 0.55f;
+    constexpr float TIRE_SCRUB_FACTOR = 3.5f;
 
     constexpr float CAR_HALF_WIDTH = 6.0f;
     constexpr float CAR_HALF_LENGTH = 13.0f;

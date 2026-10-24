@@ -49,45 +49,55 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const std::unord
     timeAlive++;
     timeSinceLastCheckpoint++;
 
-    float rad = rotation * DEG2RAD;
-    longitudinalVelocity = (velocity.x * cos(rad)) + (velocity.y * sin(rad));
-    lateralVelocity = (-velocity.x * sin(rad)) + (velocity.y * cos(rad));
+    // 1. Steering dynamics: rotate vehicle heading first
+    float engineForceEst = (inputAccelerate > 0.0f) ? (inputAccelerate * Config::ENGINE_POWER) : (inputAccelerate * Config::BRAKING_POWER);
+    float dragForceEst = -longitudinalVelocity * std::abs(longitudinalVelocity) * Config::DRAG_MULTIPLIER;
+    float longAccelEst = (engineForceEst + dragForceEst) / Config::CAR_MASS;
+    float turnMultiplier = std::clamp(1.0f - (longAccelEst * Config::WEIGHT_TRANSFER_FACTOR), 0.5f, 1.5f);
 
-    float engineForce = 0.0f;
-    if (inputAccelerate > 0.0f) {
-        engineForce = inputAccelerate * Config::ENGINE_POWER;
-    } else {
-        engineForce = inputAccelerate * Config::BRAKING_POWER;
-    }
-    float dragForce = -longitudinalVelocity * std::abs(longitudinalVelocity) * Config::DRAG_MULTIPLIER;
-    float totalForce = engineForce + dragForce;
-    float longitudinalAcceleration = (totalForce / Config::CAR_MASS);
-    float turnMultiplier = 1.0f - (longitudinalAcceleration * Config::WEIGHT_TRANSFER_FACTOR);
-    turnMultiplier = std::clamp(turnMultiplier, 0.5f, 1.5f);
-    longitudinalVelocity += longitudinalAcceleration;
-
-    float tractionMultiplier = 1.0f + (longitudinalAcceleration * Config::WEIGHT_TRANSFER_FACTOR);
-    tractionMultiplier = std::clamp(tractionMultiplier, 0.5f, 1.5f);
-
-    float lateralForce = -lateralVelocity * (Config::CORNERING_STIFFNESS * tractionMultiplier);
-    float lateralAcceleration = lateralForce / Config::CAR_MASS;
-    if (std::abs(lateralAcceleration) > std::abs(lateralVelocity)) {
-        lateralVelocity = 0.0f;
-        lateralAcceleration = 0.0f;
-    } else {
-        lateralVelocity += lateralAcceleration;
-    }
-
-    // Steering without sudden reverse inversion when coasting/braking around zero
     float rotationDelta = inputTurn * turnMultiplier * Config::CAR_TURN_SPEED;
     rotation += rotationDelta;
     angularVelocity = rotationDelta;
     prevRotation = rotation;
 
-    // Correct local-to-world rotation projection
-    rad = rotation * DEG2RAD;
-    velocity.x = longitudinalVelocity * cos(rad) - lateralVelocity * sin(rad);
-    velocity.y = longitudinalVelocity * sin(rad) + lateralVelocity * cos(rad);
+    // 2. Inertial decomposition: project existing world velocity onto the NEW heading frame
+    // Conserving linear momentum naturally produces the slip angle and centrifugal lateral velocity (v_lat)
+    float rad = rotation * DEG2RAD;
+    float localForward = (velocity.x * cos(rad)) + (velocity.y * sin(rad));
+    float localLateral = (-velocity.x * sin(rad)) + (velocity.y * cos(rad));
+
+    // 3. Longitudinal forces: Engine/Brakes, Aero Drag, and Tire Cornering Scrub Resistance
+    float engineForce = (inputAccelerate > 0.0f) ? (inputAccelerate * Config::ENGINE_POWER) : (inputAccelerate * Config::BRAKING_POWER);
+    float dragForce = -localForward * std::abs(localForward) * Config::DRAG_MULTIPLIER;
+    float scrubForce = -localForward * std::abs(localLateral) * Config::TIRE_SCRUB_FACTOR;
+    float totalLongForce = engineForce + dragForce + scrubForce;
+    float longitudinalAcceleration = totalLongForce / Config::CAR_MASS;
+    localForward += longitudinalAcceleration;
+
+    // 4. Lateral tire forces with dynamic friction limit (tire saturation for realistic drift)
+    float tractionMultiplier = std::clamp(1.0f + (longitudinalAcceleration * Config::WEIGHT_TRANSFER_FACTOR), 0.5f, 1.5f);
+    float lateralForce = -localLateral * (Config::CORNERING_STIFFNESS * tractionMultiplier);
+    float maxLateralGrip = Config::TIRE_GRIP_LIMIT * Config::CAR_MASS * tractionMultiplier;
+
+    if (std::abs(lateralForce) > maxLateralGrip) {
+        // Exceeded friction limit: tires saturate into dynamic drift
+        lateralForce = std::copysign(maxLateralGrip, lateralForce);
+        localLateral += (lateralForce / Config::CAR_MASS);
+    } else {
+        // Within friction limit: critical damping prevents endless numeric oscillation
+        float lateralAcceleration = lateralForce / Config::CAR_MASS;
+        if (std::abs(lateralAcceleration) > std::abs(localLateral)) {
+            localLateral = 0.0f;
+        } else {
+            localLateral += lateralAcceleration;
+        }
+    }
+
+    // 5. Reconstruct world velocity from updated chassis local velocities
+    velocity.x = localForward * cos(rad) - localLateral * sin(rad);
+    velocity.y = localForward * sin(rad) + localLateral * cos(rad);
+    longitudinalVelocity = localForward;
+    lateralVelocity = localLateral;
 
     // Store old position to check if a checkpoint has been crossed
     Vector2 oldPosition = position;
