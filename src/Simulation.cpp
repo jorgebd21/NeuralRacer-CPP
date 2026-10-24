@@ -31,7 +31,9 @@ Simulation::Simulation(bool isHeadless) :
     simSpeed(1),
     playerCar(startPosition.x, startPosition.y, startRotation),
     aiCar(startPosition.x, startPosition.y, startRotation),
-    exhibitionResult(0)
+    exhibitionResult(0),
+    generationTotalLaps(0),
+    benchmarkTopFitness(0.0f)
 {
 }
 
@@ -259,6 +261,22 @@ void Simulation::UpdateTraining() {
         if (allCrashed || generationTimer >= Config::MAX_GENERATION_TIME) {
             std::cout << "Generation " << generationCount << " (Track " << currentEvaluationTrack + 1 << "/" << trainingTracks.size() 
                       << ") finished in " << generationTimer << " ticks (" << carsAlive << " alive)" << std::endl;
+
+            // Accumulate completed laps across the population on this track
+            int numCp = (int)trackCheckpoints.size();
+            if (numCp > 0) {
+                for (const auto& car : population) {
+                    generationTotalLaps += car.totalCheckPointsCrossed / numCp;
+                }
+            }
+            if (currentEvaluationTrack == 0) {
+                float maxFit0 = 0.0f;
+                for (const auto& car : population) {
+                    if (car.fitness > maxFit0) maxFit0 = car.fitness;
+                }
+                benchmarkTopFitness = maxFit0;
+            }
+
             currentEvaluationTrack++;
             if (currentEvaluationTrack >= (int)trainingTracks.size()) {
                 std::vector<Car*> sortedPop;
@@ -269,9 +287,20 @@ void Simulation::UpdateTraining() {
                 std::sort(sortedPop.begin(), sortedPop.end(), [](const Car* a, const Car* b) { return a->fitness > b->fitness; });
                 std::cout << "Best fitness: " << sortedPop[0]->fitness << std::endl;
                 
-                Telemetry::RecordGeneration(generationCount, population, Config::MAX_GENERATION_TIME);
+                int phase = (generationCount < Config::CURRICULUM_PHASE_1_END) ? 1 :
+                            (generationCount < Config::CURRICULUM_PHASE_2_END) ? 2 : 3;
+                float totalTopFit = sortedPop[0]->fitness;
+                float procFit = (phase == 1) ? 0.0f : std::max(0.0f, totalTopFit - benchmarkTopFitness);
+                float eliteAvgSpeed = sortedPop[0]->GetAverageSpeed();
+                float eliteSmoothness = std::clamp(1.0f - (std::abs(sortedPop[0]->angularVelocity) / Config::CAR_TURN_SPEED), 0.0f, 1.0f);
+
+                Telemetry::RecordGeneration(generationCount, population, Config::MAX_GENERATION_TIME,
+                                            phase, benchmarkTopFitness, procFit, generationTotalLaps,
+                                            eliteAvgSpeed, eliteSmoothness, Config::MUTATION);
                 Telemetry::ExportDataAsync();
                 
+                generationTotalLaps = 0;
+                benchmarkTopFitness = 0.0f;
                 generationTimer = 0;
                 generationCount++;
                 currentEvaluationTrack = 0;

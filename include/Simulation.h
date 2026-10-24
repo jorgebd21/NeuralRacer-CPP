@@ -103,4 +103,7 @@ private:
     Car playerCar;
     Car aiCar;
     int exhibitionResult;
+
+    int generationTotalLaps;
+    float benchmarkTopFitness;
 };

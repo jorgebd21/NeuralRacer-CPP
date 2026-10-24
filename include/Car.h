@@ -73,6 +73,11 @@ struct Car {
     float GetSpeed() const { return std::sqrt(velocity.x * velocity.x + velocity.y * velocity.y); }
 
     /**
+     * @brief Returns the average speed across the agent's active lifetime.
+     */
+    float GetAverageSpeed() const { return timeAlive > 0 ? (distanceTraveled / timeAlive) : 0.0f; }
+
+    /**
      * @brief Evaluates the brain using the 9-dimensional state space.
      * 
      * @param outAccelerate Calculated acceleration output.
