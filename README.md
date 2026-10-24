@@ -49,7 +49,7 @@ The following diagram illustrates the execution lifecycle, data pipelines, and c
 ```mermaid
 flowchart TD
     subgraph Initialization
-        A[Curriculum Loader / Procedural Tracks] --> B[Generate Spatial Hashing Grid]
+        A["Adaptive Curriculum Manager: Stage 1 (Induction) -> Stage 2 (Consolidation) -> Stage 3 (Procedural)"] --> B[Generate Spatial Hashing Grid]
         B --> C[Initialize Population: 100 Agents]
     end
 
@@ -154,7 +154,10 @@ The behavioral engine models decision-making processes from first principles:
 *   **9-10-2 FNN Topology:** Integrates 5 directional proximity inputs, 1 Time-to-Collision front delta (from an 8-tick circular delay line), longitudinal velocity, lateral slip velocity, and angular yaw rate. Processed through a 10-node hidden layer with hyperbolic tangent ($\tanh$) activation to yield symmetrical continuous controls.
 *   **Hyperbolic Mutation Decay with Floor:** Implements an adaptive genetic algorithm. As generations advance, the mutation probability decays with an exploration safety floor (`Config::MIN_MUTATION = 15`) to maintain learning capacity for non-linear drifting maneuvers:
     $$\text{Mutation Rate} = \max\left(15, \left\lfloor \frac{\text{Max Mutation}}{1.0 + (\text{Drop Rate} \times \text{Generation})} \right\rfloor \right)$$
-*   **Deterministic Multi-Track Curriculum:** Evaluates agents across a fixed progression of 3 tracks (`pista_facil`, `pista_medio`, `pista_dificil`), eliminating environmental noise to safeguard elitism and promote generalizable driving policies.
+*   **3-Stage Adaptive Curriculum Learning:** Implements a progressive training pipeline to balance fast early convergence with deep procedural generalization:
+    *   *Stage 1: Induction (Gens 0-14):* Trains solely on `pista_facil.json` (single track) to solidify fundamental acceleration, steering control, and braking primitives without environmental noise.
+    *   *Stage 2: Consolidation (Gens 15-49):* Evaluates on a deterministic 3-track rotation (`pista_facil` $\to$ `pista_medio` $\to$ `pista_dificil`) with accumulated multi-track fitness, mastering tight turns and weight-transfer management.
+    *   *Stage 3: Procedural Generalization (Gens 50+):* Evaluates each generation against 1 fixed control benchmark (`pista_medio.json`) and 2 dynamically generated procedural tracks, preventing track overfitting and forging truly generalized autonomous racers.
 
 ### 4. Mathematical Track Generation Pipeline
 Includes a complete procedural generation framework to ensure agent robustness and avoid track-specific overfitting:
