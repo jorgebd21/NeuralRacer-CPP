@@ -3,6 +3,7 @@
 #include "Evolution.h"
 #include "TrackManager.h"
 #include "TrackGenerator.h"
+#include "ModularTrackGenerator.h"
 #include "Telemetry.h"
 #include <algorithm>
 #include <cfloat>
@@ -173,6 +174,24 @@ void Simulation::UpdateMenu() {
         for (auto& car : population) car.Reset(startPosition.x, startPosition.y, startRotation);
         playerCar.Reset(startPosition.x, startPosition.y, startRotation);
         aiCar.Reset(startPosition.x, startPosition.y, startRotation);
+    }
+    if (IsKeyPressed(KEY_O)) {
+        std::vector<Vector2> modPts = ModularTrackGenerator::GenerateProceduralCenterPoints();
+        if (!modPts.empty()) {
+            proceduralPoints = modPts;
+            std::vector<Vector2> denseCenterLine = TrackManager::GenerateSplinePoints(proceduralPoints, PROCEDURAL_SPLINE_SEGMENTS);
+            TrackManager::CalculateStartGrid(proceduralPoints, startPosition, startRotation);
+            trackWalls.clear();
+            trackCheckpoints.clear();
+            Telemetry::ResetHeatmap();
+            TrackManager::GenerateBordersFromCenterLine(denseCenterLine, PROCEDURAL_TRACK_WIDTH, trackWalls, trackCheckpoints, startPosition);
+            BuildSpatialGrid();
+            InitTrainingTracks();
+            
+            for (auto& car : population) car.Reset(startPosition.x, startPosition.y, startRotation);
+            playerCar.Reset(startPosition.x, startPosition.y, startRotation);
+            aiCar.Reset(startPosition.x, startPosition.y, startRotation);
+        }
     }
     if (IsKeyPressed(KEY_LEFT) && !mapFiles.empty()) {
         currentMapIndex--;
@@ -431,9 +450,10 @@ void Simulation::DrawMenu() {
     DrawText("[ T ] TRAINING MODE (AI vs AI)", Config::SCREEN_WIDTH/2 - 200, 350, 20, LIGHTGRAY);
     DrawText("[ E ] EXHIBITION MODE (Player vs Best AI)", Config::SCREEN_WIDTH/2 - 200, 400, 20, LIGHTGRAY);
     DrawText("[ A ] TEST AI (Only watch best AI)", Config::SCREEN_WIDTH/2 - 200, 450, 20, LIGHTGRAY);
-    DrawText("[ P ] GENERATE PROCEDURAL TRACK", Config::SCREEN_WIDTH/2 - 200, 500, 20, YELLOW);
+    DrawText("[ P ] GENERATE PROCEDURAL TRACK (Macro-Graph)", Config::SCREEN_WIDTH/2 - 200, 490, 20, YELLOW);
+    DrawText("[ O ] GENERATE MODULAR COUPLED TRACK (Tiles)", Config::SCREEN_WIDTH/2 - 200, 525, 20, ORANGE);
     if (!proceduralPoints.empty()) {
-        DrawText("[ G ] SAVE CURRENT TRACK", Config::SCREEN_WIDTH/2 - 200, 550, 20, GREEN);
+        DrawText("[ G ] SAVE CURRENT TRACK", Config::SCREEN_WIDTH/2 - 200, 560, 20, GREEN);
     }
 }
 
