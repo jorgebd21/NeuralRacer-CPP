@@ -1,10 +1,20 @@
 #include "Simulation.h"
 #include <string>
 #include <iostream>
+#include <filesystem>
 
 using namespace std;
 
 int main(int argc, char* argv[]) {
+    // If executed from build/ or build/bin, normalize working directory to project root
+    if (!std::filesystem::exists("data")) {
+        if (std::filesystem::exists("../data")) {
+            std::filesystem::current_path("..");
+        } else if (std::filesystem::exists("../../data")) {
+            std::filesystem::current_path("../..");
+        }
+    }
+
     bool isHeadless = false;
 
     if (argc > 1) {

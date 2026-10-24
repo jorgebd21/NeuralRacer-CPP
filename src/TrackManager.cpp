@@ -311,12 +311,20 @@ void LoadTrackFromFile(const std::string& filename, std::vector<std::pair<Vector
 
 std::vector<std::string> ScanMapFiles() {
     std::vector<std::string> mapFiles;
-    for (const auto& entry : std::filesystem::directory_iterator("data/tracks")) {
-        if (entry.path().extension() == ".json") {
-            std::string name = entry.path().filename().string();
-            if (name.rfind("pista_", 0) == 0 || name.rfind("procedural_track_", 0) == 0) {
-                mapFiles.push_back("data/tracks/" + name);
+    std::string tracksDir = "data/tracks";
+    std::error_code ec;
+    if (std::filesystem::exists(tracksDir, ec) && std::filesystem::is_directory(tracksDir, ec)) {
+        try {
+            for (const auto& entry : std::filesystem::directory_iterator(tracksDir, ec)) {
+                if (entry.path().extension() == ".json") {
+                    std::string name = entry.path().filename().string();
+                    if (name.rfind("pista_", 0) == 0 || name.rfind("procedural_track_", 0) == 0) {
+                        mapFiles.push_back("data/tracks/" + name);
+                    }
+                }
             }
+        } catch (const std::exception& e) {
+            std::cerr << "Warning scanning " << tracksDir << ": " << e.what() << std::endl;
         }
     }
     if (mapFiles.empty()) {
