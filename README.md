@@ -57,8 +57,8 @@ flowchart TD
         C --> D[Compute Sensor Raycasts & Delay Buffer]
         D --> E[Evaluate Neural Network - 9-10-2]
         E --> F[Apply Vehicle Dynamics - Drift, Inertia & Weight Transfer]
-        F --> G{Collision or Timeout Detected?}
-        G -- Yes --> H[Register Single Impact & Update Telemetry]
+        F --> G{Collision, Lap Complete, or Timeout?}
+        G -- Yes --> H[Register Impact / Lap Finish & Update Telemetry]
         G -- No --> I[Accumulate Continuous Fitness & Cross Checkpoints]
     end
 
@@ -170,6 +170,13 @@ The vehicle kinematics engine bypasses simplified movement models in favor of re
 *   **Tire Cornering Scrub Drag:** Steering or sliding sideways dissipates forward kinetic energy through induced friction ($F_{\text{scrub}} = -v_{\text{long}} \cdot |v_{\text{lat}}| \cdot K_{\text{scrub}}$), penalizing erratic zig-zagging and forcing agents to brake realistically before tight turns.
 *   **Dynamic Weight Transfer:** Acceleration shifts normal forces rearward, reducing steering capacity (understeer); braking transfers load forward, sharpening steering response.
 *   **Aerodynamics:** Applies quadratic drag force and speed-scaled downforce to stabilize tire cornering capabilities.
+
+### 6. Directional Checkpoints & Anti-Exploit Pipeline
+To eradicate circular reward-hacking and endless idling loops:
+*   **Dense Sequential Checkpoint Mesh:** Generates 16 to 32 evenly spaced checkpoints (~100-150 px apart) along the track centerline, eliminating long blind zones.
+*   **Directional Vector Validation:** Verifies that both the vehicle's heading and velocity vector align positively with the track's tangent ($\vec{v} \cdot \vec{\tau}_{\text{track}} > 0$ and $\vec{h} \cdot \vec{\tau}_{\text{track}} > 0.2$), strictly rejecting backwards passes, spin-outs, or donut maneuvers.
+*   **Strict Sector Timeout:** Reduces the allowed time between checkpoints (`Config::CAR_MAX_TIME_WITHOUT_CHECKPOINT = 150` ticks / 2.5s) to eliminate idle drifting and donut-spinning exploitation.
+*   **Lap Completion Termination:** Agents that complete a full lap are marked finished, rewarded with a substantial time-savings bonus ($2000 + (\text{MAX\_TIME} - \text{timeAlive}) \times 2.0$), and freeze evaluation immediately to prevent endless looping.
 
 ---
 
