@@ -194,6 +194,13 @@ To support empirical machine learning research, the telemetry subsystem records 
 *   **Kinematic & Control Quality:** `TotalLapsCompleted`, `TopSpeedAvg` (cruising speed in px/tick), `SteeringSmoothness` (control stability factor $[0.0 - 1.0]$).
 *   **Non-Blocking Persistence:** Asynchronous disk export (`std::async`/`std::future`) with automatic history loading on startup and synchronous flush on exit (`SIGINT`/`SIGTERM`/window close).
 
+### 5. High-Entropy Procedural Track Synthesis Engine (Stochastic Macro-Graph)
+To prevent neural networks from overfitting to fixed track layouts, the procedural generator uses a high-entropy macro-graph pipeline that generates dense, topologically rich circuits:
+*   **Multi-Centric Macro-Graphs & 6 Canonical Archetypes:** Synthesizes randomized macro-skeletons featuring out-and-back corridors, asymmetric infield loops, triangular diagonals, L-shape carousels, dual-lobe horseshoes, and urban street grids.
+*   **Combinatorial Motif Injection:** Analyzes long straightaways and stochastically injects technical chicanes, esses, or kinks with dynamic lateral displacement.
+*   **Unconstrained 360° Affine Transformation:** Implements arbitrary planar rotation ($\phi \in [0, 2\pi)$), asymmetric scaling, and dynamic margin fitting, ensuring start straights and apexes can emerge at any angle.
+*   **Clearance & Self-Intersection Watchdog:** Validates candidates by verifying zero self-intersections and enforcing a minimum $45\text{ px}$ clearance between non-adjacent centerline sections, eliminating bottlenecks while maintaining high variance ($CV_L \approx 19\%$, $CV_{W/H} \approx 23\%$).
+
 ---
 
 ## System Performance & Design Patterns
@@ -240,7 +247,7 @@ NeuralRacer-CPP/
 │   ├── Evolution.h        # Genetic operators, crossover, and serialization helpers
 │   ├── Simulation.h       # Main program coordinator and screen state machine
 │   ├── Telemetry.h        # Metrics collector, live dashboard, and CSV logger
-│   ├── TrackGenerator.h   # Procedural logic (Convex Hull, F1 motifs, relaxation)
+│   ├── TrackGenerator.h   # High-entropy procedural engine (macro-graphs, motifs, 360° affine transforms)
 │   ├── TrackManager.h     # Grid Hashing utilities and track I/O routines
 │   └── json.hpp           # nlohmann JSON utility library
 ├── src/                   # Source implementations
