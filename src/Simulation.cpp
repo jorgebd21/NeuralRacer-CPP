@@ -39,7 +39,7 @@ Simulation::Simulation(bool isHeadless) :
 }
 
 constexpr int SIM_TARGET_FPS = 60;
-constexpr int PROCEDURAL_SPLINE_SEGMENTS = 50;
+constexpr int PROCEDURAL_SPLINE_SEGMENTS = 16;
 constexpr float PROCEDURAL_TRACK_WIDTH = 35.0f;
 
 void Simulation::Init() {
