@@ -16,6 +16,8 @@ namespace Config {
     inline int MUTATION = 50;
     constexpr float DROP_RATE = 0.0005f;
     constexpr int MAX_GENERATION_TIME = 2000;
+    constexpr int CURRICULUM_PHASE_1_END = 15;
+    constexpr int CURRICULUM_PHASE_2_END = 50;
     constexpr float SENSOR_ANGLES[5] = {-90.0f, -45.0f, 0.0f, 45.0f, 90.0f};
 
     constexpr float CAR_TURN_SPEED = 3.5f;

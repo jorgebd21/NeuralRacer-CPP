@@ -83,6 +83,8 @@ void Simulation::Init() {
         population.push_back(Car(startPosition.x, startPosition.y, startRotation));
     }
     Evolution::LoadBestBrains(population, generationCount);
+    SetupCurriculumForGeneration(generationCount);
+    SetTrainingTrack(0);
     
     playerCar = Car(startPosition.x, startPosition.y, startRotation);
     aiCar = population.empty() ? Car(startPosition.x, startPosition.y, startRotation) : population[0];
@@ -128,6 +130,7 @@ void Simulation::UpdateMenu() {
 
     if (IsKeyPressed(KEY_T)) {
         currentEvaluationTrack = 0;
+        SetupCurriculumForGeneration(generationCount);
         SetTrainingTrack(0);
         for (auto& car : population) car.Reset(startPosition.x, startPosition.y, startRotation);
         currentState = TRAINING;
@@ -253,9 +256,9 @@ void Simulation::UpdateTraining() {
         
         // If all cars died or the maximum time per generation is up
         if (allCrashed || generationTimer >= Config::MAX_GENERATION_TIME) {
-            std::cout << "Generation " << generationCount << " (Track " << currentEvaluationTrack + 1 << "/3)" << std::endl;
+            std::cout << "Generation " << generationCount << " (Track " << currentEvaluationTrack + 1 << "/" << trainingTracks.size() << ")" << std::endl;
             currentEvaluationTrack++;
-            if (currentEvaluationTrack >= 3) {
+            if (currentEvaluationTrack >= (int)trainingTracks.size()) {
                 std::vector<Car*> sortedPop;
                 sortedPop.reserve(population.size());
                 for (auto& car : population) {
@@ -267,10 +270,13 @@ void Simulation::UpdateTraining() {
                 Telemetry::RecordGeneration(generationCount, population, Config::MAX_GENERATION_TIME);
                 Telemetry::ExportDataAsync();
                 
-                Evolution::EvolvePopulation(population, trainingTracks[0].startPos, trainingTracks[0].startRot, generationCount);
                 generationTimer = 0;
                 generationCount++;
                 currentEvaluationTrack = 0;
+
+                // Setup adaptive curriculum tracks for upcoming generation
+                SetupCurriculumForGeneration(generationCount);
+                Evolution::EvolvePopulation(population, trainingTracks[0].startPos, trainingTracks[0].startRot, generationCount);
                 SetTrainingTrack(0);
             } else {
                 for (auto& car : population) {
@@ -443,17 +449,25 @@ void Simulation::DrawTraining() {
 
     constexpr int UI_PANEL_WIDTH = 250;
     DrawRectangle(Config::SCREEN_WIDTH - UI_PANEL_WIDTH, 0, UI_PANEL_WIDTH, Config::SCREEN_HEIGHT, Fade(BLACK, 0.85f));
-    DrawText(TextFormat("Generation: %d (Track %d/3)", generationCount, currentEvaluationTrack + 1), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 20, 20, WHITE);
-    DrawText(TextFormat("Time: %d / %d", generationTimer, Config::MAX_GENERATION_TIME), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 50, 20, WHITE);
-    DrawText(TextFormat("Alive: %d / %d", aliveCount, Config::POPULATION_SIZE), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 80, 20, WHITE);
-    DrawText(TextFormat("Speed: %s", (simSpeed == 1) ? "NORMAL" : "MAX (x50)"), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 110, 15, (simSpeed == 1) ? GREEN : RED);
-    DrawText(TextFormat("Mutation: %d %%", Config::MUTATION), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 130, 15, YELLOW);
-    DrawText("[SPACE] Change speed", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 150, 10, LIGHTGRAY);
-    DrawText("[M] Return to Menu", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 165, 10, LIGHTGRAY);
-    DrawText("[C] Toggle Checkpoints", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 180, 10, LIGHTGRAY);
-    DrawText("[H] Telemetry & Heatmap", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 195, 10, LIGHTGRAY);
+    DrawText(TextFormat("Generation: %d (Track %d/%d)", generationCount, currentEvaluationTrack + 1, (int)trainingTracks.size()), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 12, 17, WHITE);
+    
+    const char* phaseStr = (generationCount < Config::CURRICULUM_PHASE_1_END) ? "PHASE 1: INDUCTION" :
+                           (generationCount < Config::CURRICULUM_PHASE_2_END) ? "PHASE 2: CONSOLIDATION" :
+                           "PHASE 3: PROCEDURAL GEN";
+    Color phaseColor = (generationCount < Config::CURRICULUM_PHASE_1_END) ? YELLOW :
+                       (generationCount < Config::CURRICULUM_PHASE_2_END) ? SKYBLUE : GREEN;
+    DrawText(phaseStr, Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 32, 11, phaseColor);
 
-    DrawText("TOP 10 FITNESS", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 215, 20, YELLOW);
+    DrawText(TextFormat("Time: %d / %d", generationTimer, Config::MAX_GENERATION_TIME), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 48, 16, WHITE);
+    DrawText(TextFormat("Alive: %d / %d", aliveCount, Config::POPULATION_SIZE), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 68, 16, WHITE);
+    DrawText(TextFormat("Speed: %s", (simSpeed == 1) ? "NORMAL" : "MAX (x50)"), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 90, 14, (simSpeed == 1) ? GREEN : RED);
+    DrawText(TextFormat("Mutation: %d %%", Config::MUTATION), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 110, 14, YELLOW);
+    DrawText("[SPACE] Change speed", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 130, 10, LIGHTGRAY);
+    DrawText("[M] Return to Menu", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 145, 10, LIGHTGRAY);
+    DrawText("[C] Toggle Checkpoints", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 160, 10, LIGHTGRAY);
+    DrawText("[H] Telemetry & Heatmap", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 175, 10, LIGHTGRAY);
+
+    DrawText("TOP 10 FITNESS", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 195, 18, YELLOW);
     std::vector<Car*> sortedPop;
     sortedPop.reserve(population.size());
     for (auto& car : population) {
@@ -463,7 +477,7 @@ void Simulation::DrawTraining() {
     for (int i = 0; i < 10 && i < (int)sortedPop.size(); i++) {
         Color rowColor = (sortedPop[i]->isCrashed) ? GRAY : WHITE;
         if (i == 0) rowColor = GOLD;
-        DrawText(TextFormat("%d. Fit: %.1f", i + 1, sortedPop[i]->fitness), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 245 + (i * 25), 18, rowColor);
+        DrawText(TextFormat("%d. Fit: %.1f", i + 1, sortedPop[i]->fitness), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 220 + (i * 25), 18, rowColor);
     }
 
     if (!sortedPop.empty()) {
@@ -615,41 +629,77 @@ void Simulation::BuildSpatialGrid(){
 }
 
 void Simulation::InitTrainingTracks() {
-    trainingTracks.clear();
-
-    // Track 0: Selected base circuit
-    TrainingTrack t0;
-    if (!trackWalls.empty()) {
-        t0.walls = trackWalls;
-        t0.checkpoints = trackCheckpoints;
-        t0.startPos = startPosition;
-        t0.startRot = startRotation;
+    // 1. Load baseTrackFacil (Phase 1 induction & Phase 2 consolidation)
+    std::string path0 = "data/tracks/pista_facil.json";
+    if (std::ifstream(path0.c_str()).good()) {
+        TrackManager::LoadTrackFromFile(path0, baseTrackFacil.walls, baseTrackFacil.startPos, baseTrackFacil.startRot, baseTrackFacil.checkpoints);
+    } else if (!trackWalls.empty()) {
+        baseTrackFacil.walls = trackWalls;
+        baseTrackFacil.checkpoints = trackCheckpoints;
+        baseTrackFacil.startPos = startPosition;
+        baseTrackFacil.startRot = startRotation;
     } else {
-        TrackManager::LoadTrackFromFile(trackFile, t0.walls, t0.startPos, t0.startRot, t0.checkpoints);
+        TrackManager::LoadTrackFromFile(trackFile, baseTrackFacil.walls, baseTrackFacil.startPos, baseTrackFacil.startRot, baseTrackFacil.checkpoints);
     }
-    trainingTracks.push_back(t0);
 
-    // Track 1: Deterministic intermediate circuit
-    TrainingTrack t1;
+    // 2. Load baseTrackMedio (Phase 2 consolidation & Phase 3 benchmark)
     std::string path1 = "data/tracks/pista_medio.json";
-    std::ifstream f1(path1.c_str());
-    if (f1.good()) {
-        TrackManager::LoadTrackFromFile(path1, t1.walls, t1.startPos, t1.startRot, t1.checkpoints);
+    if (std::ifstream(path1.c_str()).good()) {
+        TrackManager::LoadTrackFromFile(path1, baseTrackMedio.walls, baseTrackMedio.startPos, baseTrackMedio.startRot, baseTrackMedio.checkpoints);
     } else {
-        t1 = t0;
+        baseTrackMedio = baseTrackFacil;
     }
-    trainingTracks.push_back(t1);
 
-    // Track 2: Deterministic advanced circuit
-    TrainingTrack t2;
+    // 3. Load baseTrackDificil (Phase 2 advanced consolidation)
     std::string path2 = "data/tracks/pista_dificil.json";
-    std::ifstream f2(path2.c_str());
-    if (f2.good()) {
-        TrackManager::LoadTrackFromFile(path2, t2.walls, t2.startPos, t2.startRot, t2.checkpoints);
+    if (std::ifstream(path2.c_str()).good()) {
+        TrackManager::LoadTrackFromFile(path2, baseTrackDificil.walls, baseTrackDificil.startPos, baseTrackDificil.startRot, baseTrackDificil.checkpoints);
     } else {
-        t2 = t0;
+        baseTrackDificil = baseTrackMedio;
     }
-    trainingTracks.push_back(t2);
+}
+
+Simulation::TrainingTrack Simulation::GenerateProceduralTrainingTrack() {
+    TrainingTrack tt;
+    std::vector<Vector2> pts = TrackGenerator::GenerateProceduralCenterPoints();
+    std::vector<Vector2> denseLine = TrackManager::GenerateSplinePoints(pts, PROCEDURAL_SPLINE_SEGMENTS);
+    TrackManager::CalculateStartGrid(pts, tt.startPos, tt.startRot);
+
+    // Snap startPos to nearest dense center line point
+    int snapIdx = 0;
+    float minDist = FLT_MAX;
+    for (int i = 0; i < (int)denseLine.size(); i++) {
+        float dx = denseLine[i].x - tt.startPos.x;
+        float dy = denseLine[i].y - tt.startPos.y;
+        float d = dx*dx + dy*dy;
+        if (d < minDist) { minDist = d; snapIdx = i; }
+    }
+    tt.startPos = denseLine[snapIdx];
+    int denseN = (int)denseLine.size();
+    Vector2 prev = denseLine[(snapIdx - 1 + denseN) % denseN];
+    Vector2 next = denseLine[(snapIdx + 1) % denseN];
+    tt.startRot = atan2(next.y - prev.y, next.x - prev.x) * (180.0f / PI);
+
+    TrackManager::GenerateBordersFromCenterLine(denseLine, PROCEDURAL_TRACK_WIDTH, tt.walls, tt.checkpoints, tt.startPos);
+    return tt;
+}
+
+void Simulation::SetupCurriculumForGeneration(int gen) {
+    trainingTracks.clear();
+    if (gen < Config::CURRICULUM_PHASE_1_END) {
+        // Phase 1: Inducción (pista_facil exclusivamente)
+        trainingTracks.push_back(baseTrackFacil);
+    } else if (gen < Config::CURRICULUM_PHASE_2_END) {
+        // Phase 2: Consolidación multi-pista determinista (Fácil -> Media -> Difícil)
+        trainingTracks.push_back(baseTrackFacil);
+        trainingTracks.push_back(baseTrackMedio);
+        trainingTracks.push_back(baseTrackDificil);
+    } else {
+        // Phase 3: Generalización continua (1 Benchmark de control + 2 Pistas procedurales dinámicas)
+        trainingTracks.push_back(baseTrackMedio);
+        trainingTracks.push_back(GenerateProceduralTrainingTrack());
+        trainingTracks.push_back(GenerateProceduralTrainingTrack());
+    }
 }
 
 void Simulation::SetTrainingTrack(int trackIndex) {

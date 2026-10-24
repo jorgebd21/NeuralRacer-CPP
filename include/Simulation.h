@@ -61,6 +61,7 @@ private:
 
     void BuildSpatialGrid();
     void InitTrainingTracks();
+    void SetupCurriculumForGeneration(int gen);
     void SetTrainingTrack(int trackIndex);
 
     struct TrainingTrack {
@@ -69,6 +70,11 @@ private:
         Vector2 startPos;
         float startRot;
     };
+    TrainingTrack GenerateProceduralTrainingTrack();
+
+    TrainingTrack baseTrackFacil;
+    TrainingTrack baseTrackMedio;
+    TrainingTrack baseTrackDificil;
     std::vector<TrainingTrack> trainingTracks;
 
     GameState currentState;
