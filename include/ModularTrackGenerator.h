@@ -10,19 +10,30 @@
 #include "TrackManager.h"
 
 /**
- * @brief Discrete Modular Track Generator by Tile/Segment Coupling.
+ * @brief Professional Modular Track Synthesis Engine (SE(2) Tile Coupling).
  * 
- * Synthesizes racing circuits by assembling discrete track modules (straights,
- * 90-deg corners, 45-deg arcs, 180-deg hairpins, and chicanes) through kinematically
- * continuous SE(2) ports, enforcing clearance and solving loop closure with an elastic Hermite bridge.
+ * Assembles Grand Prix racing circuits from an expanded discrete catalog of 12 module families:
+ * - Micro & Super Straights (STR_50, STR_90, STR_150, STR_240)
+ * - Ultra High-Speed Kinks 30° (CRV_30_R260_L/R)
+ * - High-Downforce Arcs 45° (CRV_45_R160_L/R)
+ * - Open V-Corners 60° (CRV_60_R150_L/R)
+ * - Medium Apex Corners 90° (CRV_90_R110_L/R)
+ * - Progressive Double-Apex Carousels 135° (CRV_DBL_APEX_L/R)
+ * - Heavy Braking Hairpins 180° (HRP_180_R60_L/R)
+ * - Fluid S-Chicanes (CHK_S_L40/R40)
+ * - Violent Bus-Stop Chicanes (CHK_BUS_STOP_L/R)
+ * - Technical Snake Esses (ESS_SNAKE_L/R)
+ * 
+ * Features Multi-Topology Waypoint Guidance (Triangular, Pentagonal Infield, Dog-Leg, and Rotated Quad)
+ * with unconstrained 360-degree start pose rotation φ ∈ [0, 2π) and C1 Hermite loop closure.
  */
 namespace ModularTrackGenerator {
     constexpr float PI_F = 3.14159265358979323846f;
-    constexpr float MIN_CLEARANCE = 40.0f;
+    constexpr float MIN_CLEARANCE = 38.0f;
 
     struct Port {
         Vector2 pos;
-        float heading; // in radians
+        float heading;
     };
 
     struct ModuleDef {
@@ -58,69 +69,57 @@ namespace ModularTrackGenerator {
         return m;
     }
 
-    inline ModuleDef MakeCurve90(const std::string& id, float radius, bool turnLeft) {
+    inline ModuleDef MakeArc(const std::string& id, float radius, float angleRad, bool turnLeft) {
         ModuleDef m;
         m.id = id;
-        m.deltaHeading = turnLeft ? (PI_F * 0.5f) : (-PI_F * 0.5f);
-        int steps = std::max(4, (int)(radius * (PI_F * 0.5f) / 20.0f));
+        m.deltaHeading = turnLeft ? angleRad : -angleRad;
+        int steps = std::max(3, (int)(radius * angleRad / 20.0f));
 
         if (turnLeft) {
-            m.localExitPos = { radius, radius };
+            m.localExitPos = { radius * std::sin(angleRad), radius * (1.0f - std::cos(angleRad)) };
             for (int i = 0; i <= steps; i++) {
-                float alpha = -PI_F * 0.5f + (float)i / steps * (PI_F * 0.5f);
-                m.localPoints.push_back({ radius * std::cos(alpha), radius + radius * std::sin(alpha) });
+                float a = -PI_F * 0.5f + (float)i / steps * angleRad;
+                m.localPoints.push_back({ radius * std::cos(a), radius + radius * std::sin(a) });
             }
         } else {
-            m.localExitPos = { radius, -radius };
+            m.localExitPos = { radius * std::sin(angleRad), -radius * (1.0f - std::cos(angleRad)) };
             for (int i = 0; i <= steps; i++) {
-                float alpha = PI_F * 0.5f - (float)i / steps * (PI_F * 0.5f);
-                m.localPoints.push_back({ radius * std::cos(alpha), -radius + radius * std::sin(alpha) });
+                float a = PI_F * 0.5f - (float)i / steps * angleRad;
+                m.localPoints.push_back({ radius * std::cos(a), -radius + radius * std::sin(a) });
             }
         }
         return m;
     }
 
-    inline ModuleDef MakeCurve45(const std::string& id, float radius, bool turnLeft) {
+    inline ModuleDef MakeDoubleApex(const std::string& id, float r1, float r2, bool turnLeft) {
         ModuleDef m;
         m.id = id;
-        m.deltaHeading = turnLeft ? (PI_F * 0.25f) : (-PI_F * 0.25f);
-        int steps = std::max(3, (int)(radius * (PI_F * 0.25f) / 20.0f));
+        float a1 = PI_F * 0.25f;
+        float a2 = PI_F * 0.50f;
+        m.deltaHeading = turnLeft ? (a1 + a2) : -(a1 + a2);
 
-        if (turnLeft) {
-            m.localExitPos = { radius * std::sin(PI_F * 0.25f), radius * (1.0f - std::cos(PI_F * 0.25f)) };
-            for (int i = 0; i <= steps; i++) {
-                float alpha = -PI_F * 0.5f + (float)i / steps * (PI_F * 0.25f);
-                m.localPoints.push_back({ radius * std::cos(alpha), radius + radius * std::sin(alpha) });
-            }
-        } else {
-            m.localExitPos = { radius * std::sin(PI_F * 0.25f), -radius * (1.0f - std::cos(PI_F * 0.25f)) };
-            for (int i = 0; i <= steps; i++) {
-                float alpha = PI_F * 0.5f - (float)i / steps * (PI_F * 0.25f);
-                m.localPoints.push_back({ radius * std::cos(alpha), -radius + radius * std::sin(alpha) });
-            }
+        std::vector<Vector2> pts;
+        int steps1 = 4;
+        for (int i = 0; i <= steps1; i++) {
+            float t = (float)i / steps1;
+            float a = -PI_F * 0.5f + t * a1;
+            pts.push_back({ r1 * std::cos(a), r1 + r1 * std::sin(a) });
         }
-        return m;
-    }
-
-    inline ModuleDef MakeHairpin180(const std::string& id, float radius, bool turnLeft) {
-        ModuleDef m;
-        m.id = id;
-        m.deltaHeading = turnLeft ? PI_F : -PI_F;
-        int steps = std::max(6, (int)(radius * PI_F / 20.0f));
-
-        if (turnLeft) {
-            m.localExitPos = { 0.0f, 2.0f * radius };
-            for (int i = 0; i <= steps; i++) {
-                float alpha = -PI_F * 0.5f + (float)i / steps * PI_F;
-                m.localPoints.push_back({ radius * std::cos(alpha), radius + radius * std::sin(alpha) });
-            }
-        } else {
-            m.localExitPos = { 0.0f, -2.0f * radius };
-            for (int i = 0; i <= steps; i++) {
-                float alpha = PI_F * 0.5f - (float)i / steps * PI_F;
-                m.localPoints.push_back({ radius * std::cos(alpha), -radius + radius * std::sin(alpha) });
-            }
+        Vector2 p1 = pts.back();
+        Vector2 c2 = { p1.x - r2 * std::sin(a1), p1.y + r2 * std::cos(a1) };
+        int steps2 = 6;
+        for (int i = 1; i <= steps2; i++) {
+            float t = (float)i / steps2;
+            float a = a1 + t * a2;
+            pts.push_back({ c2.x + r2 * std::sin(a), c2.y - r2 * std::cos(a) });
         }
+
+        if (!turnLeft) {
+            for (auto& pt : pts) pt.y = -pt.y;
+        }
+
+        m.localPoints = pts;
+        m.localExitPos = pts.back();
         return m;
     }
 
@@ -129,7 +128,7 @@ namespace ModularTrackGenerator {
         m.id = id;
         m.deltaHeading = 0.0f;
         m.localExitPos = { length, lateralOffset };
-        int steps = 6;
+        int steps = 8;
         for (int i = 0; i <= steps; i++) {
             float t = (float)i / steps;
             float x = t * length;
@@ -139,18 +138,56 @@ namespace ModularTrackGenerator {
         return m;
     }
 
+    inline ModuleDef MakeSnakeEsses(const std::string& id, float length, float amplitude) {
+        ModuleDef m;
+        m.id = id;
+        m.deltaHeading = 0.0f;
+        m.localExitPos = { length, 0.0f };
+        int steps = 12;
+        float factor = amplitude / 0.75f;
+        for (int i = 0; i <= steps; i++) {
+            float t = (float)i / steps;
+            float x = t * length;
+            float env = 4.0f * t * (1.0f - t);
+            float y = factor * std::sin(2.0f * PI_F * t) * env;
+            m.localPoints.push_back({ x, y });
+        }
+        return m;
+    }
+
     inline std::vector<ModuleDef> BuildCatalog() {
         std::vector<ModuleDef> cat;
-        cat.push_back(MakeStraight("STR_80", 80.0f));
+        cat.push_back(MakeStraight("STR_50", 50.0f));
+        cat.push_back(MakeStraight("STR_90", 90.0f));
         cat.push_back(MakeStraight("STR_150", 150.0f));
-        cat.push_back(MakeCurve90("CRV_90_R110_L", 110.0f, true));
-        cat.push_back(MakeCurve90("CRV_90_R110_R", 110.0f, false));
-        cat.push_back(MakeCurve45("CRV_45_R160_L", 160.0f, true));
-        cat.push_back(MakeCurve45("CRV_45_R160_R", 160.0f, false));
-        cat.push_back(MakeHairpin180("HRP_180_R60_L", 60.0f, true));
-        cat.push_back(MakeHairpin180("HRP_180_R60_R", 60.0f, false));
+        cat.push_back(MakeStraight("STR_240", 240.0f));
+
+        cat.push_back(MakeArc("CRV_30_R260_L", 260.0f, PI_F / 6.0f, true));
+        cat.push_back(MakeArc("CRV_30_R260_R", 260.0f, PI_F / 6.0f, false));
+
+        cat.push_back(MakeArc("CRV_45_R160_L", 160.0f, PI_F / 4.0f, true));
+        cat.push_back(MakeArc("CRV_45_R160_R", 160.0f, PI_F / 4.0f, false));
+
+        cat.push_back(MakeArc("CRV_60_R150_L", 150.0f, PI_F / 3.0f, true));
+        cat.push_back(MakeArc("CRV_60_R150_R", 150.0f, PI_F / 3.0f, false));
+
+        cat.push_back(MakeArc("CRV_90_R110_L", 110.0f, PI_F / 2.0f, true));
+        cat.push_back(MakeArc("CRV_90_R110_R", 110.0f, PI_F / 2.0f, false));
+
+        cat.push_back(MakeDoubleApex("CRV_DBL_APEX_L", 150.0f, 90.0f, true));
+        cat.push_back(MakeDoubleApex("CRV_DBL_APEX_R", 150.0f, 90.0f, false));
+
+        cat.push_back(MakeArc("HRP_180_R60_L", 60.0f, PI_F, true));
+        cat.push_back(MakeArc("HRP_180_R60_R", 60.0f, PI_F, false));
+
         cat.push_back(MakeChicane("CHK_S_L40", 130.0f, 40.0f));
         cat.push_back(MakeChicane("CHK_S_R40", 130.0f, -40.0f));
+        cat.push_back(MakeChicane("CHK_BUS_STOP_L", 170.0f, 60.0f));
+        cat.push_back(MakeChicane("CHK_BUS_STOP_R", 170.0f, -60.0f));
+
+        cat.push_back(MakeSnakeEsses("ESS_SNAKE_L", 210.0f, 35.0f));
+        cat.push_back(MakeSnakeEsses("ESS_SNAKE_R", 210.0f, -35.0f));
+
         return cat;
     }
 
@@ -174,13 +211,13 @@ namespace ModularTrackGenerator {
 
     inline bool TryHermiteBridge(const Port& curPort, const Port& startPort, std::vector<Vector2>& outBridgePoints) {
         float d = Dist(curPort.pos, startPort.pos);
-        if (d < 60.0f || d > 450.0f) return false;
+        if (d < 50.0f || d > 480.0f) return false;
 
         float toStartX = startPort.pos.x - curPort.pos.x;
         float toStartY = startPort.pos.y - curPort.pos.y;
         float dirAngle = std::atan2(toStartY, toStartX);
         float angleDiff = std::abs(NormalizeAngle(dirAngle - curPort.heading));
-        if (angleDiff > PI_F * 0.70f) return false;
+        if (angleDiff > PI_F * 0.72f) return false;
 
         float tangentLen = d * 0.5f;
         Vector2 m0 = { std::cos(curPort.heading) * tangentLen, std::sin(curPort.heading) * tangentLen };
@@ -222,46 +259,109 @@ namespace ModularTrackGenerator {
         return true;
     }
 
+    inline std::vector<Vector2> SeedWaypoints(int topology, float& outStartAngle) {
+        std::vector<Vector2> rawWp;
+        float rot = (float)GetRandomValue(0, 360) * (PI_F / 180.0f);
+        float cosR = std::cos(rot);
+        float sinR = std::sin(rot);
+
+        switch (topology) {
+            case 0: { // Triangular Delta (3 waypoints)
+                float r1 = (float)GetRandomValue(300, 360);
+                float r2 = (float)GetRandomValue(280, 340);
+                float r3 = (float)GetRandomValue(280, 340);
+                rawWp.push_back({ r1 * 1.0f, 0.0f });
+                rawWp.push_back({ -r2 * 0.5f, r2 * 0.866f });
+                rawWp.push_back({ -r3 * 0.5f, -r3 * 0.866f });
+                break;
+            }
+            case 1: { // Pentagonal with Infield Dip (5 waypoints)
+                for (int i = 0; i < 5; i++) {
+                    float a = i * (2.0f * PI_F / 5.0f);
+                    float rad = (i == 2) ? (float)GetRandomValue(120, 180) : (float)GetRandomValue(280, 350);
+                    rawWp.push_back({ rad * std::cos(a), rad * std::sin(a) });
+                }
+                break;
+            }
+            case 2: { // Dog-Leg / L-Shape (5 waypoints)
+                float w = (float)GetRandomValue(280, 350);
+                float h = (float)GetRandomValue(220, 280);
+                rawWp.push_back({ w, -h });
+                rawWp.push_back({ w * 0.2f, 0.0f });
+                rawWp.push_back({ -w, -h });
+                rawWp.push_back({ -w, h });
+                rawWp.push_back({ w * 0.5f, h });
+                break;
+            }
+            case 3: default: { // Rotated Quad Box (4 waypoints)
+                float hw = (float)GetRandomValue(260, 360);
+                float hh = (float)GetRandomValue(180, 260);
+                rawWp.push_back({ hw, hh });
+                rawWp.push_back({ -hw, hh });
+                rawWp.push_back({ -hw, -hh });
+                rawWp.push_back({ hw, -hh });
+                break;
+            }
+        }
+
+        std::vector<Vector2> worldWp;
+        for (const auto& p : rawWp) {
+            float wx = 500.0f + p.x * cosR - p.y * sinR;
+            float wy = 400.0f + p.x * sinR + p.y * cosR;
+            worldWp.push_back({ wx, wy });
+        }
+
+        float shoelace = 0.0f;
+        int n = worldWp.size();
+        for (int i = 0; i < n; i++) {
+            Vector2 a = worldWp[i];
+            Vector2 b = worldWp[(i + 1) % n];
+            shoelace += (b.x - a.x) * (b.y + a.y);
+        }
+        if (shoelace < 0.0f) {
+            std::reverse(worldWp.begin(), worldWp.end());
+        }
+
+        int startEdge = GetRandomValue(0, n - 1);
+        Vector2 pA = worldWp[startEdge];
+        Vector2 pB = worldWp[(startEdge + 1) % n];
+        outStartAngle = std::atan2(pB.y - pA.y, pB.x - pA.x);
+
+        std::vector<Vector2> reordered;
+        for (int i = 1; i <= n; i++) {
+            reordered.push_back(worldWp[(startEdge + i) % n]);
+        }
+        return reordered;
+    }
+
     /**
-     * @brief Generates a closed modular circuit assembled from the discrete tile catalog.
+     * @brief Synthesizes a high-variety modular racing circuit with 360-degree start pose and multi-topology.
      */
     inline std::vector<Vector2> GenerateProceduralCenterPoints() {
         auto catalog = BuildCatalog();
 
         for (int run = 0; run < 120; run++) {
-            float xR = (float)GetRandomValue(720, 860);
-            float xL = (float)GetRandomValue(140, 280);
-            float yB = (float)GetRandomValue(620, 700);
-            float yT = (float)GetRandomValue(140, 220);
+            int topology = GetRandomValue(0, 3);
+            float startHeading = 0.0f;
+            std::vector<Vector2> waypoints = SeedWaypoints(topology, startHeading);
+            int numWP = (int)waypoints.size();
 
-            bool hasInfield = (GetRandomValue(0, 100) < 45);
-            float xMid = (xR + xL) * 0.5f + (float)GetRandomValue(-40, 40);
-            float yMid = (yB + yT) * 0.5f + (float)GetRandomValue(-40, 40);
-
-            std::vector<Vector2> waypoints;
-            waypoints.push_back({ xR, yB });
-            waypoints.push_back({ xR, yT });
-            if (hasInfield) {
-                waypoints.push_back({ xMid, yMid });
-            }
-            waypoints.push_back({ xL, yT });
-            waypoints.push_back({ xL, yB });
-
-            Port startPort = { { (xL + xR) * 0.5f, yB }, 0.0f };
+            Vector2 lastWP = waypoints.back();
+            Vector2 firstWP = waypoints.front();
+            Port startPort = { { (lastWP.x + firstWP.x) * 0.5f, (lastWP.y + firstWP.y) * 0.5f }, startHeading };
             Port curPort = startPort;
 
             std::vector<Vector2> trackPoints;
             trackPoints.push_back(startPort.pos);
 
             int wpIdx = 0;
-            int numWP = (int)waypoints.size();
             bool closed = false;
 
-            for (int step = 0; step < 26; step++) {
+            for (int step = 0; step < 28; step++) {
                 Vector2 targetWP = (wpIdx < numWP) ? waypoints[wpIdx] : startPort.pos;
                 float distToTarget = Dist(curPort.pos, targetWP);
 
-                if (distToTarget < 140.0f && wpIdx < numWP) {
+                if (distToTarget < 150.0f && wpIdx < numWP) {
                     wpIdx++;
                     if (wpIdx < numWP) targetWP = waypoints[wpIdx];
                 }
@@ -308,7 +408,7 @@ namespace ModularTrackGenerator {
                     float desiredAngle = std::atan2(targetWP.y - testExit.pos.y, targetWP.x - testExit.pos.x);
                     float headingDiff = std::abs(NormalizeAngle(desiredAngle - testExit.heading));
                     float distScore = Dist(testExit.pos, targetWP);
-                    float totalScore = distScore + headingDiff * 110.0f + (float)GetRandomValue(0, 35);
+                    float totalScore = distScore + headingDiff * 115.0f + (float)GetRandomValue(0, 30);
 
                     scored.push_back({ (int)i, totalScore });
                 }
@@ -320,7 +420,7 @@ namespace ModularTrackGenerator {
                 });
 
                 int pickIdx = 0;
-                if (scored.size() > 1 && GetRandomValue(0, 100) < 30) pickIdx = 1;
+                if (scored.size() > 1 && GetRandomValue(0, 100) < 35) pickIdx = 1;
 
                 const auto& bestMod = catalog[scored[pickIdx].catalogIdx];
                 Port nextPort;
