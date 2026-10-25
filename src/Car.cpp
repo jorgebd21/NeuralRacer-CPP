@@ -40,6 +40,33 @@ void Car::Reset(float startX, float startY, float startRot, bool fullReset) {
     frontSensorHistoryIdx = 0;
     stallTicks = 0;
 
+    prevLongitudinalVelocity = 0.0f;
+    prevLateralVelocity = 0.0f;
+    longAccel = 0.0f;
+    latAccel = 0.0f;
+    prevLongAccel = 0.0f;
+    prevLatAccel = 0.0f;
+    jerkLong = 0.0f;
+    jerkLat = 0.0f;
+    slipAngle = 0.0f;
+    kammUtilization = 0.0f;
+
+    prevSteerSign = 0;
+    steeringZeroCrossings = 0;
+    prevAccelInput = 0.0f;
+    throttleChatter = 0.0f;
+
+    currentTrackOffset = 0.0f;
+    sumTrackOffset = 0.0f;
+    trackOffsetSamples = 0;
+    lastApexDistance = 0.0f;
+    lastApexSpeed = 0.0f;
+
+    currentLapSamples.clear();
+    if (fullReset) {
+        bestLapSamples.clear();
+    }
+
     for (int i = 0; i < FRONT_HISTORY_SIZE; i++) {
         frontSensorHistory[i] = Config::CAR_FRONT_SENSOR_DIST;
     }
@@ -116,6 +143,31 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const std::unord
     longitudinalVelocity = localForward;
     lateralVelocity = localLateral;
 
+    // Advanced dynamic acceleration and jerk telemetry
+    longAccel = longitudinalVelocity - prevLongitudinalVelocity;
+    latAccel = lateralVelocity - prevLateralVelocity;
+    jerkLong = longAccel - prevLongAccel;
+    jerkLat = latAccel - prevLatAccel;
+    prevLongAccel = longAccel;
+    prevLatAccel = latAccel;
+    prevLongitudinalVelocity = longitudinalVelocity;
+    prevLateralVelocity = lateralVelocity;
+
+    // Kamm friction utilization & Slip Angle
+    float totalAccelMag = std::sqrt(longAccel * longAccel + latAccel * latAccel);
+    float gripBudget = std::max(0.01f, Config::TIRE_GRIP_LIMIT * tractionMultiplier);
+    kammUtilization = totalAccelMag / gripBudget;
+    slipAngle = std::atan2(lateralVelocity, std::max(0.1f, std::abs(longitudinalVelocity))) * (180.0f / 3.14159265f);
+
+    // Control Ergonomics & Chatter
+    int steerSign = (inputTurn > 0.05f) ? 1 : (inputTurn < -0.05f ? -1 : 0);
+    if (steerSign != 0 && prevSteerSign != 0 && steerSign != prevSteerSign) {
+        steeringZeroCrossings++;
+    }
+    prevSteerSign = steerSign;
+    throttleChatter += std::abs(inputAccelerate - prevAccelInput);
+    prevAccelInput = inputAccelerate;
+
     // Store old position to check if a checkpoint has been crossed
     Vector2 oldPosition = position;
 
@@ -124,11 +176,25 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const std::unord
 
     // Check if the car has passed through the target checkpoint
     if (!trackCheckpoints.empty() && nextCheckPointIndex >= 0 && nextCheckPointIndex < (int)trackCheckpoints.size()) {
+        int numCp = (int)trackCheckpoints.size();
         Vector2 cpCurr = trackCheckpoints[nextCheckPointIndex];
+        Vector2 cpPrev = trackCheckpoints[(nextCheckPointIndex - 1 + numCp) % numCp];
+
+        // Track centerline offset
+        float segX = cpCurr.x - cpPrev.x;
+        float segY = cpCurr.y - cpPrev.y;
+        float segLenSq = segX * segX + segY * segY;
+        if (segLenSq > 1.0f) {
+            float u = std::clamp(((position.x - cpPrev.x) * segX + (position.y - cpPrev.y) * segY) / segLenSq, 0.0f, 1.0f);
+            Vector2 proj = { cpPrev.x + u * segX, cpPrev.y + u * segY };
+            float distToCenter = std::sqrt((position.x - proj.x) * (position.x - proj.x) + (position.y - proj.y) * (position.y - proj.y));
+            currentTrackOffset = std::clamp(distToCenter / 35.0f, 0.0f, 1.0f);
+            sumTrackOffset += currentTrackOffset;
+            trackOffsetSamples++;
+        }
+
         float distSq = (position.x - cpCurr.x) * (position.x - cpCurr.x) + (position.y - cpCurr.y) * (position.y - cpCurr.y);
         if (distSq <= Config::CHECKPOINT_RADIUS * Config::CHECKPOINT_RADIUS) {
-            int numCp = (int)trackCheckpoints.size();
-            Vector2 cpPrev = trackCheckpoints[(nextCheckPointIndex - 1 + numCp) % numCp];
             Vector2 trackDir = { cpCurr.x - cpPrev.x, cpCurr.y - cpPrev.y };
             float trackLen = std::sqrt(trackDir.x * trackDir.x + trackDir.y * trackDir.y);
             if (trackLen > 0.001f) {
@@ -147,6 +213,8 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const std::unord
             if (headingAlignment > 0.2f && velocityAlignment > 0.0f) {
                 totalCheckPointsCrossed++;
                 timeSinceLastCheckpoint = 0;
+                lastApexDistance = std::sqrt(distSq);
+                lastApexSpeed = GetSpeed();
                 nextCheckPointIndex = (nextCheckPointIndex + 1) % numCp;
 
                 // Normalized Lap Time Bonus with Fastest Lap (Purple Sector) Milestone
@@ -161,10 +229,12 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const std::unord
                     if (bestLapTicks == 0 || lapTime < bestLapTicks) {
                         lapBonus += 500.0f;
                         bestLapTicks = lapTime;
+                        bestLapSamples = currentLapSamples;
                     }
 
                     totalLapBonus += lapBonus;
                     currentLapTicks = 0;
+                    currentLapSamples.clear();
                 }
             }
         }
@@ -268,5 +338,36 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const std::unord
         stallTicks > Config::CAR_STALL_TIME_THRESHOLD)) {
         isCrashed = true; 
         justCrashed = true;
+    }
+
+    // 6. Record high-frequency telemetry sample if car is actively racing
+    if (!isCrashed) {
+        float jacobian[OUTPUT_NODES][INPUT_NODES];
+        brain.ComputeJacobian(jacobian);
+        float sensSteerFront = jacobian[1][2];
+        float sensSteerLat = jacobian[1][1] - jacobian[1][3];
+
+        TelemetrySample sample{};
+        sample.tick = timer;
+        sample.lapTick = currentLapTicks;
+        sample.distance = distanceTraveled;
+        sample.position = position;
+        sample.speed = GetSpeed();
+        sample.vLong = longitudinalVelocity;
+        sample.vLat = lateralVelocity;
+        sample.angularVel = angularVelocity;
+        sample.throttleInput = inputAccelerate;
+        sample.steerInput = inputTurn;
+        sample.longAccel = longAccel;
+        sample.latAccel = latAccel;
+        sample.kammUtil = kammUtilization;
+        sample.slipAngle = slipAngle;
+        sample.jerkLong = jerkLong;
+        sample.jerkLat = jerkLat;
+        sample.trackOffset = currentTrackOffset;
+        for (int s = 0; s < 5; s++) sample.sensorDistances[s] = sensorDistances[s];
+        sample.sensSteerFront = sensSteerFront;
+        sample.sensSteerLat = sensSteerLat;
+        currentLapSamples.push_back(sample);
     }
 }

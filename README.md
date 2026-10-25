@@ -195,13 +195,26 @@ To eradicate circular reward-hacking and endless idling loops:
     *   *Purple Sector Personal Best:* Awards an extra $+500$ milestone bonus whenever an agent sets or breaks its personal best lap time.
     *   *Balanced Distance Scaling:* Distance traveled coefficient modulated to $0.5$ to eliminate lateral wandering incentives while preserving smooth early learning gradients.
 
-### 7. Longitudinal Telemetry & Scientific Dataset Pipeline
-To support empirical machine learning research, the telemetry subsystem records a 15-parameter longitudinal dataset (`data/telemetry_log.csv`) persisting across application restarts:
+### 7. Longitudinal Telemetry & Scientific Dataset Pipeline (F1 / MoTeC Grade)
+To support empirical machine learning research and automotive control analysis, the telemetry subsystem implements a dual-tier telemetry pipeline:
+
+#### A. Generational Convergence Dataset (`data/telemetry_log.csv`)
+Records a comprehensive 20-parameter dataset across generations:
 *   **Macro Convergence Metrics:** `Generation`, `MaxFitness`, `MinFitness`, `AvgFitness`.
 *   **Viability & Diversity Metrics:** `SurvivalRate`, `AvgLifeTime`, `WeightVariance` (synaptic diversity metric), `ActiveMutationRate`.
 *   **Curriculum & Generalization Analytics:** `CurriculumPhase` (1, 2, or 3), `BenchmarkFitness` (fixed control track score), `ProceduralFitness` (zero-shot transfer performance on procedural circuits).
 *   **Kinematic & Lap Quality:** `TotalLapsCompleted`, `TopSpeedAvg` (cruising speed in px/tick), `SteeringSmoothness` (control stability factor $[0.0 - 1.0]$), `BestLapTime` (fastest recorded lap in seconds).
-*   **Non-Blocking Persistence:** Asynchronous disk export (`std::async`/`std::future`) with automatic history loading on startup and synchronous flush on exit (`SIGINT`/`SIGTERM`/window close).
+*   **Advanced Vehicle Dynamics & XAI:** `KammUtilAvg` (friction circle utilization ratio $\eta \in [0.0 - 1.0+]$), `SlipAngleAvg` (chassis slip angle $\alpha$ in degrees), `ControlJerkAvg` (rate of acceleration change / actuation stability), `TrackWidthUtil` (track width exploitation ratio), `NeuralSaturation` (proportion of hidden neurons saturated $> 0.90$).
+
+#### B. High-Frequency Time-Series Dataset (`data/telemetry_best_lap.csv`)
+Records full-rate (60 Hz / tick-by-tick) physical and neurocognitive metrics for the fastest lap set by the population:
+*   **Kinematics & Spatial State:** `tick`, `lap_tick`, `distance`, global coordinates (`x, y`), scalar `speed`.
+*   **Chassis Dynamics & Tire Adhesion:** Longitudinal and lateral velocity (`v_long, v_lat`), yaw rate (`angular_vel`), biaxial accelerations (`long_accel, lat_accel`), Kamm friction circle utilization (`kamm_util`), and dynamic slip angle (`slip_angle`).
+*   **Actuator Ergonomics & Control Smoothness:** Raw driver inputs (`throttle_input, steer_input`), biaxial jerk derivatives (`jerk_long, jerk_lat`).
+*   **Racing Line Analysis:** Normalized track centerline offset (`track_offset`).
+*   **Perception & Explainable Neuroevolution (XAI):** 5 LIDAR distance rays, alongside analytical Jacobian sensitivities computed via the backpropagation chain rule:
+    *   $\frac{\partial \text{Steer}}{\partial \text{Lidar}_{\text{Front}}}$ (`sens_steer_front`)
+    *   $\frac{\partial \text{Steer}}{\partial (\text{Lidar}_{\text{Left}} - \text{Lidar}_{\text{Right}})}$ (`sens_steer_lat`)
 
 ### 5. High-Entropy Procedural Track Synthesis Engine (Stochastic Macro-Graph)
 To prevent neural networks from overfitting to fixed track layouts, the procedural generator uses a high-entropy macro-graph pipeline that generates dense, topologically rich circuits:
@@ -279,6 +292,7 @@ NeuralRacer-CPP/
 │   ├── ModularTrackGenerator.h # Discrete tile/segment coupling engine (17 primitives, 5 F1 macro-skeletons, pre-flight geometric watchdog)
 │   ├── Simulation.h       # Main coordinator, dynamic 2D camera system, minimap HUD, and screen state machine
 │   ├── Telemetry.h        # Metrics collector, live dashboard, and CSV logger
+│   ├── TelemetrySample.h  # Time-series sample struct for 60 Hz high-frequency telemetry logging
 │   ├── TrackGenerator.h   # High-entropy procedural engine (macro-graphs, motifs, 360° affine transforms)
 │   ├── TrackManager.h     # Grid Hashing utilities and track I/O routines
 │   └── json.hpp           # nlohmann JSON utility library
@@ -291,7 +305,8 @@ NeuralRacer-CPP/
 │   └── main.cpp           # Program entry point and CLI parser
 ├── data/                  # Persistent data directory
 │   ├── best.json          # Serialized genomes of elite agents
-│   ├── telemetry_log.csv  # Generational fitness logs
+│   ├── telemetry_log.csv  # Generational fitness logs (20 metrics)
+│   ├── telemetry_best_lap.csv # 60 Hz per-tick high-frequency lap telemetry (MoTeC/ATLAS grade)
 │   └── tracks/            # JSON track files
 └── lib/                   # Project dependencies (optional)
 ```

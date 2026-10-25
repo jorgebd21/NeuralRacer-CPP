@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Brain.h"
+#include "TelemetrySample.h"
 #include "raylib.h"
 #include <vector>
 #include <utility>
@@ -47,6 +48,35 @@ struct Car {
     float longitudinalVelocity;
     float lateralVelocity;
     float frontSensorDelta;
+
+    // Advanced Vehicle Dynamics & Kamm Friction Circle
+    float prevLongitudinalVelocity;
+    float prevLateralVelocity;
+    float longAccel;
+    float latAccel;
+    float prevLongAccel;
+    float prevLatAccel;
+    float jerkLong;
+    float jerkLat;
+    float slipAngle;
+    float kammUtilization;
+
+    // Control Ergonomics & Chatter
+    int prevSteerSign;
+    int steeringZeroCrossings;
+    float prevAccelInput;
+    float throttleChatter;
+
+    // Racing line & track utilization
+    float currentTrackOffset;
+    float sumTrackOffset;
+    int trackOffsetSamples;
+    float lastApexDistance;
+    float lastApexSpeed;
+
+    // Time-series sample buffers for high-frequency telemetry logging
+    std::vector<TelemetrySample> currentLapSamples;
+    std::vector<TelemetrySample> bestLapSamples;
 
     static constexpr int FRONT_HISTORY_SIZE = 8;
     float frontSensorHistory[FRONT_HISTORY_SIZE];

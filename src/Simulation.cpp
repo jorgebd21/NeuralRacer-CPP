@@ -319,10 +319,37 @@ void Simulation::UpdateTraining() {
                 }
                 float bestLapTimeSeconds = (fastestLapTicks > 0) ? ((float)fastestLapTicks / 60.0f) : 0.0f;
 
+                float eliteKamm = sortedPop[0]->kammUtilization;
+                float eliteSlip = std::abs(sortedPop[0]->slipAngle);
+                float eliteJerk = std::sqrt(sortedPop[0]->jerkLong * sortedPop[0]->jerkLong + sortedPop[0]->jerkLat * sortedPop[0]->jerkLat);
+                float eliteTrackUtil = (sortedPop[0]->trackOffsetSamples > 0) ? (sortedPop[0]->sumTrackOffset / sortedPop[0]->trackOffsetSamples) : 0.0f;
+                float eliteSaturation = sortedPop[0]->brain.ComputeHiddenSaturation();
+
+                // Find fastest lap buffer to export as time-series
+                const Car* fastestCar = nullptr;
+                if (fastestLapTicks > 0) {
+                    for (const auto& car : population) {
+                        if (car.bestLapTicks == fastestLapTicks && !car.bestLapSamples.empty()) {
+                            fastestCar = &car;
+                            break;
+                        }
+                    }
+                }
+                if (!fastestCar && !sortedPop.empty()) {
+                    if (!sortedPop[0]->bestLapSamples.empty()) fastestCar = sortedPop[0];
+                    else if (!sortedPop[0]->currentLapSamples.empty()) fastestCar = sortedPop[0];
+                }
+                if (fastestCar) {
+                    const auto& samples = !fastestCar->bestLapSamples.empty() ? fastestCar->bestLapSamples : fastestCar->currentLapSamples;
+                    Telemetry::RecordFastestLap(samples);
+                    Telemetry::ExportFastestLapAsync();
+                }
+
                 Telemetry::RecordGeneration(generationCount, population, Config::MAX_GENERATION_TIME,
                                             phase, benchmarkTopFitness, procFit, generationTotalLaps,
                                             eliteAvgSpeed, eliteSmoothness, Config::MUTATION,
-                                            bestLapTimeSeconds);
+                                            bestLapTimeSeconds,
+                                            eliteKamm, eliteSlip, eliteJerk, eliteTrackUtil, eliteSaturation);
                 Telemetry::ExportDataAsync();
                 
                 generationTotalLaps = 0;
