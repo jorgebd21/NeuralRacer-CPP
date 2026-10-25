@@ -24,7 +24,8 @@ NeuralRacer-CPP is a high-performance simulation engine designed to explore auto
 
 To achieve maximum computational efficiency and real-time responsiveness, the entire system is built **completely from scratch** in Modern C++17 without relying on high-level machine learning frameworks or pre-existing physics engines.
 
-*   **Spatial Partitioning:** Utilizes a custom **Spatial Hashing Grid** to reduce narrow-phase collision checks and sensor raycasting from $O(N)$ to $O(1)$, limiting OBB checks to immediate $3\times3$ neighboring cells and raycasts to local grid bounding boxes.
+*   **Spatial Partitioning:** Utilizes a custom **Spatial Hashing Grid** to reduce narrow-phase collision checks and sensor raycasting from $O(N)$ to $O(1)$, limiting OBB checks to immediate $3\times3$ neighboring cells and raycasts to local grid bounding boxes across the entire $2400 \times 1600\text{ px}$ world canvas.
+*   **F1-Scale World Expansion & Dynamic 2D Camera:** Expands the simulation canvas to an expansive $2400 \times 1600\text{ px}$ arena ($6.4\times$ track area) supporting genuine Grand Prix aspect ratios (up to 3.5:1) and $600\text{--}900\text{ px}$ DRS straights. Decoupled world rendering features a Raylib `Camera2D` dynamic chase drone with spring-damper tracking (`CAM_FOLLOW_LEADER`), adaptive full-track overview (`CAM_OVERVIEW`), smooth mouse-wheel zooming, and a real-time tactical F1 Minimap HUD.
 *   **Hardware Concurrency:** Exploits multi-core architectures by parallelizing the physics engine and neural network evaluations using native **OpenMP** multi-threading and C++17 vectorization across all CPU cores.
 *   **Asynchronous Subsystems:** Implements non-blocking disk serialization (`std::async`/`std::future`) to isolate high-frequency hot paths from storage delays during generational checkpoints.
 *   **Custom Neural Control:** Employs a custom 9-10-2 Feedforward Neural Network (FNN) and a Genetic Algorithm featuring dynamic Gaussian mutation decay with a sustained exploration floor, Time-to-Collision observation, and deterministic multi-circuit elitism, all written from first principles.
@@ -209,21 +210,26 @@ To prevent neural networks from overfitting to fixed track layouts, the procedur
 *   **Unconstrained 360° Affine Transformation:** Implements arbitrary planar rotation ($\phi \in [0, 2\pi)$), asymmetric scaling, and dynamic margin fitting, ensuring start straights and apexes can emerge at any angle.
 *   **Clearance & Self-Intersection Watchdog:** Validates candidates by verifying zero self-intersections and enforcing a minimum $45\text{ px}$ clearance between non-adjacent centerline sections, eliminating bottlenecks while maintaining high variance ($CV_L \approx 19\%$, $CV_{W/H} \approx 23\%$).
 
-### 6. Discrete Modular Track Synthesis Engine ($SE(2)$ Tile Coupling)
+### 6. Discrete Modular Track Synthesis Engine ($SE(2)$ Tile Coupling) & F1 Macro-Skeletons
 In addition to continuous spline-based macro-graphs, the engine implements a discrete modular track builder inspired by modular slot-car and tile coupling architectures:
-*   **12-Family Functional Tile Catalog:** Assembles tracks from discrete pre-validated geometric primitives with analytic curvature bounds:
-    *   *Straights:* Micro connector (`STR_50`), medium (`STR_90`), standard (`STR_150`), and extended DRS straightaway (`STR_240`).
-    *   *High-Speed Kinks (30°):* Wide radius ($R=260\text{ px}$) flat-out bends (`CRV_30_R260`).
+*   **Expanded Functional Tile Catalog (17 Distinct Primitives):** Assembles tracks from discrete pre-validated geometric primitives with analytic curvature bounds:
+    *   *Straights:* Micro connector (`STR_50`), medium (`STR_90`), standard (`STR_150`), extended DRS straightaway (`STR_240`), and F1 Grand Prix blast straights (`STR_350`, `STR_500`).
+    *   *High-Speed Sweepers & Kinks (30°):* Flat-out fast bends (`CRV_30_R260`) and mega sweepers ($R=350\text{ px}$) (`CRV_30_R350`).
     *   *High-Downforce Arcs (45°):* Fast sweeps ($R=160\text{ px}$) (`CRV_45_R160`).
     *   *Open V-Corners (60°):* Technical apex corners ($R=150\text{ px}$) (`CRV_60_R150`).
-    *   *Standard Corners (90°):* Medium speed turns ($R=110\text{ px}$) (`CRV_90_R110`).
-    *   *Progressive Double-Apex Carousels (135°):* Decreasing radius arc ($R_1=150\text{ px} \to R_2=90\text{ px}$) (`CRV_DBL_APEX`).
+    *   *Standard Corners (90°):* Medium speed turns ($R=130\text{ px}$) (`CRV_90_R130`).
+    *   *Progressive Double-Apex Carousels & Pouhon Sweeps:* Decreasing radius arcs (`CRV_DBL_APEX`) and Spa-Francorchamps style high-g double apexes ($R_1=240\text{ px} \to R_2=150\text{ px}$) (`CRV_POUHON_DBL`).
     *   *Heavy Hairpins (180°):* Hard-braking loops ($R=120\text{ px}$) (`HRP_180_R120`).
     *   *Chicanes:* Fluid lateral offsets (`CHK_S_L40`) and violent Bus-Stop chicanes (`CHK_BUS_STOP`).
-    *   *Technical Snake Esses:* $C^1$-smooth double sinusoidal wave complexes (`ESS_SNAKE`).
+    *   *Technical & Flowing Esses:* Double sinusoidal complexes (`ESS_SNAKE`) and Silverstone-style high-speed Maggotts-Becketts-Chapel complexes (`ESS_MAGGOTTS`).
+*   **5 Authentic Formula 1 Macro-Skeletons across $2400 \times 1600\text{ px}$ Canvas:**
+    1.  *Monza Cathedral of Speed:* High-speed elongated corridor (3.2:1 aspect ratio), Variante del Rettifilo, Curva Grande, Lesmo double apex, back straight DRS, Variante Ascari, and the sweeping Parabolica.
+    2.  *Silverstone / Spa Ardennes Sector Flow:* Tri-sector undulating course balancing full-throttle sweeps with technical infield S-curves and heavy braking hairpins.
+    3.  *Interlagos / Spielberg Horseshoe:* Technical amphitheater horseshoe with downhill Senna-S transitions, sweeping lakeside straights, and uphill Junção climbs.
+    4.  *Suzuka / COTA Rhythm Flow:* Rhythm first sector featuring 4 linked flowing esses, Dunlop curve, 130R high-speed sweep, and Casio chicane.
+    5.  *Albert Park / Montreal Island Hybrid:* Park-street hybrid with rapid curb transitions, long perimeter power straights, and final braking chicane.
 *   **Physical Curvature Adhesion Floor ($R_{\min} \ge 68\text{ px}$):** Strictly validates post-scale curvature via numerical 3-point circumradius checks, preventing any sector from exceeding the physical lateral grip limit ($a_c \le \mu g \approx 0.28\text{ px/tick}^2$) at high cruising speeds.
-*   **Multi-Topology Waypoint Seeding & 360° Start Pose:** Macro-guidance polylines are synthesized across Triangular Delta, Pentagonal Infield, Dog-Leg, and Rotated Quad structures, establishing unconstrained starting angles ($\phi \in [0, 2\pi)$) across all sectors.
-*   **Curriculum Phase 3 Integration (Generation 50+):** When evolutionary training advances past generation 50 into Phase 3 (Continuous Generalization), all dynamic procedural curriculum tracks are exclusively synthesized by this 12-family modular tile coupling engine, exposing agents to varied track segments with authentic curvature constraints.
+*   **Curriculum Phase 3 Integration (Generation 50+):** When evolutionary training advances past generation 50 into Phase 3 (Continuous Generalization), all dynamic procedural curriculum tracks are exclusively synthesized by this expanded modular tile coupling engine across the full $2400 \times 1600$ arena, exposing agents to varied track segments with authentic curvature constraints.
 *   **$C^1$ Hermite Elastic Bridge & SAT Clearance:** Solves periodic loop closure ($\sum \Delta\vec{r} = \vec{0}$) with zero heading error using cubic Hermite interpolation and a head/tail-aware spatial clearance filter, achieving a $100\%$ closure success rate.
 
 ---
@@ -268,10 +274,10 @@ NeuralRacer-CPP/
 ├── include/               # Header definitions
 │   ├── Brain.h            # Neural network struct and inference functions
 │   ├── Car.h              # Vehicle state, kinematics, and OBB structure
-│   ├── Config.h           # Simulation parameters, physical constants, and GA variables
+│   ├── Config.h           # Simulation parameters, 2400x1600 world canvas dimensions, physical constants, and GA variables
 │   ├── Evolution.h        # Genetic operators, crossover, and serialization helpers
-│   ├── ModularTrackGenerator.h # Discrete tile/segment coupling engine (12 families, 360° start pose, pre-flight geometric watchdog)
-│   ├── Simulation.h       # Main program coordinator and screen state machine
+│   ├── ModularTrackGenerator.h # Discrete tile/segment coupling engine (17 primitives, 5 F1 macro-skeletons, pre-flight geometric watchdog)
+│   ├── Simulation.h       # Main coordinator, dynamic 2D camera system, minimap HUD, and screen state machine
 │   ├── Telemetry.h        # Metrics collector, live dashboard, and CSV logger
 │   ├── TrackGenerator.h   # High-entropy procedural engine (macro-graphs, motifs, 360° affine transforms)
 │   ├── TrackManager.h     # Grid Hashing utilities and track I/O routines
@@ -336,9 +342,13 @@ cmake --build .
 | **Generate Track** | `[ P ]` | Instantly generates a unique closed racing circuit using the 12-family discrete modular tile engine. |
 | **Save Track** | `[ G ]` | Exports the active procedural track from the menu state to a JSON file in `data/tracks/`. |
 
-### Runtime Training Interactions:
+### Runtime Camera & Simulation Interactions:
 
 *   `[ SPACE ]`: Toggles execution speed between **Normal Mode (1x)** and **Accelerated Headless-Equivalent Mode (50x)** for rapid population training.
+*   `[ V ]`: Toggles camera view mode between dynamic leader-follow mode (`CAM_FOLLOW_LEADER`) and full-circuit overview mode (`CAM_OVERVIEW`).
+*   `Mouse Wheel`: Adjusts camera zoom smoothly between $0.20\times$ (macro circuit view) and $2.50\times$ (tight vehicle cockpit chase).
+*   `Right-Click / Middle-Click Drag`: Engages manual panning across the $2400 \times 1600\text{ px}$ canvas (`CAM_MANUAL`).
+*   `Tactical F1 Minimap HUD`: Rendered in the bottom-left corner with real-time car positions (gold leader, blue podium contenders, red field) and a yellow frustum outline showing the active camera viewport.
 *   `[ C ]`: Toggles the rendering of checkpoints.
 *   `[ H ]`: Toggles the rendering of the Telemetry Dashboard and Collision Heatmap overlays.
 *   `[ M ]`: Terminates the current mode and returns to the Main Menu.

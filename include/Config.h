@@ -9,6 +9,8 @@
 namespace Config {
     constexpr int SCREEN_WIDTH = 1280;
     constexpr int SCREEN_HEIGHT = 768;
+    constexpr float WORLD_WIDTH = 2400.0f;
+    constexpr float WORLD_HEIGHT = 1600.0f;
     constexpr int POPULATION_SIZE = 100;
     constexpr int NUM_BEST = 10;
 

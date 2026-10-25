@@ -58,6 +58,8 @@ private:
 
     void DrawFinishLine(float alpha = 1.0f);
     void DrawCheckpoints(float alpha = 1.0f);
+    void DrawMinimap(const std::vector<Car*>& sortedCars);
+    void UpdateCameraControl();
 
     void BuildSpatialGrid();
     void InitTrainingTracks();
@@ -106,4 +108,12 @@ private:
 
     int generationTotalLaps;
     float benchmarkTopFitness;
+
+    // Dynamic 2D camera & multi-scale viewport navigation
+    enum CameraMode { CAM_FOLLOW_LEADER = 0, CAM_OVERVIEW = 1, CAM_MANUAL = 2 };
+    CameraMode cameraMode;
+    Camera2D worldCamera;
+    float targetZoom;
+    Vector2 cameraDragStart;
+    bool isDraggingCamera;
 };
