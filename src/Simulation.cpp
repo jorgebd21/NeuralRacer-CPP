@@ -302,10 +302,9 @@ void Simulation::UpdateTraining() {
                 std::sort(sortedPop.begin(), sortedPop.end(), [](const Car* a, const Car* b) { return a->fitness > b->fitness; });
                 std::cout << "Best fitness: " << sortedPop[0]->fitness << std::endl;
                 
-                int phase = (generationCount < Config::CURRICULUM_PHASE_1_END) ? 1 :
-                            (generationCount < Config::CURRICULUM_PHASE_2_END) ? 2 : 3;
+                int phase = 3; // Pure procedural multi-circuit evaluation from Generation 0
                 float totalTopFit = sortedPop[0]->fitness;
-                float procFit = (phase == 1) ? 0.0f : std::max(0.0f, totalTopFit - benchmarkTopFitness);
+                float procFit = std::max(0.0f, totalTopFit - benchmarkTopFitness);
                 float eliteAvgSpeed = sortedPop[0]->GetAverageSpeed();
                 float eliteSmoothness = std::clamp(1.0f - (std::abs(sortedPop[0]->angularVelocity) / Config::CAR_TURN_SPEED), 0.0f, 1.0f);
 
@@ -703,11 +702,8 @@ void Simulation::DrawTraining() {
     DrawRectangle(Config::SCREEN_WIDTH - UI_PANEL_WIDTH, 0, UI_PANEL_WIDTH, Config::SCREEN_HEIGHT, Fade(BLACK, 0.85f));
     DrawText(TextFormat("Generation: %d (Track %d/%d)", generationCount, currentEvaluationTrack + 1, (int)trainingTracks.size()), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 12, 17, WHITE);
     
-    const char* phaseStr = (generationCount < Config::CURRICULUM_PHASE_1_END) ? "PHASE 1: INDUCTION" :
-                           (generationCount < Config::CURRICULUM_PHASE_2_END) ? "PHASE 2: CONSOLIDATION" :
-                           "PHASE 3: PROCEDURAL GEN";
-    Color phaseColor = (generationCount < Config::CURRICULUM_PHASE_1_END) ? YELLOW :
-                       (generationCount < Config::CURRICULUM_PHASE_2_END) ? SKYBLUE : GREEN;
+    const char* phaseStr = "PURE PROCEDURAL F1 (6 CIRCUITS)";
+    Color phaseColor = GREEN;
     DrawText(phaseStr, Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 32, 11, phaseColor);
 
     DrawText(TextFormat("Time: %d / %d", generationTimer, Config::MAX_GENERATION_TIME), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 48, 16, WHITE);
@@ -939,20 +935,14 @@ Simulation::TrainingTrack Simulation::GenerateProceduralTrainingTrack(int fixedA
 }
 
 void Simulation::SetupCurriculumForGeneration(int gen) {
+    (void)gen;
     trainingTracks.clear();
-    if (gen < Config::CURRICULUM_PHASE_1_END) {
-        // Phase 1: Inducción F1 a escala 2400x1600 (Monza: rectas largas y curvas abiertas)
-        trainingTracks.push_back(baseTrackFacil);
-    } else if (gen < Config::CURRICULUM_PHASE_2_END) {
-        // Phase 2: Consolidación multi-pista F1 a escala 2400x1600 (Monza -> Silverstone -> Interlagos)
-        trainingTracks.push_back(baseTrackFacil);
-        trainingTracks.push_back(baseTrackMedio);
-        trainingTracks.push_back(baseTrackDificil);
-    } else {
-        // Phase 3: Generalización continua F1 (1 Benchmark Silverstone de control + 2 Pistas F1 dinámicas a 2400x1600)
-        trainingTracks.push_back(baseTrackMedio);
-        trainingTracks.push_back(GenerateProceduralTrainingTrack(-1));
-        trainingTracks.push_back(GenerateProceduralTrainingTrack(-1));
+    // Pure procedural multi-circuit evaluation from Generation 0 (6 modular tracks per generation)
+    // Tracks 0..4 cover varied F1 macro-skeletons (Monza, Silverstone, Interlagos, Suzuka, Montreal)
+    // and Track 5 evaluates a stochastic macro-topology.
+    for (int t = 0; t < Config::TRACKS_PER_GENERATION; t++) {
+        int topology = (t < 5) ? t : -1;
+        trainingTracks.push_back(GenerateProceduralTrainingTrack(topology));
     }
 }
 

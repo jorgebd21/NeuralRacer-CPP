@@ -37,8 +37,9 @@ namespace Config {
     inline float MUTATION_SIGMA = 0.12f;       // Active generational Gaussian mutation step size (sigma)
 
     constexpr int MAX_GENERATION_TIME = 2000;
-    constexpr int CURRICULUM_PHASE_1_END = 15;
-    constexpr int CURRICULUM_PHASE_2_END = 50;
+    constexpr int TRACKS_PER_GENERATION = 6; // Pure procedural multi-circuit evaluation from Gen 0
+    constexpr int CURRICULUM_PHASE_1_END = 0;
+    constexpr int CURRICULUM_PHASE_2_END = 0;
     constexpr float SENSOR_ANGLES[5] = {-90.0f, -45.0f, 0.0f, 45.0f, 90.0f};
 
     constexpr float CAR_TURN_SPEED = 3.5f;

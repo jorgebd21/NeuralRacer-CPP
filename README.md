@@ -50,7 +50,7 @@ The following diagram illustrates the execution lifecycle, data pipelines, and c
 ```mermaid
 flowchart TD
     subgraph Initialization
-        A["Adaptive Curriculum Manager: Stage 1 (Induction) -> Stage 2 (Consolidation) -> Stage 3 (Procedural)"] --> B[Generate Spatial Hashing Grid]
+        A["Pure Procedural Generator: 6 Dynamic Modular F1 Circuits per Generation from Gen 0"] --> B[Generate Spatial Hashing Grid]
         B --> C[Initialize Population: 100 Agents]
     end
 
@@ -63,7 +63,7 @@ flowchart TD
         G -- No --> I[Accumulate Continuous Fitness & Cross Checkpoints]
     end
 
-    subgraph EvolutionaryPipeline ["End of Generation Cycle (3-Track Curriculum)"]
+    subgraph EvolutionaryPipeline ["End of Generation Cycle (6-Track Procedural Evaluation)"]
         H & I --> J[Sort Population by Accumulated Fitness]
         J --> K[Elitism: Preserve Top 10% Intact Across Deterministic Tracks]
         J --> L[Two-Parent Crossover & Gaussian Mutation with Minimum Floor]
@@ -159,10 +159,11 @@ The behavioral engine models decision-making processes from first principles:
     *   *Stage 3 (Generations 400+, Sustained Micro-Exploitation Floor):* Parameters remain fixed indefinitely at $3\%$ rate and $\sigma = 0.035$.
     $$\text{Stage 1 }(g < 200):\quad \text{decay}_1(g) = \max\left(0, \frac{\frac{1.0}{1.0 + k_1 \cdot g} - \frac{1.0}{1.0 + k_1 \cdot 200}}{1.0 - \frac{1.0}{1.0 + k_1 \cdot 200}}\right),\quad \text{Rate} = 25 + \text{round}(25 \cdot \text{decay}_1)$$
     $$\text{Stage 2 }(200 \le g < 400):\quad \text{decay}_2(g) = \max\left(0, \frac{\frac{1.0}{1.0 + k_2 \cdot (g - 200)}}{1.0 - \frac{1.0}{1.0 + k_2 \cdot 200}}\right),\quad \text{Rate} = 3 + \text{round}(22 \cdot \text{decay}_2)$$
-*   **3-Stage Adaptive Curriculum Learning (Unified F1 Grand Prix Scale $2400 \times 1600$):** Implements a progressive training pipeline evaluated entirely on the full-scale arena ($2400 \times 1600\text{ px}$), eliminating negative transfer and the asymmetric scale trap:
-    *   *Stage 1: Induction (Gens 0-14):* Trains solely on an authentic F1 Monza corridor benchmark (Archetype 0) to solidify high-speed straightaway acceleration, braking thresholds, and fundamental steering control without environmental noise.
-    *   *Stage 2: Consolidation (Gens 15-49):* Evaluates on a deterministic 3-track Grand Prix rotation (Monza corridor $\to$ Silverstone/Spa tri-sector $\to$ Interlagos/Spielberg horseshoe) with accumulated multi-track fitness, mastering high-g sweepers, chicane transitions, and weight-transfer management.
-    *   *Stage 3: Procedural Generalization (Gens 50+):* Evaluates each generation against 1 fixed control F1 benchmark (Monza corridor) and 2 dynamically synthesized procedural Grand Prix circuits, preventing track overfitting and forging truly generalized autonomous racers.
+*   **Pure Procedural Multi-Circuit Architecture from Generation 0 (6 Grand Prix Circuits per Generation):** Eliminates static track memorization and distribution shift by evaluating the population exclusively on dynamic procedural tracks from the very first generation:
+    *   *6 Consecutive Grand Prix Circuits per Generation:* Every generation dynamically synthesizes 6 unique, closed racetracks via $SE(2)$ modular tile coupling across the expansive $2400 \times 1600\text{ px}$ canvas.
+    *   *Systematic Topological Coverage:* Tracks 0 through 4 systematically sample the 5 core F1 macro-skeletons (Monza high-speed corridor, Silverstone tri-sector flow, Interlagos amphitheater horseshoe, Suzuka rhythm S-curves, and Montreal power straights), while Track 5 is generated with unconstrained stochastic macro-topology.
+    *   *Zero Spatial Overfitting:* Because every circuit is assembled in real-time from the 17-tile catalog with dynamic rotations, cars cannot memorize fixed coordinate waypoints or time-based turn triggers; they must develop generalized sensory-motor primitives (LIDAR ray balancing, TTC threshold braking, and slip angle management).
+    *   *Optimal Computation-Generalization Pareto Frontier:* Delivers high variance reduction and zero-shot transfer capabilities without the exponential computational cost of 64–128 tracks, completing a full 6-track generational evaluation in $\sim 1\text{ second}$ in headless OpenMP mode.
 
 ### 4. Mathematical Formula 1 Grand Prix Procedural Architecture
 Includes an enterprise-grade procedural generation framework producing authentic, flowing race circuits based on real-world Grand Prix layout archetypes:
