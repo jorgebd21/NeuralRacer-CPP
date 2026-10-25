@@ -154,9 +154,10 @@ bool LoadBestBrains(std::vector<Car>& population, int& generation) {
  * @brief Updates generational mutation rate and Gaussian perturbation step size.
  *
  * Implements a normalized hyperbolic decay curve calibrated to reach the sustained
- * floor (MIN_MUTATION = 25%, MIN_MUTATION_SIGMA = 0.08) at generation Config::MUTATION_HORIZON (gen 200).
+ * floor (MIN_MUTATION = 3%, MIN_MUTATION_SIGMA = 0.035) at generation Config::MUTATION_HORIZON (gen 200).
  * For generation >= MUTATION_HORIZON, the decay factor remains 0.0f, guaranteeing that the
- * genetic algorithm operates strictly at the floor parameters during long-term procedural evaluation.
+ * genetic algorithm operates strictly at the floor parameters during long-term procedural evaluation,
+ * drastically reducing deleterious mutation load on trained driving policies.
  *
  * @param generation Current simulation generation index.
  */

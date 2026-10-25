@@ -15,10 +15,10 @@ namespace Config {
     // Dual-Parameter Decremental Mutation Schedule:
     // Controls both gene mutation probability (rate %) and Gaussian perturbation magnitude (sigma).
     constexpr int MAX_MUTATION = 50;           // Initial per-gene mutation probability (50% in Phase 1)
-    constexpr int MIN_MUTATION = 25;           // Sustained exploration floor for dynamic procedural tracks (25% in Phase 3)
+    constexpr int MIN_MUTATION = 3;            // Sustained fine-exploitation floor (3% at gen 200+)
     inline int MUTATION = 50;                  // Active generational mutation rate (%)
     constexpr float MAX_MUTATION_SIGMA = 0.12f;// Initial Gaussian step size for macro-exploration
-    constexpr float MIN_MUTATION_SIGMA = 0.08f;// Floor Gaussian step size for adaptive exploitation
+    constexpr float MIN_MUTATION_SIGMA = 0.035f;// Floor Gaussian step size for micro-exploitation
     inline float MUTATION_SIGMA = 0.12f;       // Active generational Gaussian mutation step size (sigma)
     constexpr float DROP_RATE = 0.015f;        // Decay coefficient calibrated to Curriculum horizon (0-100 gens)
     constexpr int MUTATION_HORIZON = 200;      // Generation at which mutation schedule reaches the floor
