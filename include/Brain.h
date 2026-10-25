@@ -113,6 +113,34 @@ struct Brain {
     }
     
     /**
+     * @brief Computes analytical Jacobian matrix J_ki = d(Output_k) / d(Input_i) via backprop chain rule.
+     */
+    void ComputeJacobian(float jacobian[OUTPUT_NODES][INPUT_NODES]) const {
+        for (int k = 0; k < OUTPUT_NODES; k++) {
+            float dyk_duk = 1.0f - last_output[k] * last_output[k];
+            for (int i = 0; i < INPUT_NODES; i++) {
+                float sum = 0.0f;
+                for (int j = 0; j < HIDDEN_NODES; j++) {
+                    float dhj_dzj = 1.0f - last_hidden[j] * last_hidden[j];
+                    sum += weights_hidden_output[k][j] * dhj_dzj * weights_input_hidden[j][i];
+                }
+                jacobian[k][i] = dyk_duk * sum;
+            }
+        }
+    }
+
+    /**
+     * @brief Computes proportion of hidden neurons saturated near boundaries (|h_j| > 0.90).
+     */
+    float ComputeHiddenSaturation() const {
+        int satCount = 0;
+        for (int j = 0; j < HIDDEN_NODES; j++) {
+            if (std::abs(last_hidden[j]) > 0.90f) satCount++;
+        }
+        return (float)satCount / (float)HIDDEN_NODES;
+    }
+
+    /**
      * @brief Generates a Gaussian mutation value.
      * 
      * @param sigma Standard deviation of the normal distribution (mutation step size).

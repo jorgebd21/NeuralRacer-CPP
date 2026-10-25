@@ -34,7 +34,12 @@ Simulation::Simulation(bool isHeadless) :
     aiCar(startPosition.x, startPosition.y, startRotation),
     exhibitionResult(0),
     generationTotalLaps(0),
-    benchmarkTopFitness(0.0f)
+    benchmarkTopFitness(0.0f),
+    cameraMode(CAM_FOLLOW_LEADER),
+    worldCamera{},
+    targetZoom(1.0f),
+    cameraDragStart{0.0f, 0.0f},
+    isDraggingCamera(false)
 {
 }
 
@@ -46,6 +51,11 @@ void Simulation::Init() {
     if(!isHeadless){
         InitWindow(Config::SCREEN_WIDTH, Config::SCREEN_HEIGHT, "Genetic Simulator - Autonomous AI");
         SetTargetFPS(SIM_TARGET_FPS);
+        worldCamera.offset = { (Config::SCREEN_WIDTH - 250.0f) * 0.5f, Config::SCREEN_HEIGHT * 0.5f };
+        worldCamera.target = startPosition;
+        worldCamera.rotation = 0.0f;
+        worldCamera.zoom = 1.0f;
+        targetZoom = 1.0f;
     }
     
     Telemetry::Init();
@@ -115,6 +125,8 @@ void Simulation::Run() {
 }
 
 void Simulation::Update() {
+    UpdateCameraControl();
+
     // Main state machine: delegates logical update according to the current mode
     if (currentState == MENU) UpdateMenu();
     else if (currentState == TRAINING) UpdateTraining();
@@ -290,10 +302,9 @@ void Simulation::UpdateTraining() {
                 std::sort(sortedPop.begin(), sortedPop.end(), [](const Car* a, const Car* b) { return a->fitness > b->fitness; });
                 std::cout << "Best fitness: " << sortedPop[0]->fitness << std::endl;
                 
-                int phase = (generationCount < Config::CURRICULUM_PHASE_1_END) ? 1 :
-                            (generationCount < Config::CURRICULUM_PHASE_2_END) ? 2 : 3;
+                int phase = 3; // Pure procedural multi-circuit evaluation from Generation 0
                 float totalTopFit = sortedPop[0]->fitness;
-                float procFit = (phase == 1) ? 0.0f : std::max(0.0f, totalTopFit - benchmarkTopFitness);
+                float procFit = std::max(0.0f, totalTopFit - benchmarkTopFitness);
                 float eliteAvgSpeed = sortedPop[0]->GetAverageSpeed();
                 float eliteSmoothness = std::clamp(1.0f - (std::abs(sortedPop[0]->angularVelocity) / Config::CAR_TURN_SPEED), 0.0f, 1.0f);
 
@@ -307,10 +318,37 @@ void Simulation::UpdateTraining() {
                 }
                 float bestLapTimeSeconds = (fastestLapTicks > 0) ? ((float)fastestLapTicks / 60.0f) : 0.0f;
 
+                float eliteKamm = sortedPop[0]->kammUtilization;
+                float eliteSlip = std::abs(sortedPop[0]->slipAngle);
+                float eliteJerk = std::sqrt(sortedPop[0]->jerkLong * sortedPop[0]->jerkLong + sortedPop[0]->jerkLat * sortedPop[0]->jerkLat);
+                float eliteTrackUtil = (sortedPop[0]->trackOffsetSamples > 0) ? (sortedPop[0]->sumTrackOffset / sortedPop[0]->trackOffsetSamples) : 0.0f;
+                float eliteSaturation = sortedPop[0]->brain.ComputeHiddenSaturation();
+
+                // Find fastest lap buffer to export as time-series
+                const Car* fastestCar = nullptr;
+                if (fastestLapTicks > 0) {
+                    for (const auto& car : population) {
+                        if (car.bestLapTicks == fastestLapTicks && !car.bestLapSamples.empty()) {
+                            fastestCar = &car;
+                            break;
+                        }
+                    }
+                }
+                if (!fastestCar && !sortedPop.empty()) {
+                    if (!sortedPop[0]->bestLapSamples.empty()) fastestCar = sortedPop[0];
+                    else if (!sortedPop[0]->currentLapSamples.empty()) fastestCar = sortedPop[0];
+                }
+                if (fastestCar) {
+                    const auto& samples = !fastestCar->bestLapSamples.empty() ? fastestCar->bestLapSamples : fastestCar->currentLapSamples;
+                    Telemetry::RecordFastestLap(samples);
+                    Telemetry::ExportFastestLapAsync();
+                }
+
                 Telemetry::RecordGeneration(generationCount, population, Config::MAX_GENERATION_TIME,
                                             phase, benchmarkTopFitness, procFit, generationTotalLaps,
                                             eliteAvgSpeed, eliteSmoothness, Config::MUTATION,
-                                            bestLapTimeSeconds);
+                                            bestLapTimeSeconds,
+                                            eliteKamm, eliteSlip, eliteJerk, eliteTrackUtil, eliteSaturation);
                 Telemetry::ExportDataAsync();
                 
                 generationTotalLaps = 0;
@@ -416,7 +454,165 @@ void Simulation::DrawFinishLine(float alpha) {
     }
 }
 
+void Simulation::UpdateCameraControl() {
+    if (isHeadless) return;
+
+    // Toggle camera mode with [V]
+    if (IsKeyPressed(KEY_V)) {
+        if (cameraMode == CAM_FOLLOW_LEADER) {
+            cameraMode = CAM_OVERVIEW;
+        } else {
+            cameraMode = CAM_FOLLOW_LEADER;
+        }
+    }
+
+    // Zoom control with mouse wheel
+    float wheel = GetMouseWheelMove();
+    if (wheel != 0.0f) {
+        targetZoom = std::clamp(targetZoom + wheel * 0.08f, 0.20f, 2.5f);
+    }
+
+    // Manual camera pan with right mouse button or middle mouse button
+    if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT) || IsMouseButtonPressed(MOUSE_BUTTON_MIDDLE)) {
+        isDraggingCamera = true;
+        cameraDragStart = GetMousePosition();
+        cameraMode = CAM_MANUAL;
+    }
+    if (isDraggingCamera) {
+        if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT) || IsMouseButtonDown(MOUSE_BUTTON_MIDDLE)) {
+            Vector2 delta = GetMouseDelta();
+            worldCamera.target.x -= delta.x / worldCamera.zoom;
+            worldCamera.target.y -= delta.y / worldCamera.zoom;
+        } else {
+            isDraggingCamera = false;
+        }
+    }
+
+    // Determine target entity to follow
+    Vector2 followPos = startPosition;
+    if (currentState == TRAINING) {
+        Car* leader = nullptr;
+        float maxFit = -1.0f;
+        for (auto& car : population) {
+            if (!car.isCrashed && car.fitness > maxFit) {
+                maxFit = car.fitness;
+                leader = &car;
+            }
+        }
+        if (!leader && !population.empty()) leader = &population[0];
+        if (leader) followPos = leader->position;
+    } else if (currentState == EXHIBITION) {
+        followPos = playerCar.isCrashed ? aiCar.position : playerCar.position;
+    } else if (currentState == TEST_AI || currentState == MENU) {
+        followPos = aiCar.position;
+    }
+
+    if (cameraMode == CAM_FOLLOW_LEADER) {
+        worldCamera.target.x += (followPos.x - worldCamera.target.x) * 0.08f;
+        worldCamera.target.y += (followPos.y - worldCamera.target.y) * 0.08f;
+    } else if (cameraMode == CAM_OVERVIEW) {
+        // Calculate track center and bounding box to fit the entire circuit
+        float minX = 1e9f, maxX = -1e9f, minY = 1e9f, maxY = -1e9f;
+        for (const auto& wall : trackWalls) {
+            minX = std::min({minX, wall.first.x, wall.second.x});
+            maxX = std::max({maxX, wall.first.x, wall.second.x});
+            minY = std::min({minY, wall.first.y, wall.second.y});
+            maxY = std::max({maxY, wall.first.y, wall.second.y});
+        }
+        if (maxX > minX && maxY > minY) {
+            Vector2 center = { (minX + maxX) * 0.5f, (minY + maxY) * 0.5f };
+            worldCamera.target.x += (center.x - worldCamera.target.x) * 0.08f;
+            worldCamera.target.y += (center.y - worldCamera.target.y) * 0.08f;
+            float viewW = (float)(Config::SCREEN_WIDTH - 250);
+            float viewH = (float)Config::SCREEN_HEIGHT;
+            float fitZoom = std::min((viewW - 80.0f) / (maxX - minX), (viewH - 80.0f) / (maxY - minY));
+            targetZoom = std::clamp(fitZoom, 0.20f, 1.2f);
+        }
+    }
+
+    // Smooth zoom dampening
+    worldCamera.zoom += (targetZoom - worldCamera.zoom) * 0.1f;
+}
+
+void Simulation::DrawMinimap(const std::vector<Car*>& sortedCars) {
+    if (trackWalls.empty()) return;
+
+    // Tactical F1 Minimap HUD in lower-left viewport
+    float mmX = 20.0f;
+    float mmY = Config::SCREEN_HEIGHT - 175.0f;
+    float mmW = 230.0f;
+    float mmH = 155.0f;
+
+    DrawRectangleRounded({ mmX, mmY, mmW, mmH }, 0.08f, 4, Fade(BLACK, 0.80f));
+    DrawRectangleRoundedLinesEx({ mmX, mmY, mmW, mmH }, 0.08f, 4, 1.5f, Fade(SKYBLUE, 0.7f));
+    DrawText("F1 CIRCUIT MAP", mmX + 10, mmY + 6, 11, SKYBLUE);
+
+    float minX = 1e9f, maxX = -1e9f, minY = 1e9f, maxY = -1e9f;
+    for (const auto& wall : trackWalls) {
+        minX = std::min({minX, wall.first.x, wall.second.x});
+        maxX = std::max({maxX, wall.first.x, wall.second.x});
+        minY = std::min({minY, wall.first.y, wall.second.y});
+        maxY = std::max({maxY, wall.first.y, wall.second.y});
+    }
+
+    float trackW = std::max(10.0f, maxX - minX);
+    float trackH = std::max(10.0f, maxY - minY);
+    float pad = 12.0f;
+    float innerW = mmW - 2.0f * pad;
+    float innerH = mmH - 24.0f - pad;
+    float scale = std::min(innerW / trackW, innerH / trackH);
+
+    float offsetX = mmX + pad + (innerW - trackW * scale) * 0.5f - minX * scale;
+    float offsetY = mmY + 22.0f + (innerH - trackH * scale) * 0.5f - minY * scale;
+
+    auto WorldToMinimap = [&](Vector2 p) -> Vector2 {
+        return { p.x * scale + offsetX, p.y * scale + offsetY };
+    };
+
+    // Draw track walls miniaturized
+    for (const auto& wall : trackWalls) {
+        Vector2 p1 = WorldToMinimap(wall.first);
+        Vector2 p2 = WorldToMinimap(wall.second);
+        DrawLineV(p1, p2, Fade(WHITE, 0.6f));
+    }
+
+    // Start/finish line marker
+    Vector2 sf = WorldToMinimap(startPosition);
+    DrawCircleV(sf, 3.5f, YELLOW);
+
+    // Cars on track
+    if (!sortedCars.empty()) {
+        for (int i = (int)sortedCars.size() - 1; i >= 0; i--) {
+            const Car* car = sortedCars[i];
+            if (car->isCrashed) continue;
+            Vector2 mp = WorldToMinimap(car->position);
+            if (i == 0) {
+                DrawCircleV(mp, 4.0f, GOLD);
+                DrawCircleLines(mp.x, mp.y, 4.0f, WHITE);
+            } else if (i < 3) {
+                DrawCircleV(mp, 2.5f, SKYBLUE);
+            } else {
+                DrawCircleV(mp, 1.5f, Fade(RED, 0.5f));
+            }
+        }
+    } else if (!aiCar.isCrashed) {
+        Vector2 aiP = WorldToMinimap(aiCar.position);
+        DrawCircleV(aiP, 3.5f, RED);
+        if (currentState == EXHIBITION && !playerCar.isCrashed) {
+            Vector2 plP = WorldToMinimap(playerCar.position);
+            DrawCircleV(plP, 3.5f, BLUE);
+        }
+    }
+
+    // Current camera viewport indicator
+    Vector2 camCenter = WorldToMinimap(worldCamera.target);
+    float viewBoxW = ((Config::SCREEN_WIDTH - 250.0f) / worldCamera.zoom) * scale;
+    float viewBoxH = (Config::SCREEN_HEIGHT / worldCamera.zoom) * scale;
+    DrawRectangleLines(camCenter.x - viewBoxW * 0.5f, camCenter.y - viewBoxH * 0.5f, viewBoxW, viewBoxH, Fade(YELLOW, 0.45f));
+}
+
 void Simulation::DrawMenu() {
+    BeginMode2D(worldCamera);
     DrawFinishLine(0.3f);
     DrawCheckpoints(0.3f);
     
@@ -433,6 +629,7 @@ void Simulation::DrawMenu() {
             DrawCircleV(actualRayEnd, 3.0f, Fade(GREEN, 0.15f));
         }
     }
+    EndMode2D();
 
     DrawRectangle(0, 0, Config::SCREEN_WIDTH, Config::SCREEN_HEIGHT, Fade(BLACK, 0.7f));
 
@@ -452,6 +649,7 @@ void Simulation::DrawMenu() {
 }
 
 void Simulation::DrawTraining() {
+    BeginMode2D(worldCamera);
     DrawFinishLine(1.0f);
     if (showCheckpoints) {
         DrawCheckpoints(0.5f);
@@ -491,6 +689,7 @@ void Simulation::DrawTraining() {
             }
         }
     }
+    EndMode2D();
 
     std::vector<Car*> sortedPop;
     sortedPop.reserve(population.size());
@@ -503,11 +702,8 @@ void Simulation::DrawTraining() {
     DrawRectangle(Config::SCREEN_WIDTH - UI_PANEL_WIDTH, 0, UI_PANEL_WIDTH, Config::SCREEN_HEIGHT, Fade(BLACK, 0.85f));
     DrawText(TextFormat("Generation: %d (Track %d/%d)", generationCount, currentEvaluationTrack + 1, (int)trainingTracks.size()), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 12, 17, WHITE);
     
-    const char* phaseStr = (generationCount < Config::CURRICULUM_PHASE_1_END) ? "PHASE 1: INDUCTION" :
-                           (generationCount < Config::CURRICULUM_PHASE_2_END) ? "PHASE 2: CONSOLIDATION" :
-                           "PHASE 3: PROCEDURAL GEN";
-    Color phaseColor = (generationCount < Config::CURRICULUM_PHASE_1_END) ? YELLOW :
-                       (generationCount < Config::CURRICULUM_PHASE_2_END) ? SKYBLUE : GREEN;
+    const char* phaseStr = "PURE PROCEDURAL F1 (6 CIRCUITS)";
+    Color phaseColor = GREEN;
     DrawText(phaseStr, Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 32, 11, phaseColor);
 
     DrawText(TextFormat("Time: %d / %d", generationTimer, Config::MAX_GENERATION_TIME), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 48, 16, WHITE);
@@ -520,16 +716,18 @@ void Simulation::DrawTraining() {
         DrawText(TextFormat("Laps: %d | Best: %.2fs", sortedPop[0]->lapsCompleted, leaderBestSec), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 124, 13, (sortedPop[0]->bestLapTicks > 0) ? GREEN : LIGHTGRAY);
     }
 
-    DrawText("[SPACE] Change speed", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 142, 10, LIGHTGRAY);
-    DrawText("[M] Return to Menu", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 155, 10, LIGHTGRAY);
-    DrawText("[C] Toggle Checkpoints", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 168, 10, LIGHTGRAY);
-    DrawText("[H] Telemetry & Heatmap", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 181, 10, LIGHTGRAY);
+    DrawText("[SPACE] Change speed", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 140, 10, LIGHTGRAY);
+    DrawText("[M] Return to Menu", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 152, 10, LIGHTGRAY);
+    DrawText("[C] Toggle Checkpoints", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 164, 10, LIGHTGRAY);
+    DrawText("[H] Telemetry & Heatmap", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 176, 10, LIGHTGRAY);
+    const char* camName = (cameraMode == CAM_FOLLOW_LEADER) ? "LEADER CHASE" : (cameraMode == CAM_OVERVIEW ? "OVERVIEW" : "MANUAL");
+    DrawText(TextFormat("[V] Cam: %s", camName), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 188, 10, SKYBLUE);
 
-    DrawText("TOP 10 FITNESS", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 198, 18, YELLOW);
+    DrawText("TOP 10 FITNESS", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 203, 17, YELLOW);
     for (int i = 0; i < 10 && i < (int)sortedPop.size(); i++) {
         Color rowColor = (sortedPop[i]->isCrashed) ? GRAY : WHITE;
         if (i == 0) rowColor = GOLD;
-        DrawText(TextFormat("%d. Fit: %.0f (L:%d)", i + 1, sortedPop[i]->fitness, sortedPop[i]->lapsCompleted), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 222 + (i * 25), 17, rowColor);
+        DrawText(TextFormat("%d. Fit: %.0f (L:%d)", i + 1, sortedPop[i]->fitness, sortedPop[i]->lapsCompleted), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 224 + (i * 24), 16, rowColor);
     }
 
     if (!sortedPop.empty()) {
@@ -593,12 +791,15 @@ void Simulation::DrawTraining() {
         }
     }
     
+    DrawMinimap(sortedPop);
+
     if (showTelemetry) {
         Telemetry::DrawDashboard(Config::SCREEN_WIDTH, Config::SCREEN_HEIGHT);
     }
 }
 
 void Simulation::DrawExhibition() {
+    BeginMode2D(worldCamera);
     DrawFinishLine(1.0f);
     DrawCheckpoints(0.5f);
     
@@ -608,6 +809,9 @@ void Simulation::DrawExhibition() {
 
     if (!aiCar.isCrashed) DrawRectanglePro({ aiCar.position.x, aiCar.position.y, Config::CAR_HALF_LENGTH * 2.0f, Config::CAR_HALF_WIDTH * 2.0f }, { Config::CAR_HALF_LENGTH, Config::CAR_HALF_WIDTH }, aiCar.rotation, RED);
     if (!playerCar.isCrashed) DrawRectanglePro({ playerCar.position.x, playerCar.position.y, Config::CAR_HALF_LENGTH * 2.0f, Config::CAR_HALF_WIDTH * 2.0f }, { Config::CAR_HALF_LENGTH, Config::CAR_HALF_WIDTH }, playerCar.rotation, BLUE);
+    EndMode2D();
+
+    DrawMinimap({});
 
     if (exhibitionResult == 1) {
         DrawText("YOU BEAT THE AI!", Config::SCREEN_WIDTH/2 - 200, 200, 40, GREEN);
@@ -634,6 +838,7 @@ void Simulation::UpdateTestAI() {
 }
 
 void Simulation::DrawTestAI() {
+    BeginMode2D(worldCamera);
     DrawFinishLine(1.0f);
     DrawCheckpoints(0.5f);
     
@@ -649,7 +854,12 @@ void Simulation::DrawTestAI() {
             DrawLineV(aiCar.position, actualRayEnd, Fade(GREEN, 0.5f));
             DrawCircleV(actualRayEnd, 3.0f, Fade(GREEN, 0.5f));
         }
-    } else {
+    }
+    EndMode2D();
+
+    DrawMinimap({});
+
+    if (aiCar.isCrashed) {
         DrawText("THE AI HAS CRASHED", Config::SCREEN_WIDTH/2 - 150, 200, 30, RED);
         DrawText("Press R to restart", Config::SCREEN_WIDTH/2 - 100, 250, 20, WHITE);
     }
@@ -681,48 +891,25 @@ void Simulation::BuildSpatialGrid(){
 }
 
 void Simulation::InitTrainingTracks() {
-    // 1. Load baseTrackFacil (Phase 1 induction & Phase 2 consolidation)
-    std::string path0 = "data/tracks/pista_facil.json";
-    if (std::ifstream(path0.c_str()).good()) {
-        TrackManager::LoadTrackFromFile(path0, baseTrackFacil.walls, baseTrackFacil.startPos, baseTrackFacil.startRot, baseTrackFacil.checkpoints);
-    } else if (!trackWalls.empty()) {
-        baseTrackFacil.walls = trackWalls;
-        baseTrackFacil.checkpoints = trackCheckpoints;
-        baseTrackFacil.startPos = startPosition;
-        baseTrackFacil.startRot = startRotation;
-    } else {
-        TrackManager::LoadTrackFromFile(trackFile, baseTrackFacil.walls, baseTrackFacil.startPos, baseTrackFacil.startRot, baseTrackFacil.checkpoints);
-    }
-
-    // 2. Load baseTrackMedio (Phase 2 consolidation & Phase 3 benchmark)
-    std::string path1 = "data/tracks/pista_medio.json";
-    if (std::ifstream(path1.c_str()).good()) {
-        TrackManager::LoadTrackFromFile(path1, baseTrackMedio.walls, baseTrackMedio.startPos, baseTrackMedio.startRot, baseTrackMedio.checkpoints);
-    } else {
-        baseTrackMedio = baseTrackFacil;
-    }
-
-    // 3. Load baseTrackDificil (Phase 2 advanced consolidation)
-    std::string path2 = "data/tracks/pista_dificil.json";
-    if (std::ifstream(path2.c_str()).good()) {
-        TrackManager::LoadTrackFromFile(path2, baseTrackDificil.walls, baseTrackDificil.startPos, baseTrackDificil.startRot, baseTrackDificil.checkpoints);
-    } else {
-        baseTrackDificil = baseTrackMedio;
-    }
+    // Generate authentic F1-scale benchmark tracks for the curriculum phases (2400x1600 canvas)
+    baseTrackFacil = GenerateProceduralTrainingTrack(0);   // Archetype 0: Monza Cathedral (Fast, open sweepers)
+    baseTrackMedio = GenerateProceduralTrainingTrack(1);   // Archetype 1: Silverstone / Spa (Multi-sector undulating flow)
+    baseTrackDificil = GenerateProceduralTrainingTrack(2); // Archetype 2: Interlagos / Spielberg (Technical horseshoe)
 }
 
-Simulation::TrainingTrack Simulation::GenerateProceduralTrainingTrack() {
-    std::vector<Vector2> pts = ModularTrackGenerator::GenerateProceduralCenterPoints();
+Simulation::TrainingTrack Simulation::GenerateProceduralTrainingTrack(int fixedArchetype) {
+    std::vector<Vector2> pts = ModularTrackGenerator::GenerateProceduralCenterPoints(fixedArchetype);
     for (int retry = 0; retry < 5 && pts.empty(); retry++) {
-        pts = ModularTrackGenerator::GenerateProceduralCenterPoints();
+        pts = ModularTrackGenerator::GenerateProceduralCenterPoints(fixedArchetype);
     }
     if (pts.size() < 12) {
-        return baseTrackMedio;
+        pts = ModularTrackGenerator::GenerateArchetypeFallback(fixedArchetype);
     }
 
     std::vector<Vector2> denseLine = TrackManager::GenerateSplinePoints(pts, PROCEDURAL_SPLINE_SEGMENTS);
     if (denseLine.size() < 10) {
-        return baseTrackMedio;
+        pts = ModularTrackGenerator::GenerateArchetypeFallback(fixedArchetype);
+        denseLine = TrackManager::GenerateSplinePoints(pts, PROCEDURAL_SPLINE_SEGMENTS);
     }
 
     TrainingTrack tt;
@@ -748,20 +935,27 @@ Simulation::TrainingTrack Simulation::GenerateProceduralTrainingTrack() {
 }
 
 void Simulation::SetupCurriculumForGeneration(int gen) {
+    (void)gen;
     trainingTracks.clear();
-    if (gen < Config::CURRICULUM_PHASE_1_END) {
-        // Phase 1: Inducción (pista_facil exclusivamente)
-        trainingTracks.push_back(baseTrackFacil);
-    } else if (gen < Config::CURRICULUM_PHASE_2_END) {
-        // Phase 2: Consolidación multi-pista determinista (Fácil -> Media -> Difícil)
-        trainingTracks.push_back(baseTrackFacil);
-        trainingTracks.push_back(baseTrackMedio);
-        trainingTracks.push_back(baseTrackDificil);
-    } else {
-        // Phase 3: Generalización continua (1 Benchmark de control + 2 Pistas procedurales dinámicas)
-        trainingTracks.push_back(baseTrackMedio);
-        trainingTracks.push_back(GenerateProceduralTrainingTrack());
-        trainingTracks.push_back(GenerateProceduralTrainingTrack());
+    static const char* ARCHETYPE_NAMES[6] = {
+        "Monza Cathedral (High-Speed Straights & Chicanes)",
+        "Silverstone / Spa (Tri-Sector Infield Sweepers)",
+        "Interlagos Horseshoe (Technical Amphitheater)",
+        "Suzuka / COTA (Linked Rhythm Esses & Carousel)",
+        "Montreal / Albert Park (Perimeter Straights & Chicanes)",
+        "Stochastic Modular Hybrid (High-Entropy Geometric Assembly)"
+    };
+    std::cout << "[Curriculum Gen " << generationCount << "] Generating 6 Distinct Procedural Circuits:" << std::endl;
+    // Pure procedural multi-circuit evaluation from Generation 0 (6 modular tracks per generation)
+    // Tracks 0..4 cover varied F1 macro-skeletons (Monza, Silverstone, Interlagos, Suzuka, Montreal)
+    // and Track 5 evaluates a stochastic macro-topology.
+    for (int t = 0; t < Config::TRACKS_PER_GENERATION; t++) {
+        int topology = (t < 5) ? t : -1;
+        TrainingTrack tt = GenerateProceduralTrainingTrack(topology);
+        trainingTracks.push_back(tt);
+        int nameIdx = (topology >= 0 && topology < 5) ? topology : 5;
+        std::cout << "  Track " << t + 1 << "/6: " << ARCHETYPE_NAMES[nameIdx] 
+                  << " (" << tt.checkpoints.size() << " checkpoints, " << tt.walls.size() << " wall segments)" << std::endl;
     }
 }
 

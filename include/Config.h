@@ -9,6 +9,8 @@
 namespace Config {
     constexpr int SCREEN_WIDTH = 1280;
     constexpr int SCREEN_HEIGHT = 768;
+    constexpr float WORLD_WIDTH = 2400.0f;
+    constexpr float WORLD_HEIGHT = 1600.0f;
     constexpr int POPULATION_SIZE = 100;
     constexpr int NUM_BEST = 10;
 
@@ -35,8 +37,9 @@ namespace Config {
     inline float MUTATION_SIGMA = 0.12f;       // Active generational Gaussian mutation step size (sigma)
 
     constexpr int MAX_GENERATION_TIME = 2000;
-    constexpr int CURRICULUM_PHASE_1_END = 15;
-    constexpr int CURRICULUM_PHASE_2_END = 50;
+    constexpr int TRACKS_PER_GENERATION = 6; // Pure procedural multi-circuit evaluation from Gen 0
+    constexpr int CURRICULUM_PHASE_1_END = 0;
+    constexpr int CURRICULUM_PHASE_2_END = 0;
     constexpr float SENSOR_ANGLES[5] = {-90.0f, -45.0f, 0.0f, 45.0f, 90.0f};
 
     constexpr float CAR_TURN_SPEED = 3.5f;
@@ -46,7 +49,7 @@ namespace Config {
     constexpr float CAR_FRONT_SENSOR_DIST = 450.0f;
     constexpr int CAR_STALL_TIME_THRESHOLD = 100;
     constexpr float CAR_STALL_SPEED_THRESHOLD = -1.5f;
-    constexpr int CAR_MAX_TIME_WITHOUT_CHECKPOINT = 150;
+    constexpr int CAR_MAX_TIME_WITHOUT_CHECKPOINT = 320; // Calibrated for 2400x1600 F1 track checkpoint pacing
 
     constexpr float CAR_MASS = 1200.0f;
     constexpr float ENGINE_POWER = 35.0f;

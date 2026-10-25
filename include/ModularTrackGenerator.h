@@ -18,8 +18,8 @@
  */
 namespace ModularTrackGenerator {
     constexpr float PI_F = 3.14159265358979323846f;
-    constexpr float MIN_CLEARANCE = 38.0f;
-    constexpr float MIN_RADIUS = 68.0f; // Enforces minimum post-scale radius compatible with physical adhesion limits
+    constexpr float MIN_CLEARANCE = 36.0f;
+    constexpr float MIN_RADIUS = 30.0f; // Calibrated for tight chicanes and 180-degree hairpins without numerical false rejections
 
     struct Port {
         Vector2 pos;
@@ -130,6 +130,11 @@ namespace ModularTrackGenerator {
         cat.push_back(MakeStraight("STR_90", 90.0f));
         cat.push_back(MakeStraight("STR_150", 150.0f));
         cat.push_back(MakeStraight("STR_240", 240.0f));
+        cat.push_back(MakeStraight("STR_350", 350.0f));
+        cat.push_back(MakeStraight("STR_500", 500.0f));
+
+        cat.push_back(MakeArc("CRV_30_R350_L", 350.0f, PI_F / 6.0f, true));
+        cat.push_back(MakeArc("CRV_30_R350_R", 350.0f, PI_F / 6.0f, false));
 
         cat.push_back(MakeArc("CRV_30_R260_L", 260.0f, PI_F / 6.0f, true));
         cat.push_back(MakeArc("CRV_30_R260_R", 260.0f, PI_F / 6.0f, false));
@@ -163,6 +168,12 @@ namespace ModularTrackGenerator {
         cat.push_back(MakeSnakeEsses("ESS_SNAKE_L", 210.0f, 35.0f));
         cat.push_back(MakeSnakeEsses("ESS_SNAKE_R", 210.0f, -35.0f));
 
+        cat.push_back(MakeSnakeEsses("ESS_MAGGOTTS_L", 340.0f, 48.0f));
+        cat.push_back(MakeSnakeEsses("ESS_MAGGOTTS_R", 340.0f, -48.0f));
+
+        cat.push_back(MakeDoubleApex("CRV_POUHON_DBL_L", 240.0f, 150.0f, true));
+        cat.push_back(MakeDoubleApex("CRV_POUHON_DBL_R", 240.0f, 150.0f, false));
+
         return cat;
     }
 
@@ -183,25 +194,25 @@ namespace ModularTrackGenerator {
 
     inline bool TryHermiteBridge(const Port& curPort, const Port& startPort, std::vector<Vector2>& outBridgePoints) {
         float d = Dist(curPort.pos, startPort.pos);
-        if (d < 120.0f || d > 450.0f) return false;
+        if (d < 80.0f || d > 750.0f) return false;
 
         float toStartX = startPort.pos.x - curPort.pos.x;
         float toStartY = startPort.pos.y - curPort.pos.y;
         float dirAngle = std::atan2(toStartY, toStartX);
         
-        // Strict angular threshold: max 28.8 degrees deviation
+        // Calibrated angular threshold: up to 50.4 degrees deviation for robust bridge interpolation
         float angleDiffCur = std::abs(NormalizeAngle(dirAngle - curPort.heading));
-        if (angleDiffCur > PI_F * 0.16f) return false;
+        if (angleDiffCur > PI_F * 0.28f) return false;
 
         float angleDiffStart = std::abs(NormalizeAngle(startPort.heading - dirAngle));
-        if (angleDiffStart > PI_F * 0.16f) return false;
+        if (angleDiffStart > PI_F * 0.28f) return false;
 
         float tangentLen = d * 0.45f;
         Vector2 m0 = { std::cos(curPort.heading) * tangentLen, std::sin(curPort.heading) * tangentLen };
         Vector2 m1 = { std::cos(startPort.heading) * tangentLen, std::sin(startPort.heading) * tangentLen };
 
         outBridgePoints.clear();
-        int steps = std::clamp((int)std::round(d / 55.0f), 2, 6);
+        int steps = std::clamp((int)std::round(d / 65.0f), 2, 8);
         for (int i = 1; i <= steps; i++) {
             float t = (float)i / (steps + 1);
             float t2 = t * t;
@@ -298,52 +309,84 @@ namespace ModularTrackGenerator {
 
     inline std::vector<Vector2> SeedWaypoints(int topology, float& outStartAngle) {
         std::vector<Vector2> rawWp;
-        float rot = (float)GetRandomValue(0, 360) * (PI_F / 180.0f);
+        float rot = (float)GetRandomValue(-20, 20) * (PI_F / 180.0f);
         float cosR = std::cos(rot);
         float sinR = std::sin(rot);
 
         switch (topology) {
-            case 0: {
-                float r1 = (float)GetRandomValue(300, 360);
-                float r2 = (float)GetRandomValue(280, 340);
-                float r3 = (float)GetRandomValue(280, 340);
-                rawWp.push_back({ r1, 0.0f });
-                rawWp.push_back({ -r2 * 0.5f, r2 * 0.866f });
-                rawWp.push_back({ -r3 * 0.5f, -r3 * 0.866f });
+            case 0: { // Monza Cathedral of Speed (Corridor ~3.2:1 aspect ratio)
+                float hw = (float)GetRandomValue(850, 980);
+                float hh = (float)GetRandomValue(260, 340);
+                rawWp.push_back({ -hw, -hh * 0.85f });
+                rawWp.push_back({ -hw * 0.2f, -hh * 0.90f });
+                rawWp.push_back({ hw * 0.3f, -hh });
+                rawWp.push_back({ hw * 0.9f, -hh * 0.4f });
+                rawWp.push_back({ hw, 0.0f });
+                rawWp.push_back({ hw * 0.7f, hh * 0.7f });
+                rawWp.push_back({ 0.0f, hh });
+                rawWp.push_back({ -hw * 0.7f, hh * 0.8f });
+                rawWp.push_back({ -hw, 0.0f });
                 break;
             }
-            case 1: {
-                for (int i = 0; i < 5; i++) {
-                    float a = i * (2.0f * PI_F / 5.0f);
-                    float rad = (i == 2) ? (float)GetRandomValue(120, 180) : (float)GetRandomValue(280, 350);
-                    rawWp.push_back({ rad * std::cos(a), rad * std::sin(a) });
-                }
+            case 1: { // Silverstone / Spa Ardennes Sector Flow (Tri-Sector undulating)
+                float hw = (float)GetRandomValue(800, 950);
+                float hh = (float)GetRandomValue(480, 580);
+                rawWp.push_back({ -hw * 0.8f, -hh * 0.7f });
+                rawWp.push_back({ -hw * 0.2f, -hh * 0.95f });
+                rawWp.push_back({ hw * 0.5f, -hh * 0.8f });
+                rawWp.push_back({ hw * 0.95f, -hh * 0.2f });
+                rawWp.push_back({ hw * 0.6f, hh * 0.2f });
+                rawWp.push_back({ hw * 0.85f, hh * 0.85f });
+                rawWp.push_back({ 0.0f, hh * 0.95f });
+                rawWp.push_back({ -hw * 0.6f, hh * 0.5f });
+                rawWp.push_back({ -hw * 0.95f, 0.0f });
                 break;
             }
-            case 2: {
-                float w = (float)GetRandomValue(280, 350);
-                float h = (float)GetRandomValue(220, 280);
-                rawWp.push_back({ w, -h });
-                rawWp.push_back({ w * 0.2f, 0.0f });
-                rawWp.push_back({ -w, -h });
-                rawWp.push_back({ -w, h });
-                rawWp.push_back({ w * 0.5f, h });
+            case 2: { // Interlagos / Spielberg Horseshoe (Technical amphitheater)
+                float hw = (float)GetRandomValue(750, 900);
+                float hh = (float)GetRandomValue(450, 550);
+                rawWp.push_back({ -hw, -hh * 0.5f });
+                rawWp.push_back({ -hw * 0.1f, -hh * 0.9f });
+                rawWp.push_back({ hw * 0.8f, -hh * 0.7f });
+                rawWp.push_back({ hw, hh * 0.1f });
+                rawWp.push_back({ hw * 0.2f, hh * 0.1f });
+                rawWp.push_back({ hw * 0.5f, hh * 0.8f });
+                rawWp.push_back({ -hw * 0.5f, hh });
+                rawWp.push_back({ -hw * 0.85f, hh * 0.3f });
                 break;
             }
-            case 3: default: {
-                float hw = (float)GetRandomValue(260, 360);
-                float hh = (float)GetRandomValue(180, 260);
-                rawWp.push_back({ hw, hh });
-                rawWp.push_back({ -hw, hh });
-                rawWp.push_back({ -hw, -hh });
-                rawWp.push_back({ hw, -hh });
+            case 3: { // Suzuka / COTA Rhythm Flow (Technical rhythm S-curves)
+                float hw = (float)GetRandomValue(800, 920);
+                float hh = (float)GetRandomValue(460, 560);
+                rawWp.push_back({ -hw * 0.9f, -hh * 0.3f });
+                rawWp.push_back({ -hw * 0.4f, -hh * 0.85f });
+                rawWp.push_back({ hw * 0.1f, -hh * 0.5f });
+                rawWp.push_back({ hw * 0.6f, -hh * 0.9f });
+                rawWp.push_back({ hw * 0.95f, -hh * 0.2f });
+                rawWp.push_back({ hw * 0.7f, hh * 0.4f });
+                rawWp.push_back({ hw * 0.1f, hh * 0.85f });
+                rawWp.push_back({ -hw * 0.4f, hh * 0.4f });
+                rawWp.push_back({ -hw * 0.85f, hh * 0.75f });
+                break;
+            }
+            case 4: default: { // Albert Park / Montreal Island Hybrid (High-speed chicanes & power straights)
+                float hw = (float)GetRandomValue(820, 950);
+                float hh = (float)GetRandomValue(380, 480);
+                rawWp.push_back({ -hw, -hh * 0.7f });
+                rawWp.push_back({ 0.0f, -hh * 0.85f });
+                rawWp.push_back({ hw * 0.85f, -hh * 0.6f });
+                rawWp.push_back({ hw, hh * 0.2f });
+                rawWp.push_back({ hw * 0.6f, hh * 0.85f });
+                rawWp.push_back({ 0.0f, hh * 0.7f });
+                rawWp.push_back({ -hw * 0.7f, hh * 0.9f });
+                rawWp.push_back({ -hw * 0.95f, hh * 0.1f });
                 break;
             }
         }
 
         std::vector<Vector2> worldWp;
         for (const auto& p : rawWp) {
-            worldWp.push_back({ 500.0f + p.x * cosR - p.y * sinR, 400.0f + p.x * sinR + p.y * cosR });
+            worldWp.push_back({ 1200.0f + p.x * cosR - p.y * sinR, 800.0f + p.x * sinR + p.y * cosR });
         }
 
         float shoelace = 0.0f;
@@ -365,26 +408,45 @@ namespace ModularTrackGenerator {
         return reordered;
     }
 
-    inline std::vector<Vector2> GenerateFallbackLoop() {
-        std::vector<Vector2> loop;
-        int n = 16;
-        for (int i = 0; i < n; i++) {
-            float a = (float)i * (2.0f * PI_F / (float)n);
-            float rx = 340.0f + 35.0f * std::cos(2.0f * a);
-            float ry = 230.0f + 25.0f * std::sin(2.0f * a);
-            loop.push_back({ 500.0f + rx * std::cos(a), 400.0f + ry * std::sin(a) });
+    inline std::vector<Vector2> GenerateArchetypeFallback(int topology = 0) {
+        float startAngle = 0.0f;
+        int top = (topology >= 0 && topology <= 4) ? topology : GetRandomValue(0, 4);
+        std::vector<Vector2> wp = SeedWaypoints(top, startAngle);
+        
+        float minX = 1e9, maxX = -1e9, minY = 1e9, maxY = -1e9;
+        for (const auto& p : wp) {
+            if (p.x < minX) minX = p.x;
+            if (p.x > maxX) maxX = p.x;
+            if (p.y < minY) minY = p.y;
+            if (p.y > maxY) maxY = p.y;
         }
-        return loop;
+
+        float tw = maxX - minX;
+        float th = maxY - minY;
+        float scale = std::min(2100.0f / std::max(1.0f, tw), 1360.0f / std::max(1.0f, th)) * 0.92f;
+        float cx = (minX + maxX) * 0.5f;
+        float cy = (minY + maxY) * 0.5f;
+
+        std::vector<Vector2> fitted;
+        for (const auto& p : wp) {
+            fitted.push_back({ 1200.0f + (p.x - cx) * scale, 800.0f + (p.y - cy) * scale });
+        }
+        return fitted;
+    }
+
+    inline std::vector<Vector2> GenerateFallbackLoop(int topology = 0) {
+        return GenerateArchetypeFallback(topology);
     }
 
     /**
      * @brief Synthesizes a high-variety modular racing circuit with 360-degree start pose and multi-topology.
+     * @param fixedTopology When in [0, 4], forces specific F1 macro-skeleton (0: Monza, 1: Silverstone, 2: Interlagos, 3: Suzuka, 4: Montreal).
      */
-    inline std::vector<Vector2> GenerateProceduralCenterPoints() {
+    inline std::vector<Vector2> GenerateProceduralCenterPoints(int fixedTopology = -1) {
         auto catalog = BuildCatalog();
 
         for (int run = 0; run < 400; run++) {
-            int topology = GetRandomValue(0, 3);
+            int topology = (fixedTopology >= 0 && fixedTopology <= 4) ? fixedTopology : GetRandomValue(0, 4);
             float startHeading = 0.0f;
             std::vector<Vector2> waypoints = SeedWaypoints(topology, startHeading);
             int numWP = (int)waypoints.size();
@@ -400,7 +462,7 @@ namespace ModularTrackGenerator {
             int wpIdx = 0;
             bool closed = false;
 
-            for (int step = 0; step < 28; step++) {
+            for (int step = 0; step < 48; step++) {
                 Vector2 targetWP = (wpIdx < numWP) ? waypoints[wpIdx] : startPort.pos;
                 float distToTarget = Dist(curPort.pos, targetWP);
 
@@ -488,14 +550,16 @@ namespace ModularTrackGenerator {
 
                 float tw = maxX - minX;
                 float th = maxY - minY;
-                float scale = std::min(820.0f / std::max(1.0f, tw), 640.0f / std::max(1.0f, th)) * 0.90f;
+                float maxFitW = 2100.0f;
+                float maxFitH = 1360.0f;
+                float scale = std::min(maxFitW / std::max(1.0f, tw), maxFitH / std::max(1.0f, th)) * 0.92f;
 
                 float cx = (minX + maxX) * 0.5f;
                 float cy = (minY + maxY) * 0.5f;
 
                 std::vector<Vector2> fitted;
                 for (const auto& p : trackPoints) {
-                    fitted.push_back({ 500.0f + (p.x - cx) * scale, 400.0f + (p.y - cy) * scale });
+                    fitted.push_back({ 1200.0f + (p.x - cx) * scale, 800.0f + (p.y - cy) * scale });
                 }
 
                 float shoelace = 0.0f;
@@ -515,7 +579,7 @@ namespace ModularTrackGenerator {
                 }
             }
         }
-        return GenerateFallbackLoop();
+        return GenerateArchetypeFallback(fixedTopology);
     }
 
     inline void SaveTrackToFile(const std::vector<Vector2>& centerPoints, const std::string& filename) {

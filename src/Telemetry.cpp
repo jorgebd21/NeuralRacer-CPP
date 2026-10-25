@@ -7,13 +7,16 @@
 
 std::vector<GenerationMetrics> Telemetry::history;
 std::vector<Vector2> Telemetry::crashPoints;
+std::vector<TelemetrySample> Telemetry::fastestLapBuffer;
 std::future<void> Telemetry::exportFuture;
+std::future<void> Telemetry::fastestLapFuture;
 std::mutex Telemetry::dataMutex;
 
 void Telemetry::Init() {
     std::lock_guard<std::mutex> lock(dataMutex);
     history.clear();
     crashPoints.clear();
+    fastestLapBuffer.clear();
 
     // Load existing telemetry CSV if present to persist longitudinal progress across sessions
     std::ifstream file("data/telemetry_log.csv");
@@ -50,6 +53,16 @@ void Telemetry::Init() {
                 else m.activeMutationRate = 15;
                 if (std::getline(ss, token, ',')) m.bestLapTime = std::stof(token);
                 else m.bestLapTime = 0.0f;
+                if (std::getline(ss, token, ',')) m.kammUtilizationAvg = std::stof(token);
+                else m.kammUtilizationAvg = 0.0f;
+                if (std::getline(ss, token, ',')) m.slipAngleAvg = std::stof(token);
+                else m.slipAngleAvg = 0.0f;
+                if (std::getline(ss, token, ',')) m.controlJerkAvg = std::stof(token);
+                else m.controlJerkAvg = 0.0f;
+                if (std::getline(ss, token, ',')) m.trackWidthUtil = std::stof(token);
+                else m.trackWidthUtil = 0.0f;
+                if (std::getline(ss, token, ',')) m.neuralSaturation = std::stof(token);
+                else m.neuralSaturation = 0.0f;
                 history.push_back(m);
             } catch (...) {
                 // Ignore any malformed lines
@@ -62,6 +75,11 @@ void Telemetry::Init() {
 void Telemetry::RecordCrash(Vector2 position) {
     std::lock_guard<std::mutex> lock(dataMutex);
     crashPoints.push_back(position);
+}
+
+void Telemetry::RecordFastestLap(const std::vector<TelemetrySample>& lapSamples) {
+    std::lock_guard<std::mutex> lock(dataMutex);
+    fastestLapBuffer = lapSamples;
 }
 
 void Telemetry::ResetHeatmap() {
@@ -129,7 +147,12 @@ void Telemetry::RecordGeneration(int generation,
                                  float topSpeed,
                                  float smoothness,
                                  int mutationRate,
-                                 float bestLapTime) {
+                                 float bestLapTime,
+                                 float kammUtil,
+                                 float slipAngle,
+                                 float jerk,
+                                 float trackUtil,
+                                 float saturation) {
     if (population.empty()) return;
 
     GenerationMetrics metrics{};
@@ -163,6 +186,11 @@ void Telemetry::RecordGeneration(int generation,
     metrics.steeringSmoothness = smoothness;
     metrics.activeMutationRate = mutationRate;
     metrics.bestLapTime = bestLapTime;
+    metrics.kammUtilizationAvg = kammUtil;
+    metrics.slipAngleAvg = slipAngle;
+    metrics.controlJerkAvg = jerk;
+    metrics.trackWidthUtil = trackUtil;
+    metrics.neuralSaturation = saturation;
 
     auto it = std::find_if(history.begin(), history.end(), [generation](const GenerationMetrics& m) {
         return m.generation == generation;
@@ -174,6 +202,48 @@ void Telemetry::RecordGeneration(int generation,
     }
 }
 
+void Telemetry::ExportFastestLapAsync(const std::string& filename) {
+    std::lock_guard<std::mutex> lock(dataMutex);
+    if (fastestLapBuffer.empty()) return;
+    std::vector<TelemetrySample> bufferCopy = fastestLapBuffer;
+    fastestLapFuture = std::async(std::launch::async, [bufferCopy, filename]() {
+        std::ofstream file(filename, std::ios::out);
+        if (file.is_open()) {
+            file << "tick,lap_tick,distance,x,y,speed,v_long,v_lat,angular_vel,throttle_input,steer_input,"
+                 << "long_accel,lat_accel,kamm_util,slip_angle,jerk_long,jerk_lat,track_offset,"
+                 << "lidar_0,lidar_1,lidar_2,lidar_3,lidar_4,sens_steer_front,sens_steer_lat\n";
+            for (const auto& s : bufferCopy) {
+                file << s.tick << ","
+                     << s.lapTick << ","
+                     << s.distance << ","
+                     << s.position.x << ","
+                     << s.position.y << ","
+                     << s.speed << ","
+                     << s.vLong << ","
+                     << s.vLat << ","
+                     << s.angularVel << ","
+                     << s.throttleInput << ","
+                     << s.steerInput << ","
+                     << s.longAccel << ","
+                     << s.latAccel << ","
+                     << s.kammUtil << ","
+                     << s.slipAngle << ","
+                     << s.jerkLong << ","
+                     << s.jerkLat << ","
+                     << s.trackOffset << ","
+                     << s.sensorDistances[0] << ","
+                     << s.sensorDistances[1] << ","
+                     << s.sensorDistances[2] << ","
+                     << s.sensorDistances[3] << ","
+                     << s.sensorDistances[4] << ","
+                     << s.sensSteerFront << ","
+                     << s.sensSteerLat << "\n";
+            }
+            file.close();
+        }
+    });
+}
+
 void Telemetry::ExportDataAsync(const std::string& filename) {
     // Copy the history so the asynchronous thread doesn't have concurrency issues
     std::vector<GenerationMetrics> historyCopy = history;
@@ -181,7 +251,7 @@ void Telemetry::ExportDataAsync(const std::string& filename) {
     exportFuture = std::async(std::launch::async, [historyCopy, filename]() {
         std::ofstream file(filename, std::ios::out);
         if (file.is_open()) {
-            file << "Generation,MaxFitness,MinFitness,AvgFitness,SurvivalRate,AvgLifeTime,WeightVariance,CurriculumPhase,BenchmarkFitness,ProceduralFitness,TotalLapsCompleted,TopSpeedAvg,SteeringSmoothness,ActiveMutationRate\n";
+            file << "Generation,MaxFitness,MinFitness,AvgFitness,SurvivalRate,AvgLifeTime,WeightVariance,CurriculumPhase,BenchmarkFitness,ProceduralFitness,TotalLapsCompleted,TopSpeedAvg,SteeringSmoothness,ActiveMutationRate,BestLapTime,KammUtilAvg,SlipAngleAvg,ControlJerkAvg,TrackWidthUtil,NeuralSaturation\n";
             for (const auto& m : historyCopy) {
                 file << m.generation << ","
                      << m.maxFitness << ","
@@ -196,7 +266,13 @@ void Telemetry::ExportDataAsync(const std::string& filename) {
                      << m.totalLapsCompleted << ","
                      << m.topSpeedAvg << ","
                      << m.steeringSmoothness << ","
-                     << m.activeMutationRate << "\n";
+                     << m.activeMutationRate << ","
+                     << m.bestLapTime << ","
+                     << m.kammUtilizationAvg << ","
+                     << m.slipAngleAvg << ","
+                     << m.controlJerkAvg << ","
+                     << m.trackWidthUtil << ","
+                     << m.neuralSaturation << "\n";
             }
             file.close();
         }
@@ -207,10 +283,13 @@ void Telemetry::Flush(const std::string& filename) {
     if (exportFuture.valid()) {
         exportFuture.wait();
     }
+    if (fastestLapFuture.valid()) {
+        fastestLapFuture.wait();
+    }
     std::lock_guard<std::mutex> lock(dataMutex);
     std::ofstream file(filename, std::ios::out);
     if (file.is_open()) {
-        file << "Generation,MaxFitness,MinFitness,AvgFitness,SurvivalRate,AvgLifeTime,WeightVariance,CurriculumPhase,BenchmarkFitness,ProceduralFitness,TotalLapsCompleted,TopSpeedAvg,SteeringSmoothness,ActiveMutationRate,BestLapTime\n";
+        file << "Generation,MaxFitness,MinFitness,AvgFitness,SurvivalRate,AvgLifeTime,WeightVariance,CurriculumPhase,BenchmarkFitness,ProceduralFitness,TotalLapsCompleted,TopSpeedAvg,SteeringSmoothness,ActiveMutationRate,BestLapTime,KammUtilAvg,SlipAngleAvg,ControlJerkAvg,TrackWidthUtil,NeuralSaturation\n";
         for (const auto& m : history) {
             file << m.generation << ","
                  << m.maxFitness << ","
@@ -226,7 +305,12 @@ void Telemetry::Flush(const std::string& filename) {
                  << m.topSpeedAvg << ","
                  << m.steeringSmoothness << ","
                  << m.activeMutationRate << ","
-                 << m.bestLapTime << "\n";
+                 << m.bestLapTime << ","
+                 << m.kammUtilizationAvg << ","
+                 << m.slipAngleAvg << ","
+                 << m.controlJerkAvg << ","
+                 << m.trackWidthUtil << ","
+                 << m.neuralSaturation << "\n";
         }
         file.close();
     }
@@ -235,17 +319,17 @@ void Telemetry::Flush(const std::string& filename) {
 void Telemetry::DrawDashboard(int screenWidth, int screenHeight) {
     if (history.empty()) return;
 
-    int panelWidth = 400;
-    int panelHeight = 300;
+    int panelWidth = 510;
+    int panelHeight = 310;
     int padding = 20;
     int x = padding;
     int y = screenHeight - panelHeight - padding;
 
     // Dashboard background
-    DrawRectangle(x, y, panelWidth, panelHeight, Fade(BLACK, 0.85f));
-    DrawRectangleLines(x, y, panelWidth, panelHeight, Fade(WHITE, 0.5f));
+    DrawRectangle(x, y, panelWidth, panelHeight, Fade(BLACK, 0.88f));
+    DrawRectangleLines(x, y, panelWidth, panelHeight, Fade(WHITE, 0.6f));
 
-    DrawText("TELEMETRY AND CONVERGENCE", x + 10, y + 10, 20, SKYBLUE);
+    DrawText("TELEMETRY AND ADVANCED ANALYTICS (F1 GRADE)", x + 10, y + 10, 17, SKYBLUE);
 
     // Find maximums to scale the graph
     float maxFit = 0.0001f; // Avoid division by zero
@@ -253,10 +337,10 @@ void Telemetry::DrawDashboard(int screenWidth, int screenHeight) {
         if (m.maxFitness > maxFit) maxFit = m.maxFitness;
     }
 
-    int graphX = x + 40;
-    int graphY = y + 50;
-    int graphW = panelWidth - 60;
-    int graphH = 150;
+    int graphX = x + 35;
+    int graphY = y + 42;
+    int graphW = panelWidth - 55;
+    int graphH = 145;
 
     // Graph axes
     DrawLine(graphX, graphY, graphX, graphY + graphH, WHITE);
@@ -286,16 +370,27 @@ void Telemetry::DrawDashboard(int screenWidth, int screenHeight) {
         }
     }
 
-    // Graph legend
-    DrawText(TextFormat("Max Fit: %.1f", history.back().maxFitness), x + 10, graphY + graphH + 10, 15, GREEN);
-    DrawText(TextFormat("Avg Fit: %.1f", history.back().avgFitness), x + 10, graphY + graphH + 30, 15, YELLOW);
-    DrawText(TextFormat("Min Fit: %.1f", history.back().minFitness), x + 10, graphY + graphH + 50, 15, RED);
+    // Column 1: Fitness & Lap Time
+    DrawText(TextFormat("Max Fit: %.0f", history.back().maxFitness), x + 10, graphY + graphH + 8, 13, GREEN);
+    DrawText(TextFormat("Avg Fit: %.0f", history.back().avgFitness), x + 10, graphY + graphH + 24, 13, YELLOW);
+    DrawText(TextFormat("Min Fit: %.0f", history.back().minFitness), x + 10, graphY + graphH + 40, 13, RED);
+    DrawText(TextFormat("Best Lap: %.2fs", history.back().bestLapTime), x + 10, graphY + graphH + 56, 13, SKYBLUE);
 
-    // Other metrics
-    int rightCol = x + 200;
-    DrawText(TextFormat("Survival: %.1f%%", history.back().survivalRate * 100.0f), rightCol, graphY + graphH + 10, 15, WHITE);
-    DrawText(TextFormat("Avg Life: %.0f t", history.back().avgLifeTime), rightCol, graphY + graphH + 30, 15, WHITE);
-    DrawText(TextFormat("Gen. Var.: %.4f", history.back().weightVariance), rightCol, graphY + graphH + 50, 15, ORANGE);
+    // Column 2: Population & Evolution
+    int col2 = x + 165;
+    DrawText(TextFormat("Survival: %.1f%%", history.back().survivalRate * 100.0f), col2, graphY + graphH + 8, 13, WHITE);
+    DrawText(TextFormat("Avg Life: %.0f t", history.back().avgLifeTime), col2, graphY + graphH + 24, 13, WHITE);
+    DrawText(TextFormat("Gen. Var.: %.3f", history.back().weightVariance), col2, graphY + graphH + 40, 13, ORANGE);
+    DrawText(TextFormat("Laps: %d", history.back().totalLapsCompleted), col2, graphY + graphH + 56, 13, GOLD);
+
+    // Column 3: Vehicle Dynamics & XAI
+    int col3 = x + 325;
+    Color kammColor = (history.back().kammUtilizationAvg > 0.85f) ? RED : GREEN;
+    DrawText(TextFormat("Kamm Util: %.1f%%", history.back().kammUtilizationAvg * 100.0f), col3, graphY + graphH + 8, 13, kammColor);
+    DrawText(TextFormat("Slip: %.1f deg", history.back().slipAngleAvg), col3, graphY + graphH + 24, 13, SKYBLUE);
+    DrawText(TextFormat("Jerk: %.3f", history.back().controlJerkAvg), col3, graphY + graphH + 40, 13, LIGHTGRAY);
+    DrawText(TextFormat("Track Util: %.1f%%", history.back().trackWidthUtil * 100.0f), col3, graphY + graphH + 56, 13, YELLOW);
+    DrawText(TextFormat("Neural Sat: %.1f%%", history.back().neuralSaturation * 100.0f), col3, graphY + graphH + 72, 13, (history.back().neuralSaturation > 0.5f ? RED : GREEN));
 }
 
 void Telemetry::DrawHeatmap() {

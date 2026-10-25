@@ -23,12 +23,18 @@ struct GenerationMetrics {
     float steeringSmoothness;// Steering rate of change stability [0.0 - 1.0]
     int activeMutationRate;  // Active mutation percentage
     float bestLapTime;       // Fastest lap time recorded in seconds (0.0f if no lap completed)
+    float kammUtilizationAvg;// Average friction circle utilization of elite [0.0 - 1.0+]
+    float slipAngleAvg;      // Average chassis slip angle in degrees
+    float controlJerkAvg;    // Rate of acceleration change (stability metric)
+    float trackWidthUtil;    // Track width utilization ratio [0.0 - 1.0]
+    float neuralSaturation;  // Proportion of hidden neurons saturated > 0.90
 };
 
 class Telemetry {
 public:
     static void Init();
     static void RecordCrash(Vector2 position);
+    static void RecordFastestLap(const std::vector<TelemetrySample>& lapSamples);
     static void RecordGeneration(int generation,
                                  const std::vector<Car>& population,
                                  int maxGenerationTime,
@@ -39,17 +45,25 @@ public:
                                  float topSpeed = 0.0f,
                                  float smoothness = 1.0f,
                                  int mutationRate = 15,
-                                 float bestLapTime = 0.0f);
+                                 float bestLapTime = 0.0f,
+                                 float kammUtil = 0.0f,
+                                 float slipAngle = 0.0f,
+                                 float jerk = 0.0f,
+                                 float trackUtil = 0.0f,
+                                 float saturation = 0.0f);
     static void DrawDashboard(int screenWidth, int screenHeight);
     static void DrawHeatmap();
     static void ExportDataAsync(const std::string& filename = "data/telemetry_log.csv");
+    static void ExportFastestLapAsync(const std::string& filename = "data/telemetry_best_lap.csv");
     static void Flush(const std::string& filename = "data/telemetry_log.csv");
     static void ResetHeatmap();
 
 private:
     static std::vector<GenerationMetrics> history;
     static std::vector<Vector2> crashPoints;
+    static std::vector<TelemetrySample> fastestLapBuffer;
     static std::future<void> exportFuture;
+    static std::future<void> fastestLapFuture;
     static std::mutex dataMutex;
     
     static float CalculateWeightVariance(const std::vector<Car>& population);

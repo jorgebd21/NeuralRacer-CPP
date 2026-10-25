@@ -177,9 +177,9 @@ void GenerateBordersFromCenterLine(const std::vector<Vector2>& centerPoints, flo
         }
     }
 
-    // Generate dense, sequentially ordered checkpoints along the track (1 every ~8-12 spline nodes)
+    // Generate dense, sequentially ordered checkpoints along the track (1 every ~8-14 spline nodes)
     outCheckpoints.clear();
-    int desiredCheckpoints = std::clamp(n / 10, 16, 32);
+    int desiredCheckpoints = std::clamp(n / 12, 20, 56);
     for (int c = 0; c < desiredCheckpoints; c++) {
         int idx = (startIndex + (c + 1) * n / desiredCheckpoints) % n;
         outCheckpoints.push_back(centerPoints[idx]);
