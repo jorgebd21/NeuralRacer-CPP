@@ -27,7 +27,7 @@ To achieve maximum computational efficiency and real-time responsiveness, the en
 *   **Spatial Partitioning:** Utilizes a custom **Spatial Hashing Grid** to reduce narrow-phase collision checks and sensor raycasting from $O(N)$ to $O(1)$, limiting OBB checks to immediate $3\times3$ neighboring cells and raycasts to local grid bounding boxes.
 *   **Hardware Concurrency:** Exploits multi-core architectures by parallelizing the physics engine and neural network evaluations using native **OpenMP** multi-threading and C++17 vectorization across all CPU cores.
 *   **Asynchronous Subsystems:** Implements non-blocking disk serialization (`std::async`/`std::future`) to isolate high-frequency hot paths from storage delays during generational checkpoints.
-*   **Custom Neural Control:** Employs a custom 9-10-2 Feedforward Neural Network (FNN) and a Genetic Algorithm featuring dynamic Gaussian mutation decay with a sustained exploration floor, Time-to-Collision observation, and deterministic multi-circuit elitism, all written from first principles.
+*   **Custom Neural Control:** Employs a custom 11-10-2 Feedforward Neural Network (FNN) featuring predictive track lookahead preview (upcoming turn angle and apex distance), dynamic Gaussian mutation decay with a sustained exploration floor, Time-to-Collision observation, and deterministic multi-circuit elitism, all written from first principles.
 
 ---
 
@@ -54,8 +54,8 @@ flowchart TD
     end
 
     subgraph ParallelLoop ["Multi-threaded via OpenMP"]
-        C --> D[Compute Sensor Raycasts & Delay Buffer]
-        D --> E[Evaluate Neural Network - 9-10-2]
+        C --> D[Compute Sensor Raycasts & Lookahead Vectors]
+        D --> E[Evaluate Neural Network - 11-10-2 with Lookahead Horizon]
         E --> F[Apply Vehicle Dynamics - Drift, Inertia & Weight Transfer]
         F --> G{Collision or Timeout Detected?}
         G -- Yes --> H[Register Single Impact & Update Telemetry]
@@ -96,9 +96,9 @@ for (int i = 0; i < (int)population.size(); i++) {
     if (!car.isCrashed) {
         carsAlive++;
         
-        // 1. Evaluate the custom neural network with 9-dimensional state space
+        // 1. Evaluate the custom neural network with 11-dimensional state space and track lookahead
         float inputAccelerate = 0.0f, inputTurn = 0.0f;
-        car.Think(inputAccelerate, inputTurn);
+        car.Think(inputAccelerate, inputTurn, trackCheckpoints);
         
         // 2. Perform narrow-phase physics and collision routines
         car.UpdatePhysics(inputAccelerate, inputTurn, spatialGrid, generationTimer, trackCheckpoints);
@@ -151,7 +151,13 @@ for (int i = 0; i < 5; i++) {
 
 ### 3. Custom Neural Network & Dynamic Neuroevolution
 The behavioral engine models decision-making processes from first principles:
-*   **9-10-2 FNN Topology:** Integrates 5 directional proximity inputs, 1 Time-to-Collision front delta (from an 8-tick circular delay line), longitudinal velocity, lateral slip velocity, and angular yaw rate. Processed through a 10-node hidden layer with hyperbolic tangent ($\tanh$) activation to yield symmetrical continuous controls.
+*   **11-10-2 FNN Topology & Predictive Track Lookahead Preview:** Integrates an 11-dimensional observation space:
+    1.  *Lidar Rays 1–5:* Proximity distances normalized by maximum sensor reach ($d_i / d_{\max}$).
+    2.  *Time-to-Collision Delta (Input 6):* Front sensor rate-of-closure ($\Delta d_{\text{front}} / 200.0$) evaluated over an 8-tick circular delay line.
+    3.  *Kinematic Velocity State (Inputs 7–9):* Longitudinal speed ($v_{\text{long}} / 20.0$), lateral slip velocity ($v_{\text{lat}} / 10.0$), and normalized angular yaw rate ($\omega / \omega_{\max}$).
+    4.  *Predictive Curvature Angle (Input 10 - $\Delta \theta_{\text{lookahead}} \in [-1.0, 1.0]$):* Evaluates the upcoming bend angle relative to the vehicle's heading along the centerline checkpoints. Eliminates the braking horizon paradox by detecting upcoming $90^\circ$ turns and hairpins up to $350\text{ px}$ ahead, well before symmetric boundary walls enter proximity lidar range.
+    5.  *Apex Horizon Distance (Input 11 - $d_{\text{lookahead}} \in [0.0, 1.0]$):* Normalized distance along the track centerline to the upcoming corner apex ($d / 350.0$), allowing the network to modulate deceleration timing.
+    All inputs pass through a 10-node hidden layer with hyperbolic tangent ($\tanh$) activations to yield continuous, symmetrical acceleration and steering controls in $[-1.0, 1.0]$.
 *   **Two-Stage Decremental Mutation Schedule with Horizon Milestones:** Implements an adaptive genetic algorithm controlling both gene mutation probability and Gaussian perturbation step size across a calibrated multi-horizon schedule:
     *   *Stage 1 (Generations 0–200, Macro-Exploration & Procedural Plasticity):* Decays smoothly from $50\%$ down to $25\%$ (`Config::STAGE1_MUTATION_MIN = 25`), with $\sigma$ transitioning from $0.12$ to $0.08$. This guarantees ample synaptic plasticity during Curriculum Induction, Consolidation, and early Procedural generalization, touching exactly $25\%$ at generation 200 to prevent procedural paralysis.
     *   *Stage 2 (Generations 200–400, Fine Exploitation & Load Reduction):* Decays gently from $25\%$ down to an ultra-fine floor of $3\%$ (`Config::STAGE2_MUTATION_MIN = 3`), with $\sigma$ transitioning from $0.08$ to $0.035$. This progressively eliminates deleterious mutation load on competent reflex controllers (raising fleet survival rate beyond $90\%$) while maintaining subtle micro-tuning capabilities.

@@ -100,7 +100,7 @@ bool LoadBestBrains(std::vector<Car>& population, int& generation) {
         (data["elite"][0].contains("biases_hidden") && data["elite"][0]["biases_hidden"].size() != HIDDEN_NODES) ||
         (data["elite"][0].contains("weights_input_hidden") && data["elite"][0]["weights_input_hidden"][0].size() != INPUT_NODES)) {
         generation = 0;
-        std::cout << "Notice: 'data/best.json' contains legacy topology. Starting population with fresh 9-10-2 network." << std::endl;
+        std::cout << "Notice: 'data/best.json' contains legacy topology. Starting population with fresh 11-10-2 network." << std::endl;
         return false;
     }
 

@@ -48,6 +48,10 @@ struct Car {
     float lateralVelocity;
     float frontSensorDelta;
 
+    // Track lookahead preview for predictive cornering and braking horizon
+    float lookaheadAngle;
+    float lookaheadDistance;
+
     static constexpr int FRONT_HISTORY_SIZE = 8;
     float frontSensorHistory[FRONT_HISTORY_SIZE];
     int frontSensorHistoryIdx;
@@ -84,13 +88,28 @@ struct Car {
     float GetAverageSpeed() const { return timeAlive > 0 ? (distanceTraveled / timeAlive) : 0.0f; }
 
     /**
-     * @brief Evaluates the brain using the 9-dimensional state space.
+     * @brief Computes predictive lookahead curvature angle and distance to upcoming apex.
+     * 
+     * @param trackCheckpoints Ordered list of circuit checkpoints.
+     * @param outAngle Output relative angle in range [-1.0, 1.0] (-180 to +180 deg).
+     * @param outDist Output distance to apex normalized [0.0, 1.0] across 350px horizon.
+     */
+    void CalculateLookahead(const std::vector<Vector2>& trackCheckpoints, float &outAngle, float &outDist) const;
+
+    /**
+     * @brief Evaluates the brain using the 11-dimensional state space with predictive lookahead.
      * 
      * @param outAccelerate Calculated acceleration output.
      * @param outTurn Calculated steering output.
+     * @param trackCheckpoints Optional track checkpoint array for lookahead calculation.
      */
-    void Think(float &outAccelerate, float &outTurn) {
-        brain.Evaluate(sensorDistances, frontSensorDelta, longitudinalVelocity, lateralVelocity, angularVelocity, outAccelerate, outTurn);
+    void Think(float &outAccelerate, float &outTurn, const std::vector<Vector2>& trackCheckpoints = {}) {
+        if (!trackCheckpoints.empty()) {
+            const_cast<Car*>(this)->CalculateLookahead(trackCheckpoints, 
+                const_cast<Car*>(this)->lookaheadAngle, 
+                const_cast<Car*>(this)->lookaheadDistance);
+        }
+        brain.Evaluate(sensorDistances, frontSensorDelta, longitudinalVelocity, lateralVelocity, angularVelocity, lookaheadAngle, lookaheadDistance, outAccelerate, outTurn);
     }
 
     /**
