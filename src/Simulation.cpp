@@ -297,9 +297,20 @@ void Simulation::UpdateTraining() {
                 float eliteAvgSpeed = sortedPop[0]->GetAverageSpeed();
                 float eliteSmoothness = std::clamp(1.0f - (std::abs(sortedPop[0]->angularVelocity) / Config::CAR_TURN_SPEED), 0.0f, 1.0f);
 
+                int fastestLapTicks = 0;
+                for (const auto& car : population) {
+                    if (car.bestLapTicks > 0) {
+                        if (fastestLapTicks == 0 || car.bestLapTicks < fastestLapTicks) {
+                            fastestLapTicks = car.bestLapTicks;
+                        }
+                    }
+                }
+                float bestLapTimeSeconds = (fastestLapTicks > 0) ? ((float)fastestLapTicks / 60.0f) : 0.0f;
+
                 Telemetry::RecordGeneration(generationCount, population, Config::MAX_GENERATION_TIME,
                                             phase, benchmarkTopFitness, procFit, generationTotalLaps,
-                                            eliteAvgSpeed, eliteSmoothness, Config::MUTATION);
+                                            eliteAvgSpeed, eliteSmoothness, Config::MUTATION,
+                                            bestLapTimeSeconds);
                 Telemetry::ExportDataAsync();
                 
                 generationTotalLaps = 0;
@@ -481,6 +492,13 @@ void Simulation::DrawTraining() {
         }
     }
 
+    std::vector<Car*> sortedPop;
+    sortedPop.reserve(population.size());
+    for (auto& car : population) {
+        sortedPop.push_back(&car);
+    }
+    std::sort(sortedPop.begin(), sortedPop.end(), [](const Car* a, const Car* b) { return a->fitness > b->fitness; });
+
     constexpr int UI_PANEL_WIDTH = 250;
     DrawRectangle(Config::SCREEN_WIDTH - UI_PANEL_WIDTH, 0, UI_PANEL_WIDTH, Config::SCREEN_HEIGHT, Fade(BLACK, 0.85f));
     DrawText(TextFormat("Generation: %d (Track %d/%d)", generationCount, currentEvaluationTrack + 1, (int)trainingTracks.size()), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 12, 17, WHITE);
@@ -494,24 +512,24 @@ void Simulation::DrawTraining() {
 
     DrawText(TextFormat("Time: %d / %d", generationTimer, Config::MAX_GENERATION_TIME), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 48, 16, WHITE);
     DrawText(TextFormat("Alive: %d / %d", aliveCount, Config::POPULATION_SIZE), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 68, 16, WHITE);
-    DrawText(TextFormat("Speed: %s", (simSpeed == 1) ? "NORMAL" : "MAX (x50)"), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 90, 14, (simSpeed == 1) ? GREEN : RED);
-    DrawText(TextFormat("Mutation: %d %% (step: %.2f)", Config::MUTATION, Config::MUTATION_SIGMA), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 110, 14, YELLOW);
-    DrawText("[SPACE] Change speed", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 130, 10, LIGHTGRAY);
-    DrawText("[M] Return to Menu", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 145, 10, LIGHTGRAY);
-    DrawText("[C] Toggle Checkpoints", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 160, 10, LIGHTGRAY);
-    DrawText("[H] Telemetry & Heatmap", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 175, 10, LIGHTGRAY);
-
-    DrawText("TOP 10 FITNESS", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 195, 18, YELLOW);
-    std::vector<Car*> sortedPop;
-    sortedPop.reserve(population.size());
-    for (auto& car : population) {
-        sortedPop.push_back(&car);
+    DrawText(TextFormat("Speed: %s", (simSpeed == 1) ? "NORMAL" : "MAX (x50)"), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 88, 14, (simSpeed == 1) ? GREEN : RED);
+    DrawText(TextFormat("Mutation: %d %% (step: %.2f)", Config::MUTATION, Config::MUTATION_SIGMA), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 106, 14, YELLOW);
+    
+    if (!sortedPop.empty()) {
+        float leaderBestSec = (sortedPop[0]->bestLapTicks > 0) ? ((float)sortedPop[0]->bestLapTicks / 60.0f) : 0.0f;
+        DrawText(TextFormat("Laps: %d | Best: %.2fs", sortedPop[0]->lapsCompleted, leaderBestSec), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 124, 13, (sortedPop[0]->bestLapTicks > 0) ? GREEN : LIGHTGRAY);
     }
-    std::sort(sortedPop.begin(), sortedPop.end(), [](const Car* a, const Car* b) { return a->fitness > b->fitness; });
+
+    DrawText("[SPACE] Change speed", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 142, 10, LIGHTGRAY);
+    DrawText("[M] Return to Menu", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 155, 10, LIGHTGRAY);
+    DrawText("[C] Toggle Checkpoints", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 168, 10, LIGHTGRAY);
+    DrawText("[H] Telemetry & Heatmap", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 181, 10, LIGHTGRAY);
+
+    DrawText("TOP 10 FITNESS", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 198, 18, YELLOW);
     for (int i = 0; i < 10 && i < (int)sortedPop.size(); i++) {
         Color rowColor = (sortedPop[i]->isCrashed) ? GRAY : WHITE;
         if (i == 0) rowColor = GOLD;
-        DrawText(TextFormat("%d. Fit: %.1f", i + 1, sortedPop[i]->fitness), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 220 + (i * 25), 18, rowColor);
+        DrawText(TextFormat("%d. Fit: %.0f (L:%d)", i + 1, sortedPop[i]->fitness, sortedPop[i]->lapsCompleted), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 222 + (i * 25), 17, rowColor);
     }
 
     if (!sortedPop.empty()) {

@@ -22,6 +22,7 @@ struct GenerationMetrics {
     float topSpeedAvg;       // Average cruising speed of elite individual (px/tick)
     float steeringSmoothness;// Steering rate of change stability [0.0 - 1.0]
     int activeMutationRate;  // Active mutation percentage
+    float bestLapTime;       // Fastest lap time recorded in seconds (0.0f if no lap completed)
 };
 
 class Telemetry {
@@ -37,7 +38,8 @@ public:
                                  int totalLaps = 0,
                                  float topSpeed = 0.0f,
                                  float smoothness = 1.0f,
-                                 int mutationRate = 15);
+                                 int mutationRate = 15,
+                                 float bestLapTime = 0.0f);
     static void DrawDashboard(int screenWidth, int screenHeight);
     static void DrawHeatmap();
     static void ExportDataAsync(const std::string& filename = "data/telemetry_log.csv");
