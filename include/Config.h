@@ -12,16 +12,27 @@ namespace Config {
     constexpr int POPULATION_SIZE = 100;
     constexpr int NUM_BEST = 10;
 
-    // Dual-Parameter Decremental Mutation Schedule:
+    // Two-Stage Decremental Mutation Schedule:
     // Controls both gene mutation probability (rate %) and Gaussian perturbation magnitude (sigma).
-    constexpr int MAX_MUTATION = 50;           // Initial per-gene mutation probability (50% in Phase 1)
-    constexpr int MIN_MUTATION = 3;            // Sustained fine-exploitation floor (3% at gen 200+)
+    // Stage 1 (Gens 0-200): Macro-exploration & procedural plasticity (50% -> 25%, sigma 0.12 -> 0.08)
+    // Stage 2 (Gens 200-400): Deep exploitation & deleterious load reduction (25% -> 3%, sigma 0.08 -> 0.035)
+    // Stage 3 (Gens 400+): Sustained ultra-fine exploitation floor (3%, sigma 0.035)
+    constexpr int STAGE1_MUTATION_MAX = 50;
+    constexpr int STAGE1_MUTATION_MIN = 25;
+    constexpr float STAGE1_SIGMA_MAX = 0.12f;
+    constexpr float STAGE1_SIGMA_MIN = 0.08f;
+    constexpr int MUTATION_HORIZON_STAGE1 = 200;
+    constexpr float DROP_RATE_STAGE1 = 0.015f;
+
+    constexpr int STAGE2_MUTATION_MAX = 25;
+    constexpr int STAGE2_MUTATION_MIN = 3;
+    constexpr float STAGE2_SIGMA_MAX = 0.08f;
+    constexpr float STAGE2_SIGMA_MIN = 0.035f;
+    constexpr int MUTATION_HORIZON_STAGE2 = 400;
+    constexpr float DROP_RATE_STAGE2 = 0.010f;
+
     inline int MUTATION = 50;                  // Active generational mutation rate (%)
-    constexpr float MAX_MUTATION_SIGMA = 0.12f;// Initial Gaussian step size for macro-exploration
-    constexpr float MIN_MUTATION_SIGMA = 0.035f;// Floor Gaussian step size for micro-exploitation
     inline float MUTATION_SIGMA = 0.12f;       // Active generational Gaussian mutation step size (sigma)
-    constexpr float DROP_RATE = 0.015f;        // Decay coefficient calibrated to Curriculum horizon (0-100 gens)
-    constexpr int MUTATION_HORIZON = 200;      // Generation at which mutation schedule reaches the floor
 
     constexpr int MAX_GENERATION_TIME = 2000;
     constexpr int CURRICULUM_PHASE_1_END = 15;

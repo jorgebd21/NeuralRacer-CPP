@@ -153,23 +153,36 @@ bool LoadBestBrains(std::vector<Car>& population, int& generation) {
 /**
  * @brief Updates generational mutation rate and Gaussian perturbation step size.
  *
- * Implements a normalized hyperbolic decay curve calibrated to reach the sustained
- * floor (MIN_MUTATION = 3%, MIN_MUTATION_SIGMA = 0.035) at generation Config::MUTATION_HORIZON (gen 200).
- * For generation >= MUTATION_HORIZON, the decay factor remains 0.0f, guaranteeing that the
- * genetic algorithm operates strictly at the floor parameters during long-term procedural evaluation,
- * drastically reducing deleterious mutation load on trained driving policies.
+ * Implements a Two-Stage Normalized Hyperbolic Schedule:
+ * - Stage 1 (Gens 0-200): Decays smoothly from 50% down to 25% (sigma 0.12 to 0.08),
+ *   providing abundant phenotypic plasticity for Curriculum and Procedural generalization.
+ *   Touches exactly 25% and sigma 0.08 at generation 200.
+ * - Stage 2 (Gens 200-400): Gently continues descending from 25% down to 3% (sigma 0.08 to 0.035),
+ *   progressively eliminating deleterious mutation load on competent driving policies.
+ *   Touches exactly 3% and sigma 0.035 at generation 400.
+ * - Stage 3 (Gens 400+): Operates indefinitely at the ultra-fine floor (3%, sigma 0.035).
  *
  * @param generation Current simulation generation index.
  */
 void UpdateMutationParameters(int generation) {
-    float decayFactor = 0.0f;
-    if (generation < Config::MUTATION_HORIZON) {
-        float rawCurrent = 1.0f / (1.0f + (Config::DROP_RATE * (float)generation));
-        float rawHorizon = 1.0f / (1.0f + (Config::DROP_RATE * (float)Config::MUTATION_HORIZON));
-        decayFactor = std::max(0.0f, (rawCurrent - rawHorizon) / (1.0f - rawHorizon));
+    if (generation < Config::MUTATION_HORIZON_STAGE1) {
+        float rawCurrent = 1.0f / (1.0f + (Config::DROP_RATE_STAGE1 * (float)generation));
+        float rawHorizon = 1.0f / (1.0f + (Config::DROP_RATE_STAGE1 * (float)Config::MUTATION_HORIZON_STAGE1));
+        float decayFactor = std::max(0.0f, (rawCurrent - rawHorizon) / (1.0f - rawHorizon));
+        Config::MUTATION = Config::STAGE1_MUTATION_MIN + (int)std::round((Config::STAGE1_MUTATION_MAX - Config::STAGE1_MUTATION_MIN) * decayFactor);
+        Config::MUTATION_SIGMA = Config::STAGE1_SIGMA_MIN + (Config::STAGE1_SIGMA_MAX - Config::STAGE1_SIGMA_MIN) * decayFactor;
+    } else if (generation < Config::MUTATION_HORIZON_STAGE2) {
+        float genOffset = (float)(generation - Config::MUTATION_HORIZON_STAGE1);
+        float horizonSpan = (float)(Config::MUTATION_HORIZON_STAGE2 - Config::MUTATION_HORIZON_STAGE1);
+        float rawCurrent = 1.0f / (1.0f + (Config::DROP_RATE_STAGE2 * genOffset));
+        float rawHorizon = 1.0f / (1.0f + (Config::DROP_RATE_STAGE2 * horizonSpan));
+        float decayFactor = std::max(0.0f, (rawCurrent - rawHorizon) / (1.0f - rawHorizon));
+        Config::MUTATION = Config::STAGE2_MUTATION_MIN + (int)std::round((Config::STAGE2_MUTATION_MAX - Config::STAGE2_MUTATION_MIN) * decayFactor);
+        Config::MUTATION_SIGMA = Config::STAGE2_SIGMA_MIN + (Config::STAGE2_SIGMA_MAX - Config::STAGE2_SIGMA_MIN) * decayFactor;
+    } else {
+        Config::MUTATION = Config::STAGE2_MUTATION_MIN;
+        Config::MUTATION_SIGMA = Config::STAGE2_SIGMA_MIN;
     }
-    Config::MUTATION = Config::MIN_MUTATION + (int)std::round((Config::MAX_MUTATION - Config::MIN_MUTATION) * decayFactor);
-    Config::MUTATION_SIGMA = Config::MIN_MUTATION_SIGMA + (Config::MAX_MUTATION_SIGMA - Config::MIN_MUTATION_SIGMA) * decayFactor;
 }
 
 void EvolvePopulation(std::vector<Car>& population, Vector2 startPosition, float startRotation, int genCount) {
