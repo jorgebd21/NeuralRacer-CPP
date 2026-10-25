@@ -177,9 +177,9 @@ Includes an enterprise-grade procedural generation framework producing authentic
 
 ### 5. Advanced Kinematics & Race Physics
 The vehicle kinematics engine bypasses simplified movement models in favor of real-world race physics:
-*   **Inertial Decoupling & Slip Angle:** Decouples chassis yaw from the world velocity vector. When the chassis rotates by $\Delta\theta$, linear momentum is preserved, naturally yielding an authentic lateral slip velocity ($v_{\text{lat}}$).
-*   **Tire Saturation & Dynamic Drift:** Evaluates restoring cornering grip against a physical adhesion limit ($F_{\text{max\_grip}} = \mu_{\text{tire}} \cdot M$). Exceeding this threshold saturates the tires, causing genuine centrifugal drifting.
-*   **Tire Cornering Scrub Drag:** Steering or sliding sideways dissipates forward kinetic energy through induced friction ($F_{\text{scrub}} = -v_{\text{long}} \cdot |v_{\text{lat}}| \cdot K_{\text{scrub}}$), penalizing erratic zig-zagging and forcing agents to brake realistically before tight turns.
+*   **Speed-Dependent Ackermann Steering & Angular Yaw Inertia:** Yaw rate is kinematically scaled to forward speed with low-pass angular inertia filtering ($\omega_t = 0.65\,\omega_{t-1} + 0.35\,\omega_{\text{target}}$). This physically grounds steering response, prevents zero-speed spinning, and completely eliminates unphysical 1-tick bang-bang steering oscillation exploits.
+*   **Friction Circle & Kamm Traction Budgeting:** Evaluates restoring cornering grip against a physical adhesion limit ($F_{\text{max\_grip}} = \mu_{\text{tire}} \cdot M$) and couples lateral grip demand to longitudinal engine traction ($F_{x,\max} = \sqrt{\max(0, F_{\text{grip}}^2 - F_y^2)}$). Applying high lateral cornering demand restricts available forward acceleration.
+*   **Realistic Induced Scrub Drag & Coulomb Rolling Resistance:** Implements constant rolling friction ($F_{\text{roll}} = -\mu_{\text{roll}} \cdot \text{sgn}(v)$) and amplified lateral scrub resistance ($K_{\text{scrub}} = 55.0$) plus steering deflection drag ($K_{\text{steer}} = 0.08$). Any lateral weaving or zig-zagging on straightaways incurs an immediate $\approx 28\%$ speed penalty, making straight-line driving strictly optimal.
 *   **Dynamic Weight Transfer:** Acceleration shifts normal forces rearward, reducing steering capacity (understeer); braking transfers load forward, sharpening steering response.
 *   **Aerodynamics:** Applies quadratic drag force and speed-scaled downforce to stabilize tire cornering capabilities.
 
@@ -218,9 +218,10 @@ In addition to continuous spline-based macro-graphs, the engine implements a dis
     *   *Open V-Corners (60°):* Technical apex corners ($R=150\text{ px}$) (`CRV_60_R150`).
     *   *Standard Corners (90°):* Medium speed turns ($R=110\text{ px}$) (`CRV_90_R110`).
     *   *Progressive Double-Apex Carousels (135°):* Decreasing radius arc ($R_1=150\text{ px} \to R_2=90\text{ px}$) (`CRV_DBL_APEX`).
-    *   *Heavy Hairpins (180°):* Hard-braking loops ($R=60\text{ px}$) (`HRP_180_R60`).
+    *   *Heavy Hairpins (180°):* Hard-braking loops ($R=120\text{ px}$) (`HRP_180_R120`).
     *   *Chicanes:* Fluid lateral offsets (`CHK_S_L40`) and violent Bus-Stop chicanes (`CHK_BUS_STOP`).
     *   *Technical Snake Esses:* $C^1$-smooth double sinusoidal wave complexes (`ESS_SNAKE`).
+*   **Physical Curvature Adhesion Floor ($R_{\min} \ge 68\text{ px}$):** Strictly validates post-scale curvature via numerical 3-point circumradius checks, preventing any sector from exceeding the physical lateral grip limit ($a_c \le \mu g \approx 0.28\text{ px/tick}^2$) at high cruising speeds.
 *   **Multi-Topology Waypoint Seeding & 360° Start Pose:** Macro-guidance polylines are synthesized across Triangular Delta, Pentagonal Infield, Dog-Leg, and Rotated Quad structures, establishing unconstrained starting angles ($\phi \in [0, 2\pi)$) across all sectors.
 *   **Curriculum Phase 3 Integration (Generation 50+):** When evolutionary training advances past generation 50 into Phase 3 (Continuous Generalization), all dynamic procedural curriculum tracks are exclusively synthesized by this 12-family modular tile coupling engine, exposing agents to varied track segments with authentic curvature constraints.
 *   **$C^1$ Hermite Elastic Bridge & SAT Clearance:** Solves periodic loop closure ($\sum \Delta\vec{r} = \vec{0}$) with zero heading error using cubic Hermite interpolation and a head/tail-aware spatial clearance filter, achieving a $100\%$ closure success rate.

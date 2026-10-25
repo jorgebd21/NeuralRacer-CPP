@@ -54,36 +54,48 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const std::unord
     timeSinceLastCheckpoint++;
     currentLapTicks++;
 
-    // 1. Steering dynamics: rotate vehicle heading first
+    // 1. Steering dynamics: speed-dependent Ackermann kinematic scaling with angular yaw inertia
     float engineForceEst = (inputAccelerate > 0.0f) ? (inputAccelerate * Config::ENGINE_POWER) : (inputAccelerate * Config::BRAKING_POWER);
     float dragForceEst = -longitudinalVelocity * std::abs(longitudinalVelocity) * Config::DRAG_MULTIPLIER;
     float longAccelEst = (engineForceEst + dragForceEst) / Config::CAR_MASS;
-    float turnMultiplier = std::clamp(1.0f - (longAccelEst * Config::WEIGHT_TRANSFER_FACTOR), 0.5f, 1.5f);
+    float turnWeightMultiplier = std::clamp(1.0f - (longAccelEst * Config::WEIGHT_TRANSFER_FACTOR), 0.5f, 1.5f);
 
-    float rotationDelta = inputTurn * turnMultiplier * Config::CAR_TURN_SPEED;
-    rotation += rotationDelta;
-    angularVelocity = rotationDelta;
+    // Speed-dependent steer angle scaling: low speed has minimum turning authority, high speed has stability damping
+    float vEff = std::max(0.8f, std::min(5.5f, std::abs(longitudinalVelocity)));
+    float speedFactor = (vEff / 4.0f) / (1.0f + 0.12f * std::max(0.0f, std::abs(longitudinalVelocity) - 3.0f));
+    float targetYawRate = inputTurn * turnWeightMultiplier * Config::CAR_TURN_SPEED * speedFactor;
+
+    // Angular inertia / low-pass filter (eliminates unphysical 1-tick bang-bang steering oscillation exploit)
+    angularVelocity = (angularVelocity * 0.65f) + (targetYawRate * 0.35f);
+    rotation += angularVelocity;
     prevRotation = rotation;
 
     // 2. Inertial decomposition: project existing world velocity onto the NEW heading frame
-    // Conserving linear momentum naturally produces the slip angle and centrifugal lateral velocity (v_lat)
     float rad = rotation * DEG2RAD;
     float localForward = (velocity.x * cos(rad)) + (velocity.y * sin(rad));
     float localLateral = (-velocity.x * sin(rad)) + (velocity.y * cos(rad));
 
-    // 3. Longitudinal forces: Engine/Brakes, Aero Drag, and Tire Cornering Scrub Resistance
-    float engineForce = (inputAccelerate > 0.0f) ? (inputAccelerate * Config::ENGINE_POWER) : (inputAccelerate * Config::BRAKING_POWER);
+    // 3. Friction Circle / Kamm Ellipse Coupling:
+    // When cornering or sliding, lateral tire force demand restricts available forward engine traction
+    float tractionMultiplier = std::clamp(1.0f + (longAccelEst * Config::WEIGHT_TRANSFER_FACTOR), 0.5f, 1.5f);
+    float maxLateralGrip = Config::TIRE_GRIP_LIMIT * Config::CAR_MASS * tractionMultiplier;
+    float lateralDemand = std::abs(localLateral) * Config::CORNERING_STIFFNESS;
+    float lateralDemandRatio = std::clamp(lateralDemand / std::max(1.0f, maxLateralGrip), 0.0f, 1.0f);
+    float tractionBudget = std::sqrt(std::max(0.0f, 1.0f - (lateralDemandRatio * lateralDemandRatio)));
+
+    // Longitudinal forces: Engine/Brakes (governed by traction budget), Aero Drag, Rolling Resistance, and Induced Turning Drag
+    float engineForce = (inputAccelerate > 0.0f) ? (inputAccelerate * Config::ENGINE_POWER * tractionBudget) : (inputAccelerate * Config::BRAKING_POWER);
     float dragForce = -localForward * std::abs(localForward) * Config::DRAG_MULTIPLIER;
-    float scrubForce = -localForward * std::abs(localLateral) * Config::TIRE_SCRUB_FACTOR;
-    float totalLongForce = engineForce + dragForce + scrubForce;
+    float rollForce = (std::abs(localForward) > 0.01f) ? -std::copysign(Config::ROLLING_RESISTANCE, localForward) : 0.0f;
+    float steeringInducedDrag = -localForward * (inputTurn * inputTurn) * (Config::CAR_TURN_PENALTY * Config::CAR_MASS * 0.05f);
+    float tireScrubForce = (std::abs(localForward) > 0.01f) ? -std::copysign(std::abs(localLateral) * Config::TIRE_SCRUB_FACTOR, localForward) : 0.0f;
+
+    float totalLongForce = engineForce + dragForce + rollForce + steeringInducedDrag + tireScrubForce;
     float longitudinalAcceleration = totalLongForce / Config::CAR_MASS;
     localForward += longitudinalAcceleration;
 
     // 4. Lateral tire forces with dynamic friction limit (tire saturation for realistic drift)
-    float tractionMultiplier = std::clamp(1.0f + (longitudinalAcceleration * Config::WEIGHT_TRANSFER_FACTOR), 0.5f, 1.5f);
     float lateralForce = -localLateral * (Config::CORNERING_STIFFNESS * tractionMultiplier);
-    float maxLateralGrip = Config::TIRE_GRIP_LIMIT * Config::CAR_MASS * tractionMultiplier;
-
     if (std::abs(lateralForce) > maxLateralGrip) {
         // Exceeded friction limit: tires saturate into dynamic drift
         lateralForce = std::copysign(maxLateralGrip, lateralForce);

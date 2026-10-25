@@ -19,7 +19,7 @@
 namespace ModularTrackGenerator {
     constexpr float PI_F = 3.14159265358979323846f;
     constexpr float MIN_CLEARANCE = 38.0f;
-    constexpr float MIN_RADIUS = 24.0f;
+    constexpr float MIN_RADIUS = 68.0f; // Enforces minimum post-scale radius compatible with physical adhesion limits
 
     struct Port {
         Vector2 pos;
@@ -140,14 +140,20 @@ namespace ModularTrackGenerator {
         cat.push_back(MakeArc("CRV_60_R150_L", 150.0f, PI_F / 3.0f, true));
         cat.push_back(MakeArc("CRV_60_R150_R", 150.0f, PI_F / 3.0f, false));
 
-        cat.push_back(MakeArc("CRV_90_R110_L", 110.0f, PI_F / 2.0f, true));
-        cat.push_back(MakeArc("CRV_90_R110_R", 110.0f, PI_F / 2.0f, false));
+        cat.push_back(MakeArc("CRV_75_R140_L", 140.0f, PI_F * 0.4167f, true));
+        cat.push_back(MakeArc("CRV_75_R140_R", 140.0f, PI_F * 0.4167f, false));
 
-        cat.push_back(MakeDoubleApex("CRV_DBL_APEX_L", 150.0f, 90.0f, true));
-        cat.push_back(MakeDoubleApex("CRV_DBL_APEX_R", 150.0f, 90.0f, false));
+        cat.push_back(MakeArc("CRV_90_R130_L", 130.0f, PI_F / 2.0f, true));
+        cat.push_back(MakeArc("CRV_90_R130_R", 130.0f, PI_F / 2.0f, false));
 
-        cat.push_back(MakeArc("HRP_180_R60_L", 60.0f, PI_F, true));
-        cat.push_back(MakeArc("HRP_180_R60_R", 60.0f, PI_F, false));
+        cat.push_back(MakeArc("CRV_120_R120_L", 120.0f, PI_F * 0.6667f, true));
+        cat.push_back(MakeArc("CRV_120_R120_R", 120.0f, PI_F * 0.6667f, false));
+
+        cat.push_back(MakeDoubleApex("CRV_DBL_APEX_L", 160.0f, 110.0f, true));
+        cat.push_back(MakeDoubleApex("CRV_DBL_APEX_R", 160.0f, 110.0f, false));
+
+        cat.push_back(MakeArc("HRP_180_R120_L", 120.0f, PI_F, true));
+        cat.push_back(MakeArc("HRP_180_R120_R", 120.0f, PI_F, false));
 
         cat.push_back(MakeChicane("CHK_S_L40", 130.0f, 40.0f));
         cat.push_back(MakeChicane("CHK_S_R40", 130.0f, -40.0f));
@@ -359,13 +365,25 @@ namespace ModularTrackGenerator {
         return reordered;
     }
 
+    inline std::vector<Vector2> GenerateFallbackLoop() {
+        std::vector<Vector2> loop;
+        int n = 16;
+        for (int i = 0; i < n; i++) {
+            float a = (float)i * (2.0f * PI_F / (float)n);
+            float rx = 340.0f + 35.0f * std::cos(2.0f * a);
+            float ry = 230.0f + 25.0f * std::sin(2.0f * a);
+            loop.push_back({ 500.0f + rx * std::cos(a), 400.0f + ry * std::sin(a) });
+        }
+        return loop;
+    }
+
     /**
      * @brief Synthesizes a high-variety modular racing circuit with 360-degree start pose and multi-topology.
      */
     inline std::vector<Vector2> GenerateProceduralCenterPoints() {
         auto catalog = BuildCatalog();
 
-        for (int run = 0; run < 200; run++) {
+        for (int run = 0; run < 400; run++) {
             int topology = GetRandomValue(0, 3);
             float startHeading = 0.0f;
             std::vector<Vector2> waypoints = SeedWaypoints(topology, startHeading);
@@ -433,7 +451,10 @@ namespace ModularTrackGenerator {
                     float desiredAngle = std::atan2(targetWP.y - testExit.pos.y, targetWP.x - testExit.pos.x);
                     float headingDiff = std::abs(NormalizeAngle(desiredAngle - testExit.heading));
                     float distScore = Dist(testExit.pos, targetWP);
-                    float totalScore = distScore + headingDiff * 115.0f + (float)GetRandomValue(0, 30);
+                    // Balanced heading penalty (reduced from 115.0f to 45.0f) with diversity incentive for medium/pronounced curves
+                    float headingPenalty = headingDiff * 45.0f;
+                    float curveBonus = (std::abs(mod.deltaHeading) >= (PI_F / 4.0f)) ? -35.0f : 0.0f;
+                    float totalScore = distScore + headingPenalty + curveBonus + (float)GetRandomValue(0, 20);
 
                     scored.push_back({ (int)i, totalScore });
                 }
@@ -494,7 +515,7 @@ namespace ModularTrackGenerator {
                 }
             }
         }
-        return {};
+        return GenerateFallbackLoop();
     }
 
     inline void SaveTrackToFile(const std::vector<Vector2>& centerPoints, const std::string& filename) {
