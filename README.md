@@ -218,9 +218,10 @@ In addition to continuous spline-based macro-graphs, the engine implements a dis
     *   *Open V-Corners (60°):* Technical apex corners ($R=150\text{ px}$) (`CRV_60_R150`).
     *   *Standard Corners (90°):* Medium speed turns ($R=110\text{ px}$) (`CRV_90_R110`).
     *   *Progressive Double-Apex Carousels (135°):* Decreasing radius arc ($R_1=150\text{ px} \to R_2=90\text{ px}$) (`CRV_DBL_APEX`).
-    *   *Heavy Hairpins (180°):* Hard-braking loops ($R=60\text{ px}$) (`HRP_180_R60`).
+    *   *Heavy Hairpins (180°):* Hard-braking loops ($R=120\text{ px}$) (`HRP_180_R120`).
     *   *Chicanes:* Fluid lateral offsets (`CHK_S_L40`) and violent Bus-Stop chicanes (`CHK_BUS_STOP`).
     *   *Technical Snake Esses:* $C^1$-smooth double sinusoidal wave complexes (`ESS_SNAKE`).
+*   **Physical Curvature Adhesion Floor ($R_{\min} \ge 68\text{ px}$):** Strictly validates post-scale curvature via numerical 3-point circumradius checks, preventing any sector from exceeding the physical lateral grip limit ($a_c \le \mu g \approx 0.28\text{ px/tick}^2$) at high cruising speeds.
 *   **Multi-Topology Waypoint Seeding & 360° Start Pose:** Macro-guidance polylines are synthesized across Triangular Delta, Pentagonal Infield, Dog-Leg, and Rotated Quad structures, establishing unconstrained starting angles ($\phi \in [0, 2\pi)$) across all sectors.
 *   **Curriculum Phase 3 Integration (Generation 50+):** When evolutionary training advances past generation 50 into Phase 3 (Continuous Generalization), all dynamic procedural curriculum tracks are exclusively synthesized by this 12-family modular tile coupling engine, exposing agents to varied track segments with authentic curvature constraints.
 *   **$C^1$ Hermite Elastic Bridge & SAT Clearance:** Solves periodic loop closure ($\sum \Delta\vec{r} = \vec{0}$) with zero heading error using cubic Hermite interpolation and a head/tail-aware spatial clearance filter, achieving a $100\%$ closure success rate.
