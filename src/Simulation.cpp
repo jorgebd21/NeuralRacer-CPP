@@ -903,12 +903,12 @@ Simulation::TrainingTrack Simulation::GenerateProceduralTrainingTrack(int fixedA
         pts = ModularTrackGenerator::GenerateProceduralCenterPoints(fixedArchetype);
     }
     if (pts.size() < 12) {
-        pts = ModularTrackGenerator::GenerateFallbackLoop();
+        pts = ModularTrackGenerator::GenerateArchetypeFallback(fixedArchetype);
     }
 
     std::vector<Vector2> denseLine = TrackManager::GenerateSplinePoints(pts, PROCEDURAL_SPLINE_SEGMENTS);
     if (denseLine.size() < 10) {
-        pts = ModularTrackGenerator::GenerateFallbackLoop();
+        pts = ModularTrackGenerator::GenerateArchetypeFallback(fixedArchetype);
         denseLine = TrackManager::GenerateSplinePoints(pts, PROCEDURAL_SPLINE_SEGMENTS);
     }
 
@@ -937,12 +937,25 @@ Simulation::TrainingTrack Simulation::GenerateProceduralTrainingTrack(int fixedA
 void Simulation::SetupCurriculumForGeneration(int gen) {
     (void)gen;
     trainingTracks.clear();
+    static const char* ARCHETYPE_NAMES[6] = {
+        "Monza Cathedral (High-Speed Straights & Chicanes)",
+        "Silverstone / Spa (Tri-Sector Infield Sweepers)",
+        "Interlagos Horseshoe (Technical Amphitheater)",
+        "Suzuka / COTA (Linked Rhythm Esses & Carousel)",
+        "Montreal / Albert Park (Perimeter Straights & Chicanes)",
+        "Stochastic Modular Hybrid (High-Entropy Geometric Assembly)"
+    };
+    std::cout << "[Curriculum Gen " << generationCount << "] Generating 6 Distinct Procedural Circuits:" << std::endl;
     // Pure procedural multi-circuit evaluation from Generation 0 (6 modular tracks per generation)
     // Tracks 0..4 cover varied F1 macro-skeletons (Monza, Silverstone, Interlagos, Suzuka, Montreal)
     // and Track 5 evaluates a stochastic macro-topology.
     for (int t = 0; t < Config::TRACKS_PER_GENERATION; t++) {
         int topology = (t < 5) ? t : -1;
-        trainingTracks.push_back(GenerateProceduralTrainingTrack(topology));
+        TrainingTrack tt = GenerateProceduralTrainingTrack(topology);
+        trainingTracks.push_back(tt);
+        int nameIdx = (topology >= 0 && topology < 5) ? topology : 5;
+        std::cout << "  Track " << t + 1 << "/6: " << ARCHETYPE_NAMES[nameIdx] 
+                  << " (" << tt.checkpoints.size() << " checkpoints, " << tt.walls.size() << " wall segments)" << std::endl;
     }
 }
 

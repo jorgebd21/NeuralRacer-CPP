@@ -18,8 +18,8 @@
  */
 namespace ModularTrackGenerator {
     constexpr float PI_F = 3.14159265358979323846f;
-    constexpr float MIN_CLEARANCE = 38.0f;
-    constexpr float MIN_RADIUS = 68.0f; // Enforces minimum post-scale radius compatible with physical adhesion limits
+    constexpr float MIN_CLEARANCE = 36.0f;
+    constexpr float MIN_RADIUS = 30.0f; // Calibrated for tight chicanes and 180-degree hairpins without numerical false rejections
 
     struct Port {
         Vector2 pos;
@@ -194,18 +194,18 @@ namespace ModularTrackGenerator {
 
     inline bool TryHermiteBridge(const Port& curPort, const Port& startPort, std::vector<Vector2>& outBridgePoints) {
         float d = Dist(curPort.pos, startPort.pos);
-        if (d < 120.0f || d > 650.0f) return false;
+        if (d < 80.0f || d > 750.0f) return false;
 
         float toStartX = startPort.pos.x - curPort.pos.x;
         float toStartY = startPort.pos.y - curPort.pos.y;
         float dirAngle = std::atan2(toStartY, toStartX);
         
-        // Strict angular threshold: max 28.8 degrees deviation
+        // Calibrated angular threshold: up to 50.4 degrees deviation for robust bridge interpolation
         float angleDiffCur = std::abs(NormalizeAngle(dirAngle - curPort.heading));
-        if (angleDiffCur > PI_F * 0.16f) return false;
+        if (angleDiffCur > PI_F * 0.28f) return false;
 
         float angleDiffStart = std::abs(NormalizeAngle(startPort.heading - dirAngle));
-        if (angleDiffStart > PI_F * 0.16f) return false;
+        if (angleDiffStart > PI_F * 0.28f) return false;
 
         float tangentLen = d * 0.45f;
         Vector2 m0 = { std::cos(curPort.heading) * tangentLen, std::sin(curPort.heading) * tangentLen };
@@ -408,16 +408,34 @@ namespace ModularTrackGenerator {
         return reordered;
     }
 
-    inline std::vector<Vector2> GenerateFallbackLoop() {
-        std::vector<Vector2> loop;
-        int n = 24;
-        for (int i = 0; i < n; i++) {
-            float a = (float)i * (2.0f * PI_F / (float)n);
-            float rx = 900.0f + 100.0f * std::cos(2.0f * a);
-            float ry = 550.0f + 70.0f * std::sin(2.0f * a);
-            loop.push_back({ 1200.0f + rx * std::cos(a), 800.0f + ry * std::sin(a) });
+    inline std::vector<Vector2> GenerateArchetypeFallback(int topology = 0) {
+        float startAngle = 0.0f;
+        int top = (topology >= 0 && topology <= 4) ? topology : GetRandomValue(0, 4);
+        std::vector<Vector2> wp = SeedWaypoints(top, startAngle);
+        
+        float minX = 1e9, maxX = -1e9, minY = 1e9, maxY = -1e9;
+        for (const auto& p : wp) {
+            if (p.x < minX) minX = p.x;
+            if (p.x > maxX) maxX = p.x;
+            if (p.y < minY) minY = p.y;
+            if (p.y > maxY) maxY = p.y;
         }
-        return loop;
+
+        float tw = maxX - minX;
+        float th = maxY - minY;
+        float scale = std::min(2100.0f / std::max(1.0f, tw), 1360.0f / std::max(1.0f, th)) * 0.92f;
+        float cx = (minX + maxX) * 0.5f;
+        float cy = (minY + maxY) * 0.5f;
+
+        std::vector<Vector2> fitted;
+        for (const auto& p : wp) {
+            fitted.push_back({ 1200.0f + (p.x - cx) * scale, 800.0f + (p.y - cy) * scale });
+        }
+        return fitted;
+    }
+
+    inline std::vector<Vector2> GenerateFallbackLoop(int topology = 0) {
+        return GenerateArchetypeFallback(topology);
     }
 
     /**
@@ -561,7 +579,7 @@ namespace ModularTrackGenerator {
                 }
             }
         }
-        return GenerateFallbackLoop();
+        return GenerateArchetypeFallback(fixedTopology);
     }
 
     inline void SaveTrackToFile(const std::vector<Vector2>& centerPoints, const std::string& filename) {

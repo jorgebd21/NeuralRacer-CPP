@@ -243,9 +243,9 @@ In addition to continuous spline-based macro-graphs, the engine implements a dis
     3.  *Interlagos / Spielberg Horseshoe:* Technical amphitheater horseshoe with downhill Senna-S transitions, sweeping lakeside straights, and uphill Junção climbs.
     4.  *Suzuka / COTA Rhythm Flow:* Rhythm first sector featuring 4 linked flowing esses, Dunlop curve, 130R high-speed sweep, and Casio chicane.
     5.  *Albert Park / Montreal Island Hybrid:* Park-street hybrid with rapid curb transitions, long perimeter power straights, and final braking chicane.
-*   **Physical Curvature Adhesion Floor ($R_{\min} \ge 68\text{ px}$):** Strictly validates post-scale curvature via numerical 3-point circumradius checks, preventing any sector from exceeding the physical lateral grip limit ($a_c \le \mu g \approx 0.28\text{ px/tick}^2$) at high cruising speeds.
-*   **Curriculum Phase 3 Integration (Generation 50+):** When evolutionary training advances past generation 50 into Phase 3 (Continuous Generalization), all dynamic procedural curriculum tracks are exclusively synthesized by this expanded modular tile coupling engine across the full $2400 \times 1600$ arena, exposing agents to varied track segments with authentic curvature constraints.
-*   **$C^1$ Hermite Elastic Bridge & SAT Clearance:** Solves periodic loop closure ($\sum \Delta\vec{r} = \vec{0}$) with zero heading error using cubic Hermite interpolation and a head/tail-aware spatial clearance filter, achieving a $100\%$ closure success rate.
+*   **Calibrated Curvature Floor ($R_{\min} \ge 30\text{ px}$):** Validates post-scale curvature via numerical 3-point circumradius checks, preventing unphysical kinks while fully accommodating authentic F1 chicane complexes and 180° hairpins without false-positive geometric rejection.
+*   **Archetype-Preserving Geometric Fallbacks:** Replaced the legacy single circular loop with dedicated macro-skeleton fallbacks for each archetype (Monza corridor, Silverstone infield loop, Interlagos amphitheater, Suzuka rhythm S-curves, and Montreal power straights), ensuring guaranteed geometric diversity across all runs.
+*   **$C^1$ Hermite Elastic Bridge & SAT Clearance:** Solves periodic loop closure ($\sum \Delta\vec{r} = \vec{0}$) with adaptive heading deviation tolerance ($\pm 50.4^\circ$) and a head/tail-aware spatial clearance filter, achieving robust procedural closure across all 5 Grand Prix archetypes.
 
 ---
 
