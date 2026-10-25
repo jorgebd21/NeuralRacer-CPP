@@ -365,13 +365,25 @@ namespace ModularTrackGenerator {
         return reordered;
     }
 
+    inline std::vector<Vector2> GenerateFallbackLoop() {
+        std::vector<Vector2> loop;
+        int n = 16;
+        for (int i = 0; i < n; i++) {
+            float a = (float)i * (2.0f * PI_F / (float)n);
+            float rx = 340.0f + 35.0f * std::cos(2.0f * a);
+            float ry = 230.0f + 25.0f * std::sin(2.0f * a);
+            loop.push_back({ 500.0f + rx * std::cos(a), 400.0f + ry * std::sin(a) });
+        }
+        return loop;
+    }
+
     /**
      * @brief Synthesizes a high-variety modular racing circuit with 360-degree start pose and multi-topology.
      */
     inline std::vector<Vector2> GenerateProceduralCenterPoints() {
         auto catalog = BuildCatalog();
 
-        for (int run = 0; run < 200; run++) {
+        for (int run = 0; run < 400; run++) {
             int topology = GetRandomValue(0, 3);
             float startHeading = 0.0f;
             std::vector<Vector2> waypoints = SeedWaypoints(topology, startHeading);
@@ -503,7 +515,7 @@ namespace ModularTrackGenerator {
                 }
             }
         }
-        return {};
+        return GenerateFallbackLoop();
     }
 
     inline void SaveTrackToFile(const std::vector<Vector2>& centerPoints, const std::string& filename) {

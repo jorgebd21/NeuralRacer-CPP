@@ -712,9 +712,20 @@ void Simulation::InitTrainingTracks() {
 }
 
 Simulation::TrainingTrack Simulation::GenerateProceduralTrainingTrack() {
-    TrainingTrack tt;
     std::vector<Vector2> pts = ModularTrackGenerator::GenerateProceduralCenterPoints();
+    for (int retry = 0; retry < 5 && pts.empty(); retry++) {
+        pts = ModularTrackGenerator::GenerateProceduralCenterPoints();
+    }
+    if (pts.size() < 12) {
+        return baseTrackMedio;
+    }
+
     std::vector<Vector2> denseLine = TrackManager::GenerateSplinePoints(pts, PROCEDURAL_SPLINE_SEGMENTS);
+    if (denseLine.size() < 10) {
+        return baseTrackMedio;
+    }
+
+    TrainingTrack tt;
     TrackManager::CalculateStartGrid(pts, tt.startPos, tt.startRot);
 
     // Snap startPos to nearest dense center line point
