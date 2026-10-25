@@ -48,7 +48,7 @@ namespace Config {
     constexpr float CAR_FRONT_SENSOR_DIST = 450.0f;
     constexpr int CAR_STALL_TIME_THRESHOLD = 100;
     constexpr float CAR_STALL_SPEED_THRESHOLD = -1.5f;
-    constexpr int CAR_MAX_TIME_WITHOUT_CHECKPOINT = 150;
+    constexpr int CAR_MAX_TIME_WITHOUT_CHECKPOINT = 320; // Calibrated for 2400x1600 F1 track checkpoint pacing
 
     constexpr float CAR_MASS = 1200.0f;
     constexpr float ENGINE_POWER = 35.0f;

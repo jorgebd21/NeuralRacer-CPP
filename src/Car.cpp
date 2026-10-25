@@ -316,7 +316,7 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const std::unord
     //  - Checkpoints (250 each): balanced milestone reward
     //  - Total Lap Bonus: normalized time-to-complete + fastest lap milestones
     //  - Distance * 0.5: smooth exploration gradient (calibrated to prevent lateral weaving)
-    //  - Speed * 0.5: cruising speed bonus
+    //  - Speed * 1.5: cruising speed incentive to prevent ultra-slow crawling
     if (GetSpeed() > 0.0f) {
         distanceTraveled += GetSpeed();
     }
@@ -324,7 +324,7 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const std::unord
             + (totalCheckPointsCrossed * 250.0f)
             + totalLapBonus
             + (distanceTraveled * 0.5f)
-            + (GetSpeed() * 0.5f);
+            + (GetSpeed() * 1.5f);
 
     // Controlled braking / stall filter
     if (GetSpeed() < 0.1f) {

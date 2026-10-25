@@ -422,12 +422,13 @@ namespace ModularTrackGenerator {
 
     /**
      * @brief Synthesizes a high-variety modular racing circuit with 360-degree start pose and multi-topology.
+     * @param fixedTopology When in [0, 4], forces specific F1 macro-skeleton (0: Monza, 1: Silverstone, 2: Interlagos, 3: Suzuka, 4: Montreal).
      */
-    inline std::vector<Vector2> GenerateProceduralCenterPoints() {
+    inline std::vector<Vector2> GenerateProceduralCenterPoints(int fixedTopology = -1) {
         auto catalog = BuildCatalog();
 
         for (int run = 0; run < 400; run++) {
-            int topology = GetRandomValue(0, 4);
+            int topology = (fixedTopology >= 0 && fixedTopology <= 4) ? fixedTopology : GetRandomValue(0, 4);
             float startHeading = 0.0f;
             std::vector<Vector2> waypoints = SeedWaypoints(topology, startHeading);
             int numWP = (int)waypoints.size();

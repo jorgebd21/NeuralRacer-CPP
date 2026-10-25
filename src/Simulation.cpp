@@ -895,48 +895,25 @@ void Simulation::BuildSpatialGrid(){
 }
 
 void Simulation::InitTrainingTracks() {
-    // 1. Load baseTrackFacil (Phase 1 induction & Phase 2 consolidation)
-    std::string path0 = "data/tracks/pista_facil.json";
-    if (std::ifstream(path0.c_str()).good()) {
-        TrackManager::LoadTrackFromFile(path0, baseTrackFacil.walls, baseTrackFacil.startPos, baseTrackFacil.startRot, baseTrackFacil.checkpoints);
-    } else if (!trackWalls.empty()) {
-        baseTrackFacil.walls = trackWalls;
-        baseTrackFacil.checkpoints = trackCheckpoints;
-        baseTrackFacil.startPos = startPosition;
-        baseTrackFacil.startRot = startRotation;
-    } else {
-        TrackManager::LoadTrackFromFile(trackFile, baseTrackFacil.walls, baseTrackFacil.startPos, baseTrackFacil.startRot, baseTrackFacil.checkpoints);
-    }
-
-    // 2. Load baseTrackMedio (Phase 2 consolidation & Phase 3 benchmark)
-    std::string path1 = "data/tracks/pista_medio.json";
-    if (std::ifstream(path1.c_str()).good()) {
-        TrackManager::LoadTrackFromFile(path1, baseTrackMedio.walls, baseTrackMedio.startPos, baseTrackMedio.startRot, baseTrackMedio.checkpoints);
-    } else {
-        baseTrackMedio = baseTrackFacil;
-    }
-
-    // 3. Load baseTrackDificil (Phase 2 advanced consolidation)
-    std::string path2 = "data/tracks/pista_dificil.json";
-    if (std::ifstream(path2.c_str()).good()) {
-        TrackManager::LoadTrackFromFile(path2, baseTrackDificil.walls, baseTrackDificil.startPos, baseTrackDificil.startRot, baseTrackDificil.checkpoints);
-    } else {
-        baseTrackDificil = baseTrackMedio;
-    }
+    // Generate authentic F1-scale benchmark tracks for the curriculum phases (2400x1600 canvas)
+    baseTrackFacil = GenerateProceduralTrainingTrack(0);   // Archetype 0: Monza Cathedral (Fast, open sweepers)
+    baseTrackMedio = GenerateProceduralTrainingTrack(1);   // Archetype 1: Silverstone / Spa (Multi-sector undulating flow)
+    baseTrackDificil = GenerateProceduralTrainingTrack(2); // Archetype 2: Interlagos / Spielberg (Technical horseshoe)
 }
 
-Simulation::TrainingTrack Simulation::GenerateProceduralTrainingTrack() {
-    std::vector<Vector2> pts = ModularTrackGenerator::GenerateProceduralCenterPoints();
+Simulation::TrainingTrack Simulation::GenerateProceduralTrainingTrack(int fixedArchetype) {
+    std::vector<Vector2> pts = ModularTrackGenerator::GenerateProceduralCenterPoints(fixedArchetype);
     for (int retry = 0; retry < 5 && pts.empty(); retry++) {
-        pts = ModularTrackGenerator::GenerateProceduralCenterPoints();
+        pts = ModularTrackGenerator::GenerateProceduralCenterPoints(fixedArchetype);
     }
     if (pts.size() < 12) {
-        return baseTrackMedio;
+        pts = ModularTrackGenerator::GenerateFallbackLoop();
     }
 
     std::vector<Vector2> denseLine = TrackManager::GenerateSplinePoints(pts, PROCEDURAL_SPLINE_SEGMENTS);
     if (denseLine.size() < 10) {
-        return baseTrackMedio;
+        pts = ModularTrackGenerator::GenerateFallbackLoop();
+        denseLine = TrackManager::GenerateSplinePoints(pts, PROCEDURAL_SPLINE_SEGMENTS);
     }
 
     TrainingTrack tt;
@@ -964,18 +941,18 @@ Simulation::TrainingTrack Simulation::GenerateProceduralTrainingTrack() {
 void Simulation::SetupCurriculumForGeneration(int gen) {
     trainingTracks.clear();
     if (gen < Config::CURRICULUM_PHASE_1_END) {
-        // Phase 1: Inducción (pista_facil exclusivamente)
+        // Phase 1: Inducción F1 a escala 2400x1600 (Monza: rectas largas y curvas abiertas)
         trainingTracks.push_back(baseTrackFacil);
     } else if (gen < Config::CURRICULUM_PHASE_2_END) {
-        // Phase 2: Consolidación multi-pista determinista (Fácil -> Media -> Difícil)
+        // Phase 2: Consolidación multi-pista F1 a escala 2400x1600 (Monza -> Silverstone -> Interlagos)
         trainingTracks.push_back(baseTrackFacil);
         trainingTracks.push_back(baseTrackMedio);
         trainingTracks.push_back(baseTrackDificil);
     } else {
-        // Phase 3: Generalización continua (1 Benchmark de control + 2 Pistas procedurales dinámicas)
+        // Phase 3: Generalización continua F1 (1 Benchmark Silverstone de control + 2 Pistas F1 dinámicas a 2400x1600)
         trainingTracks.push_back(baseTrackMedio);
-        trainingTracks.push_back(GenerateProceduralTrainingTrack());
-        trainingTracks.push_back(GenerateProceduralTrainingTrack());
+        trainingTracks.push_back(GenerateProceduralTrainingTrack(-1));
+        trainingTracks.push_back(GenerateProceduralTrainingTrack(-1));
     }
 }
 

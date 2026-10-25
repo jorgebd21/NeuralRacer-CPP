@@ -72,7 +72,7 @@ private:
         Vector2 startPos;
         float startRot;
     };
-    TrainingTrack GenerateProceduralTrainingTrack();
+    TrainingTrack GenerateProceduralTrainingTrack(int fixedArchetype = -1);
 
     TrainingTrack baseTrackFacil;
     TrainingTrack baseTrackMedio;
