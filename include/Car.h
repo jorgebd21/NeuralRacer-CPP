@@ -97,10 +97,11 @@ struct Car {
     void CalculateLookahead(const std::vector<Vector2>& trackCheckpoints, float &outAngle, float &outDist) const;
 
     /**
-     * @brief Evaluates the brain using the 11-dimensional state space with predictive lookahead.
+     * @brief Evaluates the brain using the 11-dimensional state space with predictive lookahead
+     * and maps target speed policy to physical pedal pressure (accelerator or brake).
      * 
-     * @param outAccelerate Calculated acceleration output.
-     * @param outTurn Calculated steering output.
+     * @param outAccelerate Calculated pedal pressure: >0 throttle [0.15, 1.0], <0 brake [-1.0, -0.1].
+     * @param outTurn Calculated steering output [-1.0, 1.0].
      * @param trackCheckpoints Optional track checkpoint array for lookahead calculation.
      */
     void Think(float &outAccelerate, float &outTurn, const std::vector<Vector2>& trackCheckpoints = {}) {
@@ -109,7 +110,29 @@ struct Car {
                 const_cast<Car*>(this)->lookaheadAngle, 
                 const_cast<Car*>(this)->lookaheadDistance);
         }
-        brain.Evaluate(sensorDistances, frontSensorDelta, longitudinalVelocity, lateralVelocity, angularVelocity, lookaheadAngle, lookaheadDistance, outAccelerate, outTurn);
+
+        float rawSpeedPolicy = 0.0f;
+        brain.Evaluate(sensorDistances, frontSensorDelta, longitudinalVelocity, lateralVelocity, angularVelocity, lookaheadAngle, lookaheadDistance, rawSpeedPolicy, outTurn);
+
+        // Target Speed Mapping:
+        // rawSpeedPolicy in [-1.0, 1.0] maps smoothly to [1.6, 5.6] px/tick
+        constexpr float MIN_TARGET_SPEED = 1.6f;
+        constexpr float MAX_TARGET_SPEED = 5.6f;
+        float normTarget = (rawSpeedPolicy + 1.0f) * 0.5f; // [0.0, 1.0]
+        float targetSpeed = MIN_TARGET_SPEED + normTarget * (MAX_TARGET_SPEED - MIN_TARGET_SPEED);
+
+        // Longitudinal Driver Controller:
+        // Converts target speed error into physical pedal pressure (accelerator or brake)
+        float currentSpeed = std::max(0.0f, longitudinalVelocity);
+        float speedError = targetSpeed - currentSpeed;
+
+        if (speedError >= 0.0f) {
+            // Accelerating to reach target speed
+            outAccelerate = std::clamp(speedError / 1.5f, 0.15f, 1.0f);
+        } else {
+            // Exceeding target speed: apply brake pressure
+            outAccelerate = std::clamp(speedError / 1.5f, -1.0f, -0.1f);
+        }
     }
 
     /**

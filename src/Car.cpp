@@ -283,11 +283,30 @@ void Car::CalculateLookahead(const std::vector<Vector2>& trackCheckpoints, float
     int numCp = (int)trackCheckpoints.size();
     float maxHorizon = 350.0f;
 
+    // 1. Current Segment Heading Error (Turn Persistence)
+    // The segment currently being negotiated is from (nextCheckPointIndex - 1) to nextCheckPointIndex
+    int cpPrevIdx = (nextCheckPointIndex - 1 + numCp) % numCp;
+    Vector2 segCurr = { trackCheckpoints[nextCheckPointIndex].x - trackCheckpoints[cpPrevIdx].x,
+                        trackCheckpoints[nextCheckPointIndex].y - trackCheckpoints[cpPrevIdx].y };
+    float segHeading = std::atan2(segCurr.y, segCurr.x) * (180.0f / PI);
+    float alignDiff = segHeading - rotation;
+    while (alignDiff > 180.0f) alignDiff -= 360.0f;
+    while (alignDiff < -180.0f) alignDiff += 360.0f;
+
     // Direct distance from vehicle to the current target checkpoint
     float distToNext = std::hypot(trackCheckpoints[nextCheckPointIndex].x - position.x,
                                   trackCheckpoints[nextCheckPointIndex].y - position.y);
-    float cumDist = distToNext;
 
+    // If the vehicle is actively misaligned with the current sector by >= 20 degrees,
+    // it is in the middle of executing an active turn.
+    // Retain this active turn state until the vehicle successfully rotates and aligns!
+    if (std::abs(alignDiff) >= 20.0f) {
+        outAngle = std::clamp(alignDiff / 180.0f, -1.0f, 1.0f);
+        outDist = std::clamp(distToNext / maxHorizon, 0.0f, 0.35f);
+        return;
+    }
+
+    float cumDist = distToNext;
     float maxBendAngle = 0.0f;
     float bestAngleDiff = 0.0f;
     float bestDistance = maxHorizon;
