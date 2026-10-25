@@ -40,7 +40,8 @@ namespace Config {
     constexpr float SENSOR_ANGLES[5] = {-90.0f, -45.0f, 0.0f, 45.0f, 90.0f};
 
     constexpr float CAR_TURN_SPEED = 3.5f;
-    constexpr float CAR_TURN_PENALTY = 0.05f;
+    constexpr float CAR_TURN_PENALTY = 0.08f;  // Induced steering deflection drag factor
+    constexpr float ROLLING_RESISTANCE = 3.5f; // Constant Coulomb rolling resistance (N)
     constexpr float CAR_MAX_SENSOR_DIST = 350.0f;
     constexpr float CAR_FRONT_SENSOR_DIST = 450.0f;
     constexpr int CAR_STALL_TIME_THRESHOLD = 100;
@@ -54,7 +55,7 @@ namespace Config {
     constexpr float CORNERING_STIFFNESS = 1000.0f;
     constexpr float WEIGHT_TRANSFER_FACTOR = 0.05f;
     constexpr float TIRE_GRIP_LIMIT = 0.55f;
-    constexpr float TIRE_SCRUB_FACTOR = 3.5f;
+    constexpr float TIRE_SCRUB_FACTOR = 55.0f;  // Lateral tire scrub deceleration force scale
 
     constexpr float CAR_HALF_WIDTH = 4.0f;
     constexpr float CAR_HALF_LENGTH = 8.5f;
