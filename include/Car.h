@@ -35,6 +35,12 @@ struct Car {
     int nextCheckPointIndex;
     int totalCheckPointsCrossed;
     
+    // Lap time performance & racing line optimization metrics
+    float totalLapBonus;
+    int currentLapTicks;
+    int bestLapTicks;
+    int lapsCompleted;
+    
     // Physical state tracking for POMDP / Delta state observability
     float prevRotation;
     float angularVelocity;

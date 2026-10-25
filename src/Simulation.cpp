@@ -3,6 +3,7 @@
 #include "Evolution.h"
 #include "TrackManager.h"
 #include "TrackGenerator.h"
+#include "ModularTrackGenerator.h"
 #include "Telemetry.h"
 #include <algorithm>
 #include <cfloat>
@@ -38,7 +39,7 @@ Simulation::Simulation(bool isHeadless) :
 }
 
 constexpr int SIM_TARGET_FPS = 60;
-constexpr int PROCEDURAL_SPLINE_SEGMENTS = 50;
+constexpr int PROCEDURAL_SPLINE_SEGMENTS = 16;
 constexpr float PROCEDURAL_TRACK_WIDTH = 35.0f;
 
 void Simulation::Init() {
@@ -52,7 +53,7 @@ void Simulation::Init() {
     mapFiles = TrackManager::ScanMapFiles();
     if (mapFiles.empty()) {
         std::cerr << "Warning: No track files found in data/tracks/. Generating a procedural track." << std::endl;
-        proceduralPoints = TrackGenerator::GenerateProceduralCenterPoints();
+        proceduralPoints = ModularTrackGenerator::GenerateProceduralCenterPoints();
         std::vector<Vector2> denseCenterLine = TrackManager::GenerateSplinePoints(proceduralPoints, PROCEDURAL_SPLINE_SEGMENTS);
         TrackManager::CalculateStartGrid(proceduralPoints, startPosition, startRotation);
 
@@ -160,19 +161,21 @@ void Simulation::UpdateMenu() {
         currentState = TEST_AI;
     }
     if (IsKeyPressed(KEY_P)) {
-        proceduralPoints = TrackGenerator::GenerateProceduralCenterPoints();
-        std::vector<Vector2> denseCenterLine = TrackManager::GenerateSplinePoints(proceduralPoints, PROCEDURAL_SPLINE_SEGMENTS);
-        TrackManager::CalculateStartGrid(proceduralPoints, startPosition, startRotation);
-        trackWalls.clear();
-        trackCheckpoints.clear();
-        Telemetry::ResetHeatmap();
-        TrackManager::GenerateBordersFromCenterLine(denseCenterLine, PROCEDURAL_TRACK_WIDTH, trackWalls, trackCheckpoints, startPosition);
-        BuildSpatialGrid();
-        InitTrainingTracks();
-        
-        for (auto& car : population) car.Reset(startPosition.x, startPosition.y, startRotation);
-        playerCar.Reset(startPosition.x, startPosition.y, startRotation);
-        aiCar.Reset(startPosition.x, startPosition.y, startRotation);
+        proceduralPoints = ModularTrackGenerator::GenerateProceduralCenterPoints();
+        if (!proceduralPoints.empty()) {
+            std::vector<Vector2> denseCenterLine = TrackManager::GenerateSplinePoints(proceduralPoints, PROCEDURAL_SPLINE_SEGMENTS);
+            TrackManager::CalculateStartGrid(proceduralPoints, startPosition, startRotation);
+            trackWalls.clear();
+            trackCheckpoints.clear();
+            Telemetry::ResetHeatmap();
+            TrackManager::GenerateBordersFromCenterLine(denseCenterLine, PROCEDURAL_TRACK_WIDTH, trackWalls, trackCheckpoints, startPosition);
+            BuildSpatialGrid();
+            InitTrainingTracks();
+            
+            for (auto& car : population) car.Reset(startPosition.x, startPosition.y, startRotation);
+            playerCar.Reset(startPosition.x, startPosition.y, startRotation);
+            aiCar.Reset(startPosition.x, startPosition.y, startRotation);
+        }
     }
     if (IsKeyPressed(KEY_LEFT) && !mapFiles.empty()) {
         currentMapIndex--;
@@ -210,7 +213,7 @@ void Simulation::UpdateMenu() {
                 if (!f.good()) break;
                 counter++;
             }
-            TrackGenerator::SaveTrackToFile(proceduralPoints, filename);
+            ModularTrackGenerator::SaveTrackToFile(proceduralPoints, filename);
         }
     }
 }
@@ -294,9 +297,20 @@ void Simulation::UpdateTraining() {
                 float eliteAvgSpeed = sortedPop[0]->GetAverageSpeed();
                 float eliteSmoothness = std::clamp(1.0f - (std::abs(sortedPop[0]->angularVelocity) / Config::CAR_TURN_SPEED), 0.0f, 1.0f);
 
+                int fastestLapTicks = 0;
+                for (const auto& car : population) {
+                    if (car.bestLapTicks > 0) {
+                        if (fastestLapTicks == 0 || car.bestLapTicks < fastestLapTicks) {
+                            fastestLapTicks = car.bestLapTicks;
+                        }
+                    }
+                }
+                float bestLapTimeSeconds = (fastestLapTicks > 0) ? ((float)fastestLapTicks / 60.0f) : 0.0f;
+
                 Telemetry::RecordGeneration(generationCount, population, Config::MAX_GENERATION_TIME,
                                             phase, benchmarkTopFitness, procFit, generationTotalLaps,
-                                            eliteAvgSpeed, eliteSmoothness, Config::MUTATION);
+                                            eliteAvgSpeed, eliteSmoothness, Config::MUTATION,
+                                            bestLapTimeSeconds);
                 Telemetry::ExportDataAsync();
                 
                 generationTotalLaps = 0;
@@ -431,7 +445,7 @@ void Simulation::DrawMenu() {
     DrawText("[ T ] TRAINING MODE (AI vs AI)", Config::SCREEN_WIDTH/2 - 200, 350, 20, LIGHTGRAY);
     DrawText("[ E ] EXHIBITION MODE (Player vs Best AI)", Config::SCREEN_WIDTH/2 - 200, 400, 20, LIGHTGRAY);
     DrawText("[ A ] TEST AI (Only watch best AI)", Config::SCREEN_WIDTH/2 - 200, 450, 20, LIGHTGRAY);
-    DrawText("[ P ] GENERATE PROCEDURAL TRACK", Config::SCREEN_WIDTH/2 - 200, 500, 20, YELLOW);
+    DrawText("[ P ] GENERATE PROCEDURAL TRACK (Modular Tiles)", Config::SCREEN_WIDTH/2 - 200, 500, 20, YELLOW);
     if (!proceduralPoints.empty()) {
         DrawText("[ G ] SAVE CURRENT TRACK", Config::SCREEN_WIDTH/2 - 200, 550, 20, GREEN);
     }
@@ -478,6 +492,13 @@ void Simulation::DrawTraining() {
         }
     }
 
+    std::vector<Car*> sortedPop;
+    sortedPop.reserve(population.size());
+    for (auto& car : population) {
+        sortedPop.push_back(&car);
+    }
+    std::sort(sortedPop.begin(), sortedPop.end(), [](const Car* a, const Car* b) { return a->fitness > b->fitness; });
+
     constexpr int UI_PANEL_WIDTH = 250;
     DrawRectangle(Config::SCREEN_WIDTH - UI_PANEL_WIDTH, 0, UI_PANEL_WIDTH, Config::SCREEN_HEIGHT, Fade(BLACK, 0.85f));
     DrawText(TextFormat("Generation: %d (Track %d/%d)", generationCount, currentEvaluationTrack + 1, (int)trainingTracks.size()), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 12, 17, WHITE);
@@ -491,24 +512,24 @@ void Simulation::DrawTraining() {
 
     DrawText(TextFormat("Time: %d / %d", generationTimer, Config::MAX_GENERATION_TIME), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 48, 16, WHITE);
     DrawText(TextFormat("Alive: %d / %d", aliveCount, Config::POPULATION_SIZE), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 68, 16, WHITE);
-    DrawText(TextFormat("Speed: %s", (simSpeed == 1) ? "NORMAL" : "MAX (x50)"), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 90, 14, (simSpeed == 1) ? GREEN : RED);
-    DrawText(TextFormat("Mutation: %d %%", Config::MUTATION), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 110, 14, YELLOW);
-    DrawText("[SPACE] Change speed", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 130, 10, LIGHTGRAY);
-    DrawText("[M] Return to Menu", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 145, 10, LIGHTGRAY);
-    DrawText("[C] Toggle Checkpoints", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 160, 10, LIGHTGRAY);
-    DrawText("[H] Telemetry & Heatmap", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 175, 10, LIGHTGRAY);
-
-    DrawText("TOP 10 FITNESS", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 195, 18, YELLOW);
-    std::vector<Car*> sortedPop;
-    sortedPop.reserve(population.size());
-    for (auto& car : population) {
-        sortedPop.push_back(&car);
+    DrawText(TextFormat("Speed: %s", (simSpeed == 1) ? "NORMAL" : "MAX (x50)"), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 88, 14, (simSpeed == 1) ? GREEN : RED);
+    DrawText(TextFormat("Mutation: %d %% (step: %.2f)", Config::MUTATION, Config::MUTATION_SIGMA), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 106, 14, YELLOW);
+    
+    if (!sortedPop.empty()) {
+        float leaderBestSec = (sortedPop[0]->bestLapTicks > 0) ? ((float)sortedPop[0]->bestLapTicks / 60.0f) : 0.0f;
+        DrawText(TextFormat("Laps: %d | Best: %.2fs", sortedPop[0]->lapsCompleted, leaderBestSec), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 124, 13, (sortedPop[0]->bestLapTicks > 0) ? GREEN : LIGHTGRAY);
     }
-    std::sort(sortedPop.begin(), sortedPop.end(), [](const Car* a, const Car* b) { return a->fitness > b->fitness; });
+
+    DrawText("[SPACE] Change speed", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 142, 10, LIGHTGRAY);
+    DrawText("[M] Return to Menu", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 155, 10, LIGHTGRAY);
+    DrawText("[C] Toggle Checkpoints", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 168, 10, LIGHTGRAY);
+    DrawText("[H] Telemetry & Heatmap", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 181, 10, LIGHTGRAY);
+
+    DrawText("TOP 10 FITNESS", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 198, 18, YELLOW);
     for (int i = 0; i < 10 && i < (int)sortedPop.size(); i++) {
         Color rowColor = (sortedPop[i]->isCrashed) ? GRAY : WHITE;
         if (i == 0) rowColor = GOLD;
-        DrawText(TextFormat("%d. Fit: %.1f", i + 1, sortedPop[i]->fitness), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 220 + (i * 25), 18, rowColor);
+        DrawText(TextFormat("%d. Fit: %.0f (L:%d)", i + 1, sortedPop[i]->fitness, sortedPop[i]->lapsCompleted), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 222 + (i * 25), 17, rowColor);
     }
 
     if (!sortedPop.empty()) {
@@ -692,7 +713,7 @@ void Simulation::InitTrainingTracks() {
 
 Simulation::TrainingTrack Simulation::GenerateProceduralTrainingTrack() {
     TrainingTrack tt;
-    std::vector<Vector2> pts = TrackGenerator::GenerateProceduralCenterPoints();
+    std::vector<Vector2> pts = ModularTrackGenerator::GenerateProceduralCenterPoints();
     std::vector<Vector2> denseLine = TrackManager::GenerateSplinePoints(pts, PROCEDURAL_SPLINE_SEGMENTS);
     TrackManager::CalculateStartGrid(pts, tt.startPos, tt.startRot);
 

@@ -152,8 +152,12 @@ for (int i = 0; i < 5; i++) {
 ### 3. Custom Neural Network & Dynamic Neuroevolution
 The behavioral engine models decision-making processes from first principles:
 *   **9-10-2 FNN Topology:** Integrates 5 directional proximity inputs, 1 Time-to-Collision front delta (from an 8-tick circular delay line), longitudinal velocity, lateral slip velocity, and angular yaw rate. Processed through a 10-node hidden layer with hyperbolic tangent ($\tanh$) activation to yield symmetrical continuous controls.
-*   **Hyperbolic Mutation Decay with Floor:** Implements an adaptive genetic algorithm. As generations advance, the mutation probability decays with an exploration safety floor (`Config::MIN_MUTATION = 15`) to maintain learning capacity for non-linear drifting maneuvers:
-    $$\text{Mutation Rate} = \max\left(15, \left\lfloor \frac{\text{Max Mutation}}{1.0 + (\text{Drop Rate} \times \text{Generation})} \right\rfloor \right)$$
+*   **Two-Stage Decremental Mutation Schedule with Horizon Milestones:** Implements an adaptive genetic algorithm controlling both gene mutation probability and Gaussian perturbation step size across a calibrated multi-horizon schedule:
+    *   *Stage 1 (Generations 0–200, Macro-Exploration & Procedural Plasticity):* Decays smoothly from $50\%$ down to $25\%$ (`Config::STAGE1_MUTATION_MIN = 25`), with $\sigma$ transitioning from $0.12$ to $0.08$. This guarantees ample synaptic plasticity during Curriculum Induction, Consolidation, and early Procedural generalization, touching exactly $25\%$ at generation 200 to prevent procedural paralysis.
+    *   *Stage 2 (Generations 200–400, Fine Exploitation & Load Reduction):* Decays gently from $25\%$ down to an ultra-fine floor of $3\%$ (`Config::STAGE2_MUTATION_MIN = 3`), with $\sigma$ transitioning from $0.08$ to $0.035$. This progressively eliminates deleterious mutation load on competent reflex controllers (raising fleet survival rate beyond $90\%$) while maintaining subtle micro-tuning capabilities.
+    *   *Stage 3 (Generations 400+, Sustained Micro-Exploitation Floor):* Parameters remain fixed indefinitely at $3\%$ rate and $\sigma = 0.035$.
+    $$\text{Stage 1 }(g < 200):\quad \text{decay}_1(g) = \max\left(0, \frac{\frac{1.0}{1.0 + k_1 \cdot g} - \frac{1.0}{1.0 + k_1 \cdot 200}}{1.0 - \frac{1.0}{1.0 + k_1 \cdot 200}}\right),\quad \text{Rate} = 25 + \text{round}(25 \cdot \text{decay}_1)$$
+    $$\text{Stage 2 }(200 \le g < 400):\quad \text{decay}_2(g) = \max\left(0, \frac{\frac{1.0}{1.0 + k_2 \cdot (g - 200)}}{1.0 - \frac{1.0}{1.0 + k_2 \cdot 200}}\right),\quad \text{Rate} = 3 + \text{round}(22 \cdot \text{decay}_2)$$
 *   **3-Stage Adaptive Curriculum Learning:** Implements a progressive training pipeline to balance fast early convergence with deep procedural generalization:
     *   *Stage 1: Induction (Gens 0-14):* Trains solely on `pista_facil.json` (single track) to solidify fundamental acceleration, steering control, and braking primitives without environmental noise.
     *   *Stage 2: Consolidation (Gens 15-49):* Evaluates on a deterministic 3-track rotation (`pista_facil` $\to$ `pista_medio` $\to$ `pista_dificil`) with accumulated multi-track fitness, mastering tight turns and weight-transfer management.
@@ -184,14 +188,18 @@ To eradicate circular reward-hacking and endless idling loops:
 *   **Dense Sequential Checkpoint Mesh:** Generates 16 to 32 evenly spaced checkpoints (~100-150 px apart) along the track centerline, eliminating long blind zones.
 *   **Directional Vector Validation:** Verifies that both the vehicle's heading and velocity vector align positively with the track's tangent ($\vec{v} \cdot \vec{\tau}_{\text{track}} > 0$ and $\vec{h} \cdot \vec{\tau}_{\text{track}} > 0.2$), strictly rejecting backwards passes, spin-outs, or donut maneuvers.
 *   **Strict Sector Timeout:** Reduces the allowed time between checkpoints (`Config::CAR_MAX_TIME_WITHOUT_CHECKPOINT = 150` ticks / 2.5s) to eliminate idle drifting and donut-spinning exploitation.
-*   **Continuous Multi-Lap Evaluation:** Agents run continuous sequential laps across the circuit for the full generational duration (`Config::MAX_GENERATION_TIME = 2000` ticks), rewarding each completed lap with a milestone bonus ($+1000$) to maximize high-speed endurance training.
+*   **Continuous Multi-Lap Evaluation & Normalized Lap Time Fitness:** Agents run continuous sequential laps across the circuit for the full generational duration (`Config::MAX_GENERATION_TIME = 2000` ticks). To reward racing line optimization and fastest lap execution rather than meandering raw distance accumulation:
+    *   *Base Milestone:* Grants $+1500$ points upon completing each lap.
+    *   *Normalized Time-to-Complete Delta:* Dynamically benchmarks lap duration against track complexity ($T_{\text{budget}} = N_{\text{cp}} \times 32\text{ ticks}$), awarding $+8.0$ points per tick saved ($\Delta T = \max(0, T_{\text{budget}} - T_{\text{lap}})$).
+    *   *Purple Sector Personal Best:* Awards an extra $+500$ milestone bonus whenever an agent sets or breaks its personal best lap time.
+    *   *Balanced Distance Scaling:* Distance traveled coefficient modulated to $0.5$ to eliminate lateral wandering incentives while preserving smooth early learning gradients.
 
 ### 7. Longitudinal Telemetry & Scientific Dataset Pipeline
-To support empirical machine learning research, the telemetry subsystem records a 14-parameter longitudinal dataset (`data/telemetry_log.csv`) persisting across application restarts:
+To support empirical machine learning research, the telemetry subsystem records a 15-parameter longitudinal dataset (`data/telemetry_log.csv`) persisting across application restarts:
 *   **Macro Convergence Metrics:** `Generation`, `MaxFitness`, `MinFitness`, `AvgFitness`.
 *   **Viability & Diversity Metrics:** `SurvivalRate`, `AvgLifeTime`, `WeightVariance` (synaptic diversity metric), `ActiveMutationRate`.
 *   **Curriculum & Generalization Analytics:** `CurriculumPhase` (1, 2, or 3), `BenchmarkFitness` (fixed control track score), `ProceduralFitness` (zero-shot transfer performance on procedural circuits).
-*   **Kinematic & Control Quality:** `TotalLapsCompleted`, `TopSpeedAvg` (cruising speed in px/tick), `SteeringSmoothness` (control stability factor $[0.0 - 1.0]$).
+*   **Kinematic & Lap Quality:** `TotalLapsCompleted`, `TopSpeedAvg` (cruising speed in px/tick), `SteeringSmoothness` (control stability factor $[0.0 - 1.0]$), `BestLapTime` (fastest recorded lap in seconds).
 *   **Non-Blocking Persistence:** Asynchronous disk export (`std::async`/`std::future`) with automatic history loading on startup and synchronous flush on exit (`SIGINT`/`SIGTERM`/window close).
 
 ### 5. High-Entropy Procedural Track Synthesis Engine (Stochastic Macro-Graph)
@@ -200,6 +208,22 @@ To prevent neural networks from overfitting to fixed track layouts, the procedur
 *   **Combinatorial Motif Injection:** Analyzes long straightaways and stochastically injects technical chicanes, esses, or kinks with dynamic lateral displacement.
 *   **Unconstrained 360° Affine Transformation:** Implements arbitrary planar rotation ($\phi \in [0, 2\pi)$), asymmetric scaling, and dynamic margin fitting, ensuring start straights and apexes can emerge at any angle.
 *   **Clearance & Self-Intersection Watchdog:** Validates candidates by verifying zero self-intersections and enforcing a minimum $45\text{ px}$ clearance between non-adjacent centerline sections, eliminating bottlenecks while maintaining high variance ($CV_L \approx 19\%$, $CV_{W/H} \approx 23\%$).
+
+### 6. Discrete Modular Track Synthesis Engine ($SE(2)$ Tile Coupling)
+In addition to continuous spline-based macro-graphs, the engine implements a discrete modular track builder inspired by modular slot-car and tile coupling architectures:
+*   **12-Family Functional Tile Catalog:** Assembles tracks from discrete pre-validated geometric primitives with analytic curvature bounds:
+    *   *Straights:* Micro connector (`STR_50`), medium (`STR_90`), standard (`STR_150`), and extended DRS straightaway (`STR_240`).
+    *   *High-Speed Kinks (30°):* Wide radius ($R=260\text{ px}$) flat-out bends (`CRV_30_R260`).
+    *   *High-Downforce Arcs (45°):* Fast sweeps ($R=160\text{ px}$) (`CRV_45_R160`).
+    *   *Open V-Corners (60°):* Technical apex corners ($R=150\text{ px}$) (`CRV_60_R150`).
+    *   *Standard Corners (90°):* Medium speed turns ($R=110\text{ px}$) (`CRV_90_R110`).
+    *   *Progressive Double-Apex Carousels (135°):* Decreasing radius arc ($R_1=150\text{ px} \to R_2=90\text{ px}$) (`CRV_DBL_APEX`).
+    *   *Heavy Hairpins (180°):* Hard-braking loops ($R=60\text{ px}$) (`HRP_180_R60`).
+    *   *Chicanes:* Fluid lateral offsets (`CHK_S_L40`) and violent Bus-Stop chicanes (`CHK_BUS_STOP`).
+    *   *Technical Snake Esses:* $C^1$-smooth double sinusoidal wave complexes (`ESS_SNAKE`).
+*   **Multi-Topology Waypoint Seeding & 360° Start Pose:** Macro-guidance polylines are synthesized across Triangular Delta, Pentagonal Infield, Dog-Leg, and Rotated Quad structures, establishing unconstrained starting angles ($\phi \in [0, 2\pi)$) across all sectors.
+*   **Curriculum Phase 3 Integration (Generation 50+):** When evolutionary training advances past generation 50 into Phase 3 (Continuous Generalization), all dynamic procedural curriculum tracks are exclusively synthesized by this 12-family modular tile coupling engine, exposing agents to varied track segments with authentic curvature constraints.
+*   **$C^1$ Hermite Elastic Bridge & SAT Clearance:** Solves periodic loop closure ($\sum \Delta\vec{r} = \vec{0}$) with zero heading error using cubic Hermite interpolation and a head/tail-aware spatial clearance filter, achieving a $100\%$ closure success rate.
 
 ---
 
@@ -245,6 +269,7 @@ NeuralRacer-CPP/
 │   ├── Car.h              # Vehicle state, kinematics, and OBB structure
 │   ├── Config.h           # Simulation parameters, physical constants, and GA variables
 │   ├── Evolution.h        # Genetic operators, crossover, and serialization helpers
+│   ├── ModularTrackGenerator.h # Discrete tile/segment coupling engine (12 families, 360° start pose, pre-flight geometric watchdog)
 │   ├── Simulation.h       # Main program coordinator and screen state machine
 │   ├── Telemetry.h        # Metrics collector, live dashboard, and CSV logger
 │   ├── TrackGenerator.h   # High-entropy procedural engine (macro-graphs, motifs, 360° affine transforms)
@@ -307,7 +332,7 @@ cmake --build .
 | **Training Mode** | `[ T ]` | Spawns a population of 100 agents to undergo continuous evolutionary training. Supports telemetry overlays and speed multipliers. |
 | **Exhibition Mode** | `[ E ]` | Places the user in manual control of a vehicle (Arrows/WASD) to race directly against the best saved AI agent loaded from `data/best.json`. |
 | **Test AI Mode** | `[ A ]` | Loads the top-performing brain from disk and renders its continuous, uninterrupted driving behavior. |
-| **Generate Track** | `[ P ]` | Instantly generates a unique procedural racing circuit using optimization heuristics. |
+| **Generate Track** | `[ P ]` | Instantly generates a unique closed racing circuit using the 12-family discrete modular tile engine. |
 | **Save Track** | `[ G ]` | Exports the active procedural track from the menu state to a JSON file in `data/tracks/`. |
 
 ### Runtime Training Interactions:

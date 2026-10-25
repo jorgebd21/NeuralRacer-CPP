@@ -115,12 +115,13 @@ struct Brain {
     /**
      * @brief Generates a Gaussian mutation value.
      * 
-     * @return float A mutated value based on a normal distribution (mean 0, standard deviation 0.1).
+     * @param sigma Standard deviation of the normal distribution (mutation step size).
+     * @return float A mutated value based on a normal distribution (mean 0, standard deviation sigma).
      */
-    float MutateGaussian() {
+    float MutateGaussian(float sigma = 0.1f) {
         thread_local static std::random_device rd; 
         thread_local static std::mt19937 generator(rd()); 
-        std::normal_distribution<float> distribution(0.0f, 0.1f);
+        std::normal_distribution<float> distribution(0.0f, sigma);
         return distribution(generator);
     }
 };

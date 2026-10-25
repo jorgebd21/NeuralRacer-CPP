@@ -22,9 +22,13 @@ void Car::Reset(float startX, float startY, float startRot, bool fullReset) {
     justCrashed = false;
     nextCheckPointIndex = 0;
     totalCheckPointsCrossed = 0;
+    currentLapTicks = 0;
     if (fullReset) {
         accumulatedFitness = 0.0f;
         fitness = 0.0f;
+        totalLapBonus = 0.0f;
+        bestLapTicks = 0;
+        lapsCompleted = 0;
     }
     timeAlive = 0;
     timeSinceLastCheckpoint = 0;
@@ -48,6 +52,7 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const std::unord
     if (isCrashed) return;
     timeAlive++;
     timeSinceLastCheckpoint++;
+    currentLapTicks++;
 
     // 1. Steering dynamics: rotate vehicle heading first
     float engineForceEst = (inputAccelerate > 0.0f) ? (inputAccelerate * Config::ENGINE_POWER) : (inputAccelerate * Config::BRAKING_POWER);
@@ -132,9 +137,22 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const std::unord
                 timeSinceLastCheckpoint = 0;
                 nextCheckPointIndex = (nextCheckPointIndex + 1) % numCp;
 
-                // Milestone bonus for each completed lap (supports infinite continuous laps up to MAX_GENERATION_TIME)
+                // Normalized Lap Time Bonus with Fastest Lap (Purple Sector) Milestone
                 if (totalCheckPointsCrossed % numCp == 0) {
-                    fitness += 1000.0f;
+                    lapsCompleted++;
+                    int lapTime = currentLapTicks;
+                    int targetBudget = numCp * 32; // ~2.2 px/tick nominal pacing budget
+                    int ticksSaved = std::max(0, targetBudget - lapTime);
+                    float lapBonus = 1500.0f + (8.0f * (float)ticksSaved);
+
+                    // Purple sector: bonus for setting or beating personal best lap time
+                    if (bestLapTicks == 0 || lapTime < bestLapTicks) {
+                        lapBonus += 500.0f;
+                        bestLapTicks = lapTime;
+                    }
+
+                    totalLapBonus += lapBonus;
+                    currentLapTicks = 0;
                 }
             }
         }
@@ -214,14 +232,16 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const std::unord
 
     // Fitness breakdown:
     //  - Checkpoints (250 each): balanced milestone reward
-    //  - Distance * 1.0:         dominant continuous progress signal
-    //  - Speed * 0.5:            cruising speed bonus
+    //  - Total Lap Bonus: normalized time-to-complete + fastest lap milestones
+    //  - Distance * 0.5: smooth exploration gradient (calibrated to prevent lateral weaving)
+    //  - Speed * 0.5: cruising speed bonus
     if (GetSpeed() > 0.0f) {
         distanceTraveled += GetSpeed();
     }
     fitness = accumulatedFitness
             + (totalCheckPointsCrossed * 250.0f)
-            + (distanceTraveled * 1.0f)
+            + totalLapBonus
+            + (distanceTraveled * 0.5f)
             + (GetSpeed() * 0.5f);
 
     // Controlled braking / stall filter

@@ -48,6 +48,8 @@ void Telemetry::Init() {
                 else m.steeringSmoothness = 1.0f;
                 if (std::getline(ss, token, ',')) m.activeMutationRate = std::stoi(token);
                 else m.activeMutationRate = 15;
+                if (std::getline(ss, token, ',')) m.bestLapTime = std::stof(token);
+                else m.bestLapTime = 0.0f;
                 history.push_back(m);
             } catch (...) {
                 // Ignore any malformed lines
@@ -126,7 +128,8 @@ void Telemetry::RecordGeneration(int generation,
                                  int totalLaps,
                                  float topSpeed,
                                  float smoothness,
-                                 int mutationRate) {
+                                 int mutationRate,
+                                 float bestLapTime) {
     if (population.empty()) return;
 
     GenerationMetrics metrics{};
@@ -159,6 +162,7 @@ void Telemetry::RecordGeneration(int generation,
     metrics.topSpeedAvg = topSpeed;
     metrics.steeringSmoothness = smoothness;
     metrics.activeMutationRate = mutationRate;
+    metrics.bestLapTime = bestLapTime;
 
     auto it = std::find_if(history.begin(), history.end(), [generation](const GenerationMetrics& m) {
         return m.generation == generation;
@@ -206,7 +210,7 @@ void Telemetry::Flush(const std::string& filename) {
     std::lock_guard<std::mutex> lock(dataMutex);
     std::ofstream file(filename, std::ios::out);
     if (file.is_open()) {
-        file << "Generation,MaxFitness,MinFitness,AvgFitness,SurvivalRate,AvgLifeTime,WeightVariance,CurriculumPhase,BenchmarkFitness,ProceduralFitness,TotalLapsCompleted,TopSpeedAvg,SteeringSmoothness,ActiveMutationRate\n";
+        file << "Generation,MaxFitness,MinFitness,AvgFitness,SurvivalRate,AvgLifeTime,WeightVariance,CurriculumPhase,BenchmarkFitness,ProceduralFitness,TotalLapsCompleted,TopSpeedAvg,SteeringSmoothness,ActiveMutationRate,BestLapTime\n";
         for (const auto& m : history) {
             file << m.generation << ","
                  << m.maxFitness << ","
@@ -221,7 +225,8 @@ void Telemetry::Flush(const std::string& filename) {
                  << m.totalLapsCompleted << ","
                  << m.topSpeedAvg << ","
                  << m.steeringSmoothness << ","
-                 << m.activeMutationRate << "\n";
+                 << m.activeMutationRate << ","
+                 << m.bestLapTime << "\n";
         }
         file.close();
     }

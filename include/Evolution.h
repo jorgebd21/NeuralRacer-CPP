@@ -37,4 +37,11 @@ namespace Evolution {
      * @param genCount The current generation count.
      */
     void EvolvePopulation(std::vector<Car>& population, Vector2 startPosition, float startRotation, int genCount);
+
+    /**
+     * @brief Updates global mutation rate and Gaussian perturbation step size (sigma) based on curriculum decay.
+     * 
+     * @param generation Current generational milestone.
+     */
+    void UpdateMutationParameters(int generation);
 }
