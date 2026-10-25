@@ -37,28 +37,28 @@ static void CrossoverAndMutate(std::vector<Car>& population) {
                 int ref = distMutation(generator) < 50 ? father : mother;
                 population[n].brain.weights_input_hidden[i][j] = population[ref].brain.weights_input_hidden[i][j];
                 if (distMutation(generator) < Config::MUTATION)
-                    population[n].brain.weights_input_hidden[i][j] += population[n].brain.MutateGaussian();
+                    population[n].brain.weights_input_hidden[i][j] += population[n].brain.MutateGaussian(Config::MUTATION_SIGMA);
             }
         }
         for (int i = 0; i < HIDDEN_NODES; i++) {
             int ref = distMutation(generator) < 50 ? father : mother;
             population[n].brain.biases_hidden[i] = population[ref].brain.biases_hidden[i];
             if (distMutation(generator) < Config::MUTATION)
-                population[n].brain.biases_hidden[i] += population[n].brain.MutateGaussian();
+                population[n].brain.biases_hidden[i] += population[n].brain.MutateGaussian(Config::MUTATION_SIGMA);
         }
         for (int i = 0; i < OUTPUT_NODES; i++) {
             for (int j = 0; j < HIDDEN_NODES; j++) {
                 int ref = distMutation(generator) < 50 ? father : mother;
                 population[n].brain.weights_hidden_output[i][j] = population[ref].brain.weights_hidden_output[i][j];
                 if (distMutation(generator) < Config::MUTATION)
-                    population[n].brain.weights_hidden_output[i][j] += population[n].brain.MutateGaussian();
+                    population[n].brain.weights_hidden_output[i][j] += population[n].brain.MutateGaussian(Config::MUTATION_SIGMA);
             }
         }
         for (int i = 0; i < OUTPUT_NODES; i++) {
             int ref = distMutation(generator) < 50 ? father : mother;
             population[n].brain.biases_output[i] = population[ref].brain.biases_output[i];
             if (distMutation(generator) < Config::MUTATION)
-                population[n].brain.biases_output[i] += population[n].brain.MutateGaussian();
+                population[n].brain.biases_output[i] += population[n].brain.MutateGaussian(Config::MUTATION_SIGMA);
         }
     }
 }
@@ -108,7 +108,7 @@ bool LoadBestBrains(std::vector<Car>& population, int& generation) {
     if (data.contains("generacion")) generation = data["generacion"];
     else if (data.contains("generation")) generation = data["generation"];
 
-    Config::MUTATION = std::max(Config::MIN_MUTATION, (int)(Config::MAX_MUTATION / (1.0f + (Config::DROP_RATE * generation))));
+    UpdateMutationParameters(generation);
 
     // The first phase of loading directly injects the elite brains from the previous generation.
     // This ensures we do not lose progress ("elitism").
@@ -150,8 +150,14 @@ bool LoadBestBrains(std::vector<Car>& population, int& generation) {
     return true;
 }
 
+void UpdateMutationParameters(int generation) {
+    float decayFactor = 1.0f / (1.0f + (Config::DROP_RATE * (float)generation));
+    Config::MUTATION = Config::MIN_MUTATION + (int)std::round((Config::MAX_MUTATION - Config::MIN_MUTATION) * decayFactor);
+    Config::MUTATION_SIGMA = Config::MIN_MUTATION_SIGMA + (Config::MAX_MUTATION_SIGMA - Config::MIN_MUTATION_SIGMA) * decayFactor;
+}
+
 void EvolvePopulation(std::vector<Car>& population, Vector2 startPosition, float startRotation, int genCount) {
-    Config::MUTATION = std::max(Config::MIN_MUTATION, (int)(Config::MAX_MUTATION / (1.0f + (Config::DROP_RATE * genCount))));
+    UpdateMutationParameters(genCount);
 
     std::sort(population.begin(), population.end(), [](const Car& a, const Car& b) {
         return a.fitness > b.fitness;

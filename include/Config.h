@@ -11,10 +11,17 @@ namespace Config {
     constexpr int SCREEN_HEIGHT = 768;
     constexpr int POPULATION_SIZE = 100;
     constexpr int NUM_BEST = 10;
-    constexpr int MAX_MUTATION = 50;
-    constexpr int MIN_MUTATION = 15;
-    inline int MUTATION = 50;
-    constexpr float DROP_RATE = 0.0005f;
+
+    // Dual-Parameter Decremental Mutation Schedule:
+    // Controls both gene mutation probability (rate %) and Gaussian perturbation magnitude (sigma).
+    constexpr int MAX_MUTATION = 20;           // Initial per-gene mutation probability (20% in Phase 1)
+    constexpr int MIN_MUTATION = 5;            // Sustained floor for continuous adaptation (5% in Phase 3)
+    inline int MUTATION = 20;                  // Active generational mutation rate (%)
+    constexpr float MAX_MUTATION_SIGMA = 0.15f;// Initial Gaussian step size for macro-exploration
+    constexpr float MIN_MUTATION_SIGMA = 0.03f;// Floor Gaussian step size for micro-exploitation
+    inline float MUTATION_SIGMA = 0.15f;       // Active generational Gaussian mutation step size (sigma)
+    constexpr float DROP_RATE = 0.05f;         // Decay coefficient calibrated to Curriculum horizon (0-100 gens)
+
     constexpr int MAX_GENERATION_TIME = 2000;
     constexpr int CURRICULUM_PHASE_1_END = 15;
     constexpr int CURRICULUM_PHASE_2_END = 50;
