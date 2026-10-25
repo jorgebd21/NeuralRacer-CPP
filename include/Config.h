@@ -21,6 +21,7 @@ namespace Config {
     constexpr float MIN_MUTATION_SIGMA = 0.08f;// Floor Gaussian step size for adaptive exploitation
     inline float MUTATION_SIGMA = 0.12f;       // Active generational Gaussian mutation step size (sigma)
     constexpr float DROP_RATE = 0.015f;        // Decay coefficient calibrated to Curriculum horizon (0-100 gens)
+    constexpr int MUTATION_HORIZON = 200;      // Generation at which mutation schedule reaches the floor
 
     constexpr int MAX_GENERATION_TIME = 2000;
     constexpr int CURRICULUM_PHASE_1_END = 15;

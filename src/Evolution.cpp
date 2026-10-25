@@ -150,8 +150,23 @@ bool LoadBestBrains(std::vector<Car>& population, int& generation) {
     return true;
 }
 
+/**
+ * @brief Updates generational mutation rate and Gaussian perturbation step size.
+ *
+ * Implements a normalized hyperbolic decay curve calibrated to reach the sustained
+ * floor (MIN_MUTATION = 25%, MIN_MUTATION_SIGMA = 0.08) at generation Config::MUTATION_HORIZON (gen 200).
+ * For generation >= MUTATION_HORIZON, the decay factor remains 0.0f, guaranteeing that the
+ * genetic algorithm operates strictly at the floor parameters during long-term procedural evaluation.
+ *
+ * @param generation Current simulation generation index.
+ */
 void UpdateMutationParameters(int generation) {
-    float decayFactor = 1.0f / (1.0f + (Config::DROP_RATE * (float)generation));
+    float decayFactor = 0.0f;
+    if (generation < Config::MUTATION_HORIZON) {
+        float rawCurrent = 1.0f / (1.0f + (Config::DROP_RATE * (float)generation));
+        float rawHorizon = 1.0f / (1.0f + (Config::DROP_RATE * (float)Config::MUTATION_HORIZON));
+        decayFactor = std::max(0.0f, (rawCurrent - rawHorizon) / (1.0f - rawHorizon));
+    }
     Config::MUTATION = Config::MIN_MUTATION + (int)std::round((Config::MAX_MUTATION - Config::MIN_MUTATION) * decayFactor);
     Config::MUTATION_SIGMA = Config::MIN_MUTATION_SIGMA + (Config::MAX_MUTATION_SIGMA - Config::MIN_MUTATION_SIGMA) * decayFactor;
 }
