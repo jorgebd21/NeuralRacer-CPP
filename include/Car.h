@@ -48,10 +48,6 @@ struct Car {
     float lateralVelocity;
     float frontSensorDelta;
 
-    // Track lookahead preview for predictive cornering and braking horizon
-    float lookaheadAngle;
-    float lookaheadDistance;
-
     static constexpr int FRONT_HISTORY_SIZE = 8;
     float frontSensorHistory[FRONT_HISTORY_SIZE];
     int frontSensorHistoryIdx;
@@ -88,51 +84,13 @@ struct Car {
     float GetAverageSpeed() const { return timeAlive > 0 ? (distanceTraveled / timeAlive) : 0.0f; }
 
     /**
-     * @brief Computes predictive lookahead curvature angle and distance to upcoming apex.
+     * @brief Evaluates the brain using the 9-dimensional state space.
      * 
-     * @param trackCheckpoints Ordered list of circuit checkpoints.
-     * @param outAngle Output relative angle in range [-1.0, 1.0] (-180 to +180 deg).
-     * @param outDist Output distance to apex normalized [0.0, 1.0] across 350px horizon.
+     * @param outAccelerate Calculated acceleration output.
+     * @param outTurn Calculated steering output.
      */
-    void CalculateLookahead(const std::vector<Vector2>& trackCheckpoints, float &outAngle, float &outDist) const;
-
-    /**
-     * @brief Evaluates the brain using the 11-dimensional state space with predictive lookahead
-     * and maps target speed policy to physical pedal pressure (accelerator or brake).
-     * 
-     * @param outAccelerate Calculated pedal pressure: >0 throttle [0.15, 1.0], <0 brake [-1.0, -0.1].
-     * @param outTurn Calculated steering output [-1.0, 1.0].
-     * @param trackCheckpoints Optional track checkpoint array for lookahead calculation.
-     */
-    void Think(float &outAccelerate, float &outTurn, const std::vector<Vector2>& trackCheckpoints = {}) {
-        if (!trackCheckpoints.empty()) {
-            const_cast<Car*>(this)->CalculateLookahead(trackCheckpoints, 
-                const_cast<Car*>(this)->lookaheadAngle, 
-                const_cast<Car*>(this)->lookaheadDistance);
-        }
-
-        float rawSpeedPolicy = 0.0f;
-        brain.Evaluate(sensorDistances, frontSensorDelta, longitudinalVelocity, lateralVelocity, angularVelocity, lookaheadAngle, lookaheadDistance, rawSpeedPolicy, outTurn);
-
-        // Target Speed Mapping:
-        // rawSpeedPolicy in [-1.0, 1.0] maps smoothly to [1.6, 5.6] px/tick
-        constexpr float MIN_TARGET_SPEED = 1.6f;
-        constexpr float MAX_TARGET_SPEED = 5.6f;
-        float normTarget = (rawSpeedPolicy + 1.0f) * 0.5f; // [0.0, 1.0]
-        float targetSpeed = MIN_TARGET_SPEED + normTarget * (MAX_TARGET_SPEED - MIN_TARGET_SPEED);
-
-        // Longitudinal Driver Controller:
-        // Converts target speed error into physical pedal pressure (accelerator or brake)
-        float currentSpeed = std::max(0.0f, longitudinalVelocity);
-        float speedError = targetSpeed - currentSpeed;
-
-        if (speedError >= 0.0f) {
-            // Accelerating to reach target speed
-            outAccelerate = std::clamp(speedError / 1.5f, 0.15f, 1.0f);
-        } else {
-            // Exceeding target speed: apply brake pressure
-            outAccelerate = std::clamp(speedError / 1.5f, -1.0f, -0.1f);
-        }
+    void Think(float &outAccelerate, float &outTurn) {
+        brain.Evaluate(sensorDistances, frontSensorDelta, longitudinalVelocity, lateralVelocity, angularVelocity, outAccelerate, outTurn);
     }
 
     /**

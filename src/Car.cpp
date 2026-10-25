@@ -39,8 +39,6 @@ void Car::Reset(float startX, float startY, float startRot, bool fullReset) {
     frontSensorDelta = 0.0f;
     frontSensorHistoryIdx = 0;
     stallTicks = 0;
-    lookaheadAngle = 0.0f;
-    lookaheadDistance = 1.0f;
 
     for (int i = 0; i < FRONT_HISTORY_SIZE; i++) {
         frontSensorHistory[i] = Config::CAR_FRONT_SENSOR_DIST;
@@ -270,105 +268,5 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const std::unord
         stallTicks > Config::CAR_STALL_TIME_THRESHOLD)) {
         isCrashed = true; 
         justCrashed = true;
-    }
-}
-
-void Car::CalculateLookahead(const std::vector<Vector2>& trackCheckpoints, float &outAngle, float &outDist) const {
-    if (trackCheckpoints.size() < 3 || nextCheckPointIndex < 0 || nextCheckPointIndex >= (int)trackCheckpoints.size()) {
-        outAngle = 0.0f;
-        outDist = 1.0f;
-        return;
-    }
-
-    int numCp = (int)trackCheckpoints.size();
-    float maxHorizon = 350.0f;
-
-    // 1. Current Segment Heading Error (Turn Persistence)
-    // The segment currently being negotiated is from (nextCheckPointIndex - 1) to nextCheckPointIndex
-    int cpPrevIdx = (nextCheckPointIndex - 1 + numCp) % numCp;
-    Vector2 segCurr = { trackCheckpoints[nextCheckPointIndex].x - trackCheckpoints[cpPrevIdx].x,
-                        trackCheckpoints[nextCheckPointIndex].y - trackCheckpoints[cpPrevIdx].y };
-    float segHeading = std::atan2(segCurr.y, segCurr.x) * (180.0f / PI);
-    float alignDiff = segHeading - rotation;
-    while (alignDiff > 180.0f) alignDiff -= 360.0f;
-    while (alignDiff < -180.0f) alignDiff += 360.0f;
-
-    // Direct distance from vehicle to the current target checkpoint
-    float distToNext = std::hypot(trackCheckpoints[nextCheckPointIndex].x - position.x,
-                                  trackCheckpoints[nextCheckPointIndex].y - position.y);
-
-    // If the vehicle is actively misaligned with the current sector by >= 20 degrees,
-    // it is in the middle of executing an active turn.
-    // Retain this active turn state until the vehicle successfully rotates and aligns!
-    if (std::abs(alignDiff) >= 20.0f) {
-        outAngle = std::clamp(alignDiff / 180.0f, -1.0f, 1.0f);
-        outDist = std::clamp(distToNext / maxHorizon, 0.0f, 0.35f);
-        return;
-    }
-
-    float cumDist = distToNext;
-    float maxBendAngle = 0.0f;
-    float bestAngleDiff = 0.0f;
-    float bestDistance = maxHorizon;
-    bool foundCorner = false;
-
-    // Scan up to 8 checkpoints ahead along the track centerline
-    int maxScan = std::min(numCp - 1, 8);
-    for (int step = 0; step < maxScan; ++step) {
-        int idxCurr = (nextCheckPointIndex + step) % numCp;
-        int idxPrev = (idxCurr - 1 + numCp) % numCp;
-        int idxNext = (idxCurr + 1) % numCp;
-
-        if (step > 0) {
-            float segLen = std::hypot(trackCheckpoints[idxCurr].x - trackCheckpoints[idxPrev].x,
-                                      trackCheckpoints[idxCurr].y - trackCheckpoints[idxPrev].y);
-            cumDist += segLen;
-            if (cumDist > maxHorizon) break;
-        }
-
-        // Tangent vectors arriving at and departing from checkpoint idxCurr
-        Vector2 vIn = { trackCheckpoints[idxCurr].x - trackCheckpoints[idxPrev].x,
-                        trackCheckpoints[idxCurr].y - trackCheckpoints[idxPrev].y };
-        Vector2 vOut = { trackCheckpoints[idxNext].x - trackCheckpoints[idxCurr].x,
-                         trackCheckpoints[idxNext].y - trackCheckpoints[idxCurr].y };
-
-        float aIn = std::atan2(vIn.y, vIn.x) * (180.0f / PI);
-        float aOut = std::atan2(vOut.y, vOut.x) * (180.0f / PI);
-
-        float bend = aOut - aIn;
-        while (bend > 180.0f) bend -= 360.0f;
-        while (bend < -180.0f) bend += 360.0f;
-
-        // Detect significant cornering deviation (|bend| >= 12 degrees)
-        if (std::abs(bend) >= 12.0f) {
-            // Relative angle between departing road tangent and car's current heading
-            float relAngle = aOut - rotation;
-            while (relAngle > 180.0f) relAngle -= 360.0f;
-            while (relAngle < -180.0f) relAngle += 360.0f;
-
-            if (!foundCorner || std::abs(bend) > maxBendAngle) {
-                maxBendAngle = std::abs(bend);
-                bestAngleDiff = relAngle;
-                bestDistance = cumDist;
-                foundCorner = true;
-            }
-        }
-    }
-
-    if (foundCorner) {
-        outAngle = std::clamp(bestAngleDiff / 180.0f, -1.0f, 1.0f);
-        outDist = std::clamp(bestDistance / maxHorizon, 0.0f, 1.0f);
-    } else {
-        // Clear straight: orient toward the lookahead segment and signal clear horizon (1.0)
-        int farIdx = (nextCheckPointIndex + std::min(2, numCp - 1)) % numCp;
-        int prevFar = (farIdx - 1 + numCp) % numCp;
-        Vector2 dir = { trackCheckpoints[farIdx].x - trackCheckpoints[prevFar].x,
-                        trackCheckpoints[farIdx].y - trackCheckpoints[prevFar].y };
-        float targetRot = std::atan2(dir.y, dir.x) * (180.0f / PI);
-        float diff = targetRot - rotation;
-        while (diff > 180.0f) diff -= 360.0f;
-        while (diff < -180.0f) diff += 360.0f;
-        outAngle = std::clamp(diff / 180.0f, -1.0f, 1.0f);
-        outDist = 1.0f;
     }
 }

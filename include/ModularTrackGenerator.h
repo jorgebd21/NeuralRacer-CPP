@@ -19,7 +19,7 @@
 namespace ModularTrackGenerator {
     constexpr float PI_F = 3.14159265358979323846f;
     constexpr float MIN_CLEARANCE = 38.0f;
-    constexpr float MIN_RADIUS = 48.0f; // Guarantees inner curb radius > 13px with 35px track half-width
+    constexpr float MIN_RADIUS = 68.0f; // Enforces minimum post-scale radius compatible with physical adhesion limits
 
     struct Port {
         Vector2 pos;
@@ -152,8 +152,8 @@ namespace ModularTrackGenerator {
         cat.push_back(MakeDoubleApex("CRV_DBL_APEX_L", 160.0f, 110.0f, true));
         cat.push_back(MakeDoubleApex("CRV_DBL_APEX_R", 160.0f, 110.0f, false));
 
-        cat.push_back(MakeArc("HRP_180_R95_L", 95.0f, PI_F, true));
-        cat.push_back(MakeArc("HRP_180_R95_R", 95.0f, PI_F, false));
+        cat.push_back(MakeArc("HRP_180_R120_L", 120.0f, PI_F, true));
+        cat.push_back(MakeArc("HRP_180_R120_R", 120.0f, PI_F, false));
 
         cat.push_back(MakeChicane("CHK_S_L40", 130.0f, 40.0f));
         cat.push_back(MakeChicane("CHK_S_R40", 130.0f, -40.0f));

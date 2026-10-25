@@ -6,14 +6,14 @@
 #include "Config.h"
 
 const int HIDDEN_NODES = 10;
-const int INPUT_NODES = 11;
+const int INPUT_NODES = 9;
 const int OUTPUT_NODES = 2;
 
 /**
  * @brief Structure representing the brain (Neural Network) of a car.
  * 
- * Implements a simple feedforward neural network with one hidden layer (11-10-2).
- * Used to evaluate sensor readings, temporal delta, velocities, lookahead curvature and decide acceleration and turn.
+ * Implements a simple feedforward neural network with one hidden layer (9-10-2).
+ * Used to evaluate sensor readings, temporal delta, velocities and decide acceleration and turn.
  */
 struct Brain {
     float weights_input_hidden[HIDDEN_NODES][INPUT_NODES];
@@ -61,12 +61,10 @@ struct Brain {
      * @param vLong Longitudinal velocity.
      * @param vLat Lateral velocity (slip).
      * @param angularVelocity Angular velocity (yaw rate).
-     * @param lookaheadAngle Relative angle of upcoming track bend/apex (-1.0 to 1.0).
-     * @param lookaheadDist Normalized distance to upcoming apex/corner (0.0 to 1.0).
      * @param outAccelerate Reference where the calculated acceleration value will be stored.
      * @param outTurn Reference where the calculated turn value will be stored.
      */
-    void Evaluate(const float sensorDistances[5], float frontSensorDelta, float vLong, float vLat, float angularVelocity, float lookaheadAngle, float lookaheadDist, float &outAccelerate, float &outTurn) {
+    void Evaluate(const float sensorDistances[5], float frontSensorDelta, float vLong, float vLat, float angularVelocity, float &outAccelerate, float &outTurn) {
         float input[INPUT_NODES];
         for(int i = 0; i < 5; i++) {
             float maxDist = (i == 2) ? Config::CAR_FRONT_SENSOR_DIST : Config::CAR_MAX_SENSOR_DIST;
@@ -76,8 +74,6 @@ struct Brain {
         input[6] = std::clamp(vLong / 20.0f, -1.0f, 1.0f);
         input[7] = std::clamp(vLat / 10.0f, -1.0f, 1.0f);
         input[8] = std::clamp(angularVelocity / Config::CAR_TURN_SPEED, -1.0f, 1.0f);
-        input[9] = std::clamp(lookaheadAngle, -1.0f, 1.0f);
-        input[10] = std::clamp(lookaheadDist, 0.0f, 1.0f);
 
         for(int i = 0; i < INPUT_NODES; i++) last_input[i] = input[i];
         
@@ -110,17 +106,10 @@ struct Brain {
     }
 
     /**
-     * @brief Backward-compatible overload for evaluation with kinematics but default lookahead.
-     */
-    void Evaluate(const float sensorDistances[5], float frontSensorDelta, float vLong, float vLat, float angularVelocity, float &outAccelerate, float &outTurn) {
-        Evaluate(sensorDistances, frontSensorDelta, vLong, vLat, angularVelocity, 0.0f, 1.0f, outAccelerate, outTurn);
-    }
-
-    /**
      * @brief Backward-compatible overload for evaluation with raw speed only.
      */
     void Evaluate(const float sensorDistances[5], float speed, float &outAccelerate, float &outTurn) {
-        Evaluate(sensorDistances, 0.0f, speed, 0.0f, 0.0f, 0.0f, 1.0f, outAccelerate, outTurn);
+        Evaluate(sensorDistances, 0.0f, speed, 0.0f, 0.0f, outAccelerate, outTurn);
     }
     
     /**

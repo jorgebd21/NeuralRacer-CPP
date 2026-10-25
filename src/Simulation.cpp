@@ -128,7 +128,7 @@ void Simulation::UpdateMenu() {
     }
     if (!aiCar.isCrashed) {
         float aiAccelerate = 0.0f, aiTurn = 0.0f;
-        aiCar.Think(aiAccelerate, aiTurn, trackCheckpoints);
+        aiCar.Think(aiAccelerate, aiTurn);
         aiCar.UpdatePhysics(aiAccelerate, aiTurn, spatialGrid, 0, trackCheckpoints);
     }
 
@@ -240,9 +240,9 @@ void Simulation::UpdateTraining() {
             if (!car.isCrashed) {
                 carsAlive++;
 
-                // 1. The brain decides what to do based on the 11-dimensional state space with track lookahead
+                // 1. The brain decides what to do based on the 9-dimensional state space
                 float inputAccelerate = 0.0f, inputTurn = 0.0f;
-                car.Think(inputAccelerate, inputTurn, trackCheckpoints);
+                car.Think(inputAccelerate, inputTurn);
 
                 // 2. The car moves according to the decision and checks if it crashed
                 car.UpdatePhysics(inputAccelerate, inputTurn, spatialGrid, generationTimer, trackCheckpoints);
@@ -356,7 +356,7 @@ void Simulation::UpdateExhibition() {
         playerCar.UpdatePhysics(playerAccelerate, playerTurn, spatialGrid, 0, trackCheckpoints);
 
         float aiAccelerate = 0.0f, aiTurn = 0.0f;
-        aiCar.Think(aiAccelerate, aiTurn, trackCheckpoints);
+        aiCar.Think(aiAccelerate, aiTurn);
         aiCar.UpdatePhysics(aiAccelerate, aiTurn, spatialGrid, 0, trackCheckpoints);
 
         if (playerCar.isCrashed && !aiCar.isCrashed) exhibitionResult = 2;
@@ -517,20 +517,19 @@ void Simulation::DrawTraining() {
     
     if (!sortedPop.empty()) {
         float leaderBestSec = (sortedPop[0]->bestLapTicks > 0) ? ((float)sortedPop[0]->bestLapTicks / 60.0f) : 0.0f;
-        DrawText(TextFormat("Laps: %d | Best: %.2fs", sortedPop[0]->lapsCompleted, leaderBestSec), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 122, 13, (sortedPop[0]->bestLapTicks > 0) ? GREEN : LIGHTGRAY);
-        DrawText(TextFormat("Next Turn: %+.0f deg (%.0fpx)", sortedPop[0]->lookaheadAngle * 180.0f, sortedPop[0]->lookaheadDistance * 350.0f), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 137, 12, SKYBLUE);
+        DrawText(TextFormat("Laps: %d | Best: %.2fs", sortedPop[0]->lapsCompleted, leaderBestSec), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 124, 13, (sortedPop[0]->bestLapTicks > 0) ? GREEN : LIGHTGRAY);
     }
 
-    DrawText("[SPACE] Change speed", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 153, 10, LIGHTGRAY);
-    DrawText("[M] Return to Menu", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 165, 10, LIGHTGRAY);
-    DrawText("[C] Toggle Checkpoints", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 177, 10, LIGHTGRAY);
-    DrawText("[H] Telemetry & Heatmap", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 189, 10, LIGHTGRAY);
+    DrawText("[SPACE] Change speed", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 142, 10, LIGHTGRAY);
+    DrawText("[M] Return to Menu", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 155, 10, LIGHTGRAY);
+    DrawText("[C] Toggle Checkpoints", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 168, 10, LIGHTGRAY);
+    DrawText("[H] Telemetry & Heatmap", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 181, 10, LIGHTGRAY);
 
-    DrawText("TOP 10 FITNESS", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 204, 17, YELLOW);
+    DrawText("TOP 10 FITNESS", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 198, 18, YELLOW);
     for (int i = 0; i < 10 && i < (int)sortedPop.size(); i++) {
         Color rowColor = (sortedPop[i]->isCrashed) ? GRAY : WHITE;
         if (i == 0) rowColor = GOLD;
-        DrawText(TextFormat("%d. Fit: %.0f (L:%d)", i + 1, sortedPop[i]->fitness, sortedPop[i]->lapsCompleted), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 226 + (i * 24), 16, rowColor);
+        DrawText(TextFormat("%d. Fit: %.0f (L:%d)", i + 1, sortedPop[i]->fitness, sortedPop[i]->lapsCompleted), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 222 + (i * 25), 17, rowColor);
     }
 
     if (!sortedPop.empty()) {
@@ -629,7 +628,7 @@ void Simulation::UpdateTestAI() {
 
     if (!aiCar.isCrashed) {
         float aiAccelerate = 0.0f, aiTurn = 0.0f;
-        aiCar.Think(aiAccelerate, aiTurn, trackCheckpoints);
+        aiCar.Think(aiAccelerate, aiTurn);
         aiCar.UpdatePhysics(aiAccelerate, aiTurn, spatialGrid, 0, trackCheckpoints);
     }
 }
