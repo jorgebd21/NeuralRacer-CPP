@@ -35,3 +35,7 @@ add_executable(app ${SOURCES})
 # 6. Vincula las librerías necesarias
 find_package(OpenMP REQUIRED)
 target_link_libraries(app raylib GL m pthread dl rt X11 tbb OpenMP::OpenMP_CXX)
+
+# 7. Benchmark de alta frecuencia (0 asignaciones dinámicas por tick)
+add_executable(bench_zero_alloc tests/bench_zero_alloc.cpp src/Car.cpp src/TrackManager.cpp)
+target_link_libraries(bench_zero_alloc raylib GL m pthread dl rt X11)
