@@ -54,6 +54,8 @@ public:
                                  float saturation = 0.0f);
     static void DrawDashboard(int screenWidth, int screenHeight);
     static void DrawHeatmap();
+    static void DrawRacingLineHeatmap(float alpha = 0.85f);
+    static Color ComputeHeatmapColor(float speed, float kammUtil, float throttle, float alpha = 0.85f);
     static void DrawGhostVehicle(int currentTick);
     static const std::vector<TelemetrySample>& GetFastestLapBuffer();
     static bool HasFastestLap();

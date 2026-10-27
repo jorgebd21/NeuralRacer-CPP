@@ -670,6 +670,7 @@ void Simulation::DrawTraining() {
     
     if (showTelemetry) {
         Telemetry::DrawHeatmap();
+        Telemetry::DrawRacingLineHeatmap(0.80f);
     }
 
     if (showGhostVehicle) {

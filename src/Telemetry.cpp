@@ -416,6 +416,37 @@ void Telemetry::DrawHeatmap() {
     }
 }
 
+Color Telemetry::ComputeHeatmapColor(float speed, float kammUtil, float throttle, float alpha) {
+    if (kammUtil > 0.85f || throttle < -0.3f) {
+        return Fade(RED, alpha);
+    }
+    if (kammUtil > 0.60f || speed < 7.0f) {
+        return Fade(ORANGE, alpha);
+    }
+    if (kammUtil > 0.40f || speed < 12.0f) {
+        return Fade(YELLOW, alpha);
+    }
+    return Fade(GREEN, alpha);
+}
+
+void Telemetry::DrawRacingLineHeatmap(float alpha) {
+    std::lock_guard<std::mutex> lock(dataMutex);
+    if (fastestLapBuffer.size() < 2) return;
+
+    for (size_t i = 0; i < fastestLapBuffer.size() - 1; ++i) {
+        const auto& s0 = fastestLapBuffer[i];
+        const auto& s1 = fastestLapBuffer[i + 1];
+
+        Color segColor = ComputeHeatmapColor(0.5f * (s0.speed + s1.speed),
+                                             0.5f * (s0.kammUtil + s1.kammUtil),
+                                             0.5f * (s0.throttleInput + s1.throttleInput),
+                                             alpha);
+
+        DrawLineEx(s0.position, s1.position, 4.0f, segColor);
+        DrawCircleV(s1.position, 2.0f, segColor);
+    }
+}
+
 const std::vector<TelemetrySample>& Telemetry::GetFastestLapBuffer() {
     std::lock_guard<std::mutex> lock(dataMutex);
     return fastestLapBuffer;
