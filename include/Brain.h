@@ -52,6 +52,16 @@ inline __m256 FastTanhAVX2(__m256 x) noexcept {
     result = _mm256_max_ps(result, neg1);
     return result;
 }
+
+/**
+ * @brief Vectorized logistic sigmoid function sigma(x) = 0.5 * (tanh(0.5 * x) + 1.0) across 8 float lanes.
+ */
+inline __m256 FastSigmoidAVX2(__m256 x) noexcept {
+    const __m256 half = _mm256_set1_ps(0.5f);
+    __m256 half_x = _mm256_mul_ps(half, x);
+    __m256 th = FastTanhAVX2(half_x);
+    return _mm256_fmadd_ps(half, th, half);
+}
 #endif
 
 /**
@@ -89,32 +99,32 @@ const int RECURRENT_NODES = 8;
  * temporal recurrent working memory for multi-agent anticipation and curve sequencing.
  */
 struct Brain {
-    float weights_input_hidden[HIDDEN_NODES][INPUT_NODES];
-    float biases_hidden[HIDDEN_NODES];
-    float weights_hidden_output[OUTPUT_NODES][HIDDEN_NODES];
-    float biases_output[OUTPUT_NODES];
+    alignas(32) float weights_input_hidden[HIDDEN_NODES][INPUT_NODES];
+    alignas(32) float biases_hidden[HIDDEN_NODES];
+    alignas(32) float weights_hidden_output[OUTPUT_NODES][HIDDEN_NODES];
+    alignas(32) float biases_output[OUTPUT_NODES];
     
     // Minimal Gated Unit (MGU / GRU) Recurrent Topology Matrices
-    float W_f[RECURRENT_NODES][INPUT_NODES];
-    float U_f[RECURRENT_NODES][RECURRENT_NODES];
-    float b_f[RECURRENT_NODES];
+    alignas(32) float W_f[RECURRENT_NODES][INPUT_NODES];
+    alignas(32) float U_f[RECURRENT_NODES][RECURRENT_NODES];
+    alignas(32) float b_f[RECURRENT_NODES];
 
-    float W_h[RECURRENT_NODES][INPUT_NODES];
-    float U_h[RECURRENT_NODES][RECURRENT_NODES];
-    float b_h[RECURRENT_NODES];
+    alignas(32) float W_h[RECURRENT_NODES][INPUT_NODES];
+    alignas(32) float U_h[RECURRENT_NODES][RECURRENT_NODES];
+    alignas(32) float b_h[RECURRENT_NODES];
 
-    float W_out[OUTPUT_NODES][RECURRENT_NODES];
-    float b_out[OUTPUT_NODES];
+    alignas(32) float W_out[OUTPUT_NODES][RECURRENT_NODES];
+    alignas(32) float b_out[OUTPUT_NODES];
 
     // Temporal recurrent hidden state vector h_t
-    float h_state[RECURRENT_NODES];
-    float last_f_gate[RECURRENT_NODES];
+    alignas(32) float h_state[RECURRENT_NODES];
+    alignas(32) float last_f_gate[RECURRENT_NODES];
     bool useRecurrent;
 
     // Store the last activations to draw them in the graphical interface
-    float last_input[INPUT_NODES];
-    float last_hidden[HIDDEN_NODES];
-    float last_output[OUTPUT_NODES];
+    alignas(32) float last_input[INPUT_NODES];
+    alignas(32) float last_hidden[HIDDEN_NODES];
+    alignas(32) float last_output[OUTPUT_NODES];
     
     /**
      * @brief Default constructor that initializes weights and biases randomly.
@@ -185,6 +195,59 @@ struct Brain {
      *   y_t = tanh(W_out h_t + b_out)
      */
     void StepMGU(const float x[INPUT_NODES], float &outAccelerate, float &outTurn) noexcept {
+#if defined(__AVX2__) && defined(__FMA__)
+        __m256 h_prev = _mm256_load_ps(h_state);
+
+        alignas(32) float sum_f[RECURRENT_NODES];
+        alignas(32) float sum_h[RECURRENT_NODES];
+
+        for (int i = 0; i < RECURRENT_NODES; ++i) {
+            float sf = b_f[i];
+            float sh = b_h[i];
+            for (int j = 0; j < INPUT_NODES; ++j) {
+                sf += W_f[i][j] * x[j];
+                sh += W_h[i][j] * x[j];
+            }
+            sum_f[i] = sf;
+            sum_h[i] = sh;
+        }
+
+        alignas(32) float gate_f_in[RECURRENT_NODES];
+        for (int i = 0; i < RECURRENT_NODES; ++i) {
+            __m256 u_row = _mm256_load_ps(U_f[i]);
+            __m256 prod = _mm256_mul_ps(u_row, h_prev);
+            gate_f_in[i] = sum_f[i] + HorizontalSum256(prod);
+        }
+
+        __m256 f_gate_reg = FastSigmoidAVX2(_mm256_load_ps(gate_f_in));
+        _mm256_store_ps(last_f_gate, f_gate_reg);
+
+        __m256 gated_h = _mm256_mul_ps(f_gate_reg, h_prev);
+
+        alignas(32) float cand_h_in[RECURRENT_NODES];
+        for (int i = 0; i < RECURRENT_NODES; ++i) {
+            __m256 uh_row = _mm256_load_ps(U_h[i]);
+            __m256 prod = _mm256_mul_ps(uh_row, gated_h);
+            cand_h_in[i] = sum_h[i] + HorizontalSum256(prod);
+        }
+
+        __m256 h_cand_reg = FastTanhAVX2(_mm256_load_ps(cand_h_in));
+
+        const __m256 one = _mm256_set1_ps(1.0f);
+        __m256 one_minus_f = _mm256_sub_ps(one, f_gate_reg);
+        __m256 h_next = _mm256_fmadd_ps(f_gate_reg, h_cand_reg, _mm256_mul_ps(one_minus_f, h_prev));
+        _mm256_store_ps(h_state, h_next);
+
+        __m256 w_out0 = _mm256_load_ps(W_out[0]);
+        __m256 w_out1 = _mm256_load_ps(W_out[1]);
+        float dot0 = HorizontalSum256(_mm256_mul_ps(w_out0, h_next)) + b_out[0];
+        float dot1 = HorizontalSum256(_mm256_mul_ps(w_out1, h_next)) + b_out[1];
+
+        outAccelerate = FastTanh(dot0);
+        outTurn = FastTanh(dot1);
+        last_output[0] = outAccelerate;
+        last_output[1] = outTurn;
+#else
         float f_gate[RECURRENT_NODES];
         float h_cand[RECURRENT_NODES];
 
@@ -229,6 +292,7 @@ struct Brain {
         outTurn = FastTanh(outT);
         last_output[0] = outAccelerate;
         last_output[1] = outTurn;
+#endif
     }
 
     /**
