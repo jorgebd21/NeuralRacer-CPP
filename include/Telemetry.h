@@ -34,6 +34,7 @@ class Telemetry {
 public:
     static void Init();
     static void RecordCrash(Vector2 position);
+    static void RecordFastestLap(const FixedRingBuffer<TelemetrySample, Config::MAX_GENERATION_TIME>& lapSamples);
     static void RecordFastestLap(const std::vector<TelemetrySample>& lapSamples);
     static void RecordGeneration(int generation,
                                  const std::vector<Car>& population,

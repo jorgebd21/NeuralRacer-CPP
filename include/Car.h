@@ -1,6 +1,8 @@
 #pragma once
 
 #include "Brain.h"
+#include "Config.h"
+#include "FixedRingBuffer.h"
 #include "TelemetrySample.h"
 #include "raylib.h"
 #include <vector>
@@ -74,9 +76,9 @@ struct Car {
     float lastApexDistance;
     float lastApexSpeed;
 
-    // Time-series sample buffers for high-frequency telemetry logging
-    std::vector<TelemetrySample> currentLapSamples;
-    std::vector<TelemetrySample> bestLapSamples;
+    // Preallocated fixed-capacity ring buffers for zero-allocation telemetry logging
+    FixedRingBuffer<TelemetrySample, Config::MAX_GENERATION_TIME> currentLapSamples;
+    FixedRingBuffer<TelemetrySample, Config::MAX_GENERATION_TIME> bestLapSamples;
 
     static constexpr int FRONT_HISTORY_SIZE = 8;
     float frontSensorHistory[FRONT_HISTORY_SIZE];

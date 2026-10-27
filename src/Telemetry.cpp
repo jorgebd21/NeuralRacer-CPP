@@ -77,6 +77,15 @@ void Telemetry::RecordCrash(Vector2 position) {
     crashPoints.push_back(position);
 }
 
+void Telemetry::RecordFastestLap(const FixedRingBuffer<TelemetrySample, Config::MAX_GENERATION_TIME>& lapSamples) {
+    std::lock_guard<std::mutex> lock(dataMutex);
+    fastestLapBuffer.clear();
+    fastestLapBuffer.reserve(lapSamples.size());
+    for (std::size_t i = 0; i < lapSamples.size(); ++i) {
+        fastestLapBuffer.push_back(lapSamples[i]);
+    }
+}
+
 void Telemetry::RecordFastestLap(const std::vector<TelemetrySample>& lapSamples) {
     std::lock_guard<std::mutex> lock(dataMutex);
     fastestLapBuffer = lapSamples;
