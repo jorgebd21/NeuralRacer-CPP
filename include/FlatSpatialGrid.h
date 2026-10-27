@@ -1,6 +1,7 @@
 #pragma once
 
 #include "raylib.h"
+#include "SurfaceDynamics.h"
 #include <vector>
 #include <utility>
 #include <algorithm>
@@ -42,6 +43,7 @@ private:
     std::vector<GridCell> m_grid;
     std::vector<Segment> m_segmentArena;
     std::vector<uint32_t> m_indexArena;
+    std::vector<SurfaceType> m_surfaceGrid;
 
 public:
     FlatSpatialGrid() = default;
@@ -62,6 +64,7 @@ public:
         m_grid.assign(static_cast<size_t>(m_cols * m_rows), GridCell{});
         m_segmentArena.clear();
         m_indexArena.clear();
+        m_surfaceGrid.assign(static_cast<size_t>(m_cols * m_rows), SurfaceType::RunoffTurf);
     }
 
     /**
@@ -74,6 +77,7 @@ public:
         }
         m_segmentArena.clear();
         m_indexArena.clear();
+        std::fill(m_surfaceGrid.begin(), m_surfaceGrid.end(), SurfaceType::RunoffTurf);
     }
 
     /**
@@ -147,8 +151,44 @@ public:
 
     [[nodiscard]] inline const std::vector<Segment>& GetSegmentArena() const noexcept { return m_segmentArena; }
     [[nodiscard]] inline const std::vector<uint32_t>& GetIndexArena() const noexcept { return m_indexArena; }
+    [[nodiscard]] inline const std::vector<SurfaceType>& GetSurfaceGrid() const noexcept { return m_surfaceGrid; }
     [[nodiscard]] inline int GetCellSize() const noexcept { return m_cellSize; }
     [[nodiscard]] inline int GetCols() const noexcept { return m_cols; }
     [[nodiscard]] inline int GetRows() const noexcept { return m_rows; }
     [[nodiscard]] inline size_t TotalCells() const noexcept { return m_grid.size(); }
+
+    /**
+     * @brief Sets the surface classification for a specific grid cell.
+     */
+    inline void SetCellSurface(int x, int y, SurfaceType type) noexcept {
+        if (x >= 0 && x < m_cols && y >= 0 && y < m_rows) {
+            m_surfaceGrid[static_cast<size_t>(y * m_cols + x)] = type;
+        }
+    }
+
+    /**
+     * @brief Gets the surface type for discrete grid coordinates.
+     */
+    [[nodiscard]] inline SurfaceType GetCellSurface(int x, int y) const noexcept {
+        if (x >= 0 && x < m_cols && y >= 0 && y < m_rows) {
+            return m_surfaceGrid[static_cast<size_t>(y * m_cols + x)];
+        }
+        return SurfaceType::GravelTrap;
+    }
+
+    /**
+     * @brief Samples the track surface type at continuous world coordinates in O(1).
+     */
+    [[nodiscard]] inline SurfaceType SampleSurface(Vector2 pos) const noexcept {
+        int gx = static_cast<int>(std::floor(pos.x / static_cast<float>(m_cellSize)));
+        int gy = static_cast<int>(std::floor(pos.y / static_cast<float>(m_cellSize)));
+        return GetCellSurface(gx, gy);
+    }
+
+    /**
+     * @brief Samples instantaneous Coulomb friction coefficient (\mu) at world coordinates in O(1).
+     */
+    [[nodiscard]] inline float SampleFriction(Vector2 pos) const noexcept {
+        return SurfaceDynamics::GetFrictionCoefficient(SampleSurface(pos));
+    }
 };

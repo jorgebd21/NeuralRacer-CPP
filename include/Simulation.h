@@ -70,6 +70,7 @@ private:
     struct TrainingTrack {
         std::vector<std::pair<Vector2, Vector2>> walls;
         std::vector<Vector2> checkpoints;
+        std::vector<Vector2> denseLine;
         Vector2 startPos;
         float startRot;
     };
@@ -94,6 +95,7 @@ private:
     float startRotation;
     std::vector<std::pair<Vector2, Vector2>> trackWalls;
     std::vector<Vector2> trackCheckpoints;
+    std::vector<Vector2> trackDenseLine;
     FlatSpatialGrid spatialGrid;
     std::vector<Vector2> proceduralPoints;
 

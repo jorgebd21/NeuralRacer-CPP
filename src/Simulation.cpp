@@ -82,6 +82,7 @@ void Simulation::Init() {
         Vector2 next = denseCenterLine[(snapIdx + 1) % denseN];
         startRotation = atan2(next.y - prev.y, next.x - prev.x) * (180.0f / PI);
 
+        trackDenseLine = denseCenterLine;
         TrackManager::GenerateBordersFromCenterLine(denseCenterLine, PROCEDURAL_TRACK_WIDTH, trackWalls, trackCheckpoints, startPosition);
     } else {
         trackFile = mapFiles[currentMapIndex];
@@ -181,7 +182,8 @@ void Simulation::UpdateMenu() {
             trackWalls.clear();
             trackCheckpoints.clear();
             Telemetry::ResetHeatmap();
-            TrackManager::GenerateBordersFromCenterLine(denseCenterLine, PROCEDURAL_TRACK_WIDTH, trackWalls, trackCheckpoints, startPosition);
+            trackDenseLine = denseCenterLine;
+        TrackManager::GenerateBordersFromCenterLine(denseCenterLine, PROCEDURAL_TRACK_WIDTH, trackWalls, trackCheckpoints, startPosition);
             BuildSpatialGrid();
             InitTrainingTracks();
             
@@ -870,6 +872,12 @@ void Simulation::DrawTestAI() {
 
 void Simulation::BuildSpatialGrid(){
     spatialGrid.Build(trackWalls);
+    if (!trackDenseLine.empty()) {
+        TrackManager::GenerateSurfaceZones(trackDenseLine, PROCEDURAL_TRACK_WIDTH, spatialGrid);
+    } else if (!trackCheckpoints.empty()) {
+        std::vector<Vector2> dense = TrackManager::GenerateSplinePoints(trackCheckpoints, PROCEDURAL_SPLINE_SEGMENTS);
+        TrackManager::GenerateSurfaceZones(dense, PROCEDURAL_TRACK_WIDTH, spatialGrid);
+    }
 }
 
 void Simulation::InitTrainingTracks() {
@@ -912,6 +920,7 @@ Simulation::TrainingTrack Simulation::GenerateProceduralTrainingTrack(int fixedA
     Vector2 next = denseLine[(snapIdx + 1) % denseN];
     tt.startRot = atan2(next.y - prev.y, next.x - prev.x) * (180.0f / PI);
 
+    tt.denseLine = denseLine;
     TrackManager::GenerateBordersFromCenterLine(denseLine, PROCEDURAL_TRACK_WIDTH, tt.walls, tt.checkpoints, tt.startPos);
     return tt;
 }
@@ -945,6 +954,7 @@ void Simulation::SetTrainingTrack(int trackIndex) {
     if (trackIndex >= 0 && trackIndex < (int)trainingTracks.size()) {
         trackWalls = trainingTracks[trackIndex].walls;
         trackCheckpoints = trainingTracks[trackIndex].checkpoints;
+        trackDenseLine = trainingTracks[trackIndex].denseLine;
         startPosition = trainingTracks[trackIndex].startPos;
         startRotation = trainingTracks[trackIndex].startRot;
         BuildSpatialGrid();

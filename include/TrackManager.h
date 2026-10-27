@@ -1,6 +1,7 @@
 #pragma once
 
 #include "raylib.h"
+#include "FlatSpatialGrid.h"
 #include <vector>
 #include <string>
 #include <utility>
@@ -113,6 +114,15 @@ namespace TrackManager {
      * @param outCheckpoints Vector where the checkpoints will be stored.
      */
     void LoadTrackFromFile(const std::string& filename, std::vector<std::pair<Vector2, Vector2>>& outWalls, Vector2& outStartPos, float& outStartRot, std::vector<Vector2>& outCheckpoints);
+
+    /**
+     * @brief Generates asphalt, apex curb rumble strips, and runoff/gravel zones across the spatial grid.
+     * 
+     * @param centerPoints Dense spline centerline of the track.
+     * @param trackWidth Nominal tarmac corridor width.
+     * @param outGrid Spatial grid receiving the surface type classification.
+     */
+    void GenerateSurfaceZones(const std::vector<Vector2>& centerPoints, float trackWidth, FlatSpatialGrid& outGrid);
 
     /**
      * @brief Explores the maps directory and returns a list of available names.

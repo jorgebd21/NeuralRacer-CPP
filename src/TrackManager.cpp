@@ -310,4 +310,102 @@ std::vector<std::string> ScanMapFiles() {
     return mapFiles;
 }
 
+static inline float DistancePointToSegmentSq(Vector2 p, Vector2 a, Vector2 b) {
+    float dx = b.x - a.x;
+    float dy = b.y - a.y;
+    float l2 = dx * dx + dy * dy;
+    if (l2 < 1e-6f) {
+        float px = p.x - a.x;
+        float py = p.y - a.y;
+        return px * px + py * py;
+    }
+    float t = std::clamp(((p.x - a.x) * dx + (p.y - a.y) * dy) / l2, 0.0f, 1.0f);
+    float projX = a.x + t * dx;
+    float projY = a.y + t * dy;
+    float ex = p.x - projX;
+    float ey = p.y - projY;
+    return ex * ex + ey * ey;
+}
+
+void GenerateSurfaceZones(const std::vector<Vector2>& centerPoints, float trackWidth, FlatSpatialGrid& outGrid) {
+    int n = static_cast<int>(centerPoints.size());
+    if (n < 3) return;
+
+    int cols = outGrid.GetCols();
+    int rows = outGrid.GetRows();
+    float cellSize = static_cast<float>(outGrid.GetCellSize());
+
+    // 1. Initialize entire world grid to GravelTrap (outer perimeter deceleration arrestor)
+    for (int y = 0; y < rows; ++y) {
+        for (int x = 0; x < cols; ++x) {
+            outGrid.SetCellSurface(x, y, SurfaceType::GravelTrap);
+        }
+    }
+
+    float halfWidth = trackWidth * 0.5f;
+    float halfWidthSq = halfWidth * halfWidth;
+    float curbWidth = halfWidth + 14.0f;
+    float curbWidthSq = curbWidth * curbWidth;
+    float turfWidth = halfWidth + 55.0f;
+    float turfWidthSq = turfWidth * turfWidth;
+
+    // 2. Identify corner apex nodes by evaluating turning curvature
+    std::vector<bool> isCorner(n, false);
+    int step = std::clamp(n / 24, 2, 8);
+    for (int i = 0; i < n; ++i) {
+        Vector2 prev = centerPoints[(i - step + n) % n];
+        Vector2 curr = centerPoints[i];
+        Vector2 next = centerPoints[(i + step) % n];
+        Vector2 v1 = {curr.x - prev.x, curr.y - prev.y};
+        Vector2 v2 = {next.x - curr.x, next.y - curr.y};
+        float l1 = std::hypot(v1.x, v1.y);
+        float l2 = std::hypot(v2.x, v2.y);
+        if (l1 > 1e-4f && l2 > 1e-4f) {
+            float dot = std::clamp((v1.x * v2.x + v1.y * v2.y) / (l1 * l2), -1.0f, 1.0f);
+            float angle = std::acos(dot);
+            if (angle > 0.05f) {
+                isCorner[i] = true;
+            }
+        }
+    }
+
+    // 3. Rasterize surface classifications into discrete spatial grid cells
+    float maxReach = turfWidth + cellSize;
+    for (int i = 0; i < n; ++i) {
+        Vector2 p1 = centerPoints[i];
+        Vector2 p2 = centerPoints[(i + 1) % n];
+        bool nodeIsApex = isCorner[i] || isCorner[(i + 1) % n];
+
+        int minGx = std::max(0, static_cast<int>(std::floor((std::min(p1.x, p2.x) - maxReach) / cellSize)));
+        int maxGx = std::min(cols - 1, static_cast<int>(std::floor((std::max(p1.x, p2.x) + maxReach) / cellSize)));
+        int minGy = std::max(0, static_cast<int>(std::floor((std::min(p1.y, p2.y) - maxReach) / cellSize)));
+        int maxGy = std::min(rows - 1, static_cast<int>(std::floor((std::max(p1.y, p2.y) + maxReach) / cellSize)));
+
+        for (int gy = minGy; gy <= maxGy; ++gy) {
+            for (int gx = minGx; gx <= maxGx; ++gx) {
+                Vector2 cellCenter = { (static_cast<float>(gx) + 0.5f) * cellSize, (static_cast<float>(gy) + 0.5f) * cellSize };
+                float distSq = DistancePointToSegmentSq(cellCenter, p1, p2);
+
+                if (distSq <= halfWidthSq) {
+                    outGrid.SetCellSurface(gx, gy, SurfaceType::Asphalt);
+                } else if (distSq <= curbWidthSq) {
+                    SurfaceType current = outGrid.GetCellSurface(gx, gy);
+                    if (current != SurfaceType::Asphalt) {
+                        if (nodeIsApex) {
+                            outGrid.SetCellSurface(gx, gy, SurfaceType::ApexCurbs);
+                        } else if (current != SurfaceType::ApexCurbs) {
+                            outGrid.SetCellSurface(gx, gy, SurfaceType::RunoffTurf);
+                        }
+                    }
+                } else if (distSq <= turfWidthSq) {
+                    SurfaceType current = outGrid.GetCellSurface(gx, gy);
+                    if (current != SurfaceType::Asphalt && current != SurfaceType::ApexCurbs) {
+                        outGrid.SetCellSurface(gx, gy, SurfaceType::RunoffTurf);
+                    }
+                }
+            }
+        }
+    }
+}
+
 } // namespace TrackManager
