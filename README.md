@@ -356,18 +356,26 @@ cmake --build .
 | **Training Mode** | `[ T ]` | Spawns a population of 100 agents to undergo continuous evolutionary training. Supports telemetry overlays and speed multipliers. |
 | **Exhibition Mode** | `[ E ]` | Places the user in manual control of a vehicle (Arrows/WASD) to race directly against the best saved AI agent loaded from `data/best.json`. |
 | **Test AI Mode** | `[ A ]` | Loads the top-performing brain from disk and renders its continuous, uninterrupted driving behavior. |
+| **Replay Mode** | `[ R ]` | Interactive 60Hz replay timeline scrubber with variable playback rate ($0.25\times, 1.0\times, 4.0\times$), timeline dragging, and live XAI Jacobian vectors. |
 | **Generate Track** | `[ P ]` | Instantly generates a unique closed racing circuit using the 12-family discrete modular tile engine. |
 | **Save Track** | `[ G ]` | Exports the active procedural track from the menu state to a JSON file in `data/tracks/`. |
 
-### Runtime Camera & Simulation Interactions:
+### Runtime Camera, Visualizer & Replay Interactions:
 
-*   `[ SPACE ]`: Toggles execution speed between **Normal Mode (1x)** and **Accelerated Headless-Equivalent Mode (50x)** for rapid population training.
+*   `[ SPACE ]`: In Training mode: toggles execution speed between **Normal (1x)** and **Accelerated (50x)**. In Replay mode: toggles playback **Pause / Resume**.
+*   `[ G ]`: Toggles the semi-transparent **Ghost Vehicle** projection representing the recorded fastest lap.
+*   `[ H ]`: Toggles the **Telemetry Dashboard**, Collision Heatmap, and GPU-accelerated **Racing Line Heatmap** (Green: traction/speed, Amber: trail braking, Red: scrub/slip).
 *   `[ V ]`: Toggles camera view mode between dynamic leader-follow mode (`CAM_FOLLOW_LEADER`) and full-circuit overview mode (`CAM_OVERVIEW`).
+*   `[ 1 ] / [ 2 ] / [ 3 ]`: In Replay mode: selects playback rate between **0.25x (Slow-Motion)**, **1.0x (Real-Time)**, and **4.0x (High-Speed Scrubbing)**.
+*   `[ LEFT ] / [ RIGHT ]`: In Replay mode: step backward or forward frame-by-frame.
+*   `Mouse Timeline Dragging`: Click and drag the golden timeline scrubber thumb at the bottom HUD to seek anywhere across the recorded lap.
+*   `Live XAI Jacobian Sensitivity HUD`: Rendered directly over the vehicle cockpit:
+    *   **Magenta Arrow:** Steering gradient with respect to front obstacle proximity ($\partial \text{Steer} / \partial \text{Front}$).
+    *   **Orange Arrow:** Steering gradient with respect to lateral differential balance ($\partial \text{Steer} / \partial \text{Left} - \partial \text{Steer} / \partial \text{Right}$).
 *   `Mouse Wheel`: Adjusts camera zoom smoothly between $0.20\times$ (macro circuit view) and $2.50\times$ (tight vehicle cockpit chase).
 *   `Right-Click / Middle-Click Drag`: Engages manual panning across the $2400 \times 1600\text{ px}$ canvas (`CAM_MANUAL`).
 *   `Tactical F1 Minimap HUD`: Rendered in the bottom-left corner with real-time car positions (gold leader, blue podium contenders, red field) and a yellow frustum outline showing the active camera viewport.
 *   `[ C ]`: Toggles the rendering of checkpoints.
-*   `[ H ]`: Toggles the rendering of the Telemetry Dashboard and Collision Heatmap overlays.
 *   `[ M ]`: Terminates the current mode and returns to the Main Menu.
 
 ---
