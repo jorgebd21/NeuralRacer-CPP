@@ -74,6 +74,7 @@ struct Car {
     float competitorDistances[5];
     float competitorClosingVel[5];
     int closestCompetitorId;
+    float draftingFactor;
 
     // Track surface dynamics & adhesion
     SurfaceType currentSurface;

@@ -74,6 +74,7 @@ void Car::Reset(float startX, float startY, float startRot, bool fullReset) {
         frontSensorHistory[i] = Config::CAR_FRONT_SENSOR_DIST;
     }
     closestCompetitorId = -1;
+    draftingFactor = 0.0f;
     for (int i = 0; i < 5; i++) {
         float maxDist = (i == 2) ? Config::CAR_FRONT_SENSOR_DIST : Config::CAR_MAX_SENSOR_DIST;
         sensorDistances[i] = maxDist;
@@ -109,6 +110,53 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const FlatSpatia
     float localForward = (velocity.x * cos(rad)) + (velocity.y * sin(rad));
     float localLateral = (-velocity.x * sin(rad)) + (velocity.y * cos(rad));
 
+    // 2.5 Multi-Agent Aerodynamic Slipstream Wake & Drafting
+    draftingFactor = 0.0f;
+    if (vehicleGrid != nullptr && std::abs(localForward) > 0.5f) {
+        int vCellSize = vehicleGrid->GetCellSize();
+        int searchRadiusCells = static_cast<int>(std::ceil(Config::DRAFTING_MAX_DISTANCE / static_cast<float>(vCellSize)));
+        int myCellX = static_cast<int>(std::floor(position.x / static_cast<float>(vCellSize)));
+        int myCellY = static_cast<int>(std::floor(position.y / static_cast<float>(vCellSize)));
+
+        Vector2 egoHeading = { cosf(rad), sinf(rad) };
+
+        for (int gx = myCellX - searchRadiusCells; gx <= myCellX + searchRadiusCells; ++gx) {
+            for (int gy = myCellY - searchRadiusCells; gy <= myCellY + searchRadiusCells; ++gy) {
+                const auto* cell = vehicleGrid->GetCell(gx, gy);
+                if (!cell) continue;
+
+                for (uint8_t k = 0; k < cell->count; ++k) {
+                    const VehicleOBB& lead = vehicleGrid->GetVehicle(cell->vehicleIndices[k]);
+                    if (lead.carIndex == myCarIndex || !lead.active) continue;
+
+                    // Relative vector from ego to lead vehicle
+                    Vector2 d = { lead.position.x - position.x, lead.position.y - position.y };
+                    float leadRad = lead.rotation * (3.14159265f / 180.0f);
+                    Vector2 leadHeading = { cosf(leadRad), sinf(leadRad) };
+                    Vector2 leadNormal = { -sinf(leadRad), cosf(leadRad) };
+
+                    // Directional alignment: both cars heading in roughly the same direction
+                    float alignment = egoHeading.x * leadHeading.x + egoHeading.y * leadHeading.y;
+                    if (alignment < 0.70f) continue;
+
+                    // Lead vehicle must be ahead along heading
+                    float dLong = d.x * leadHeading.x + d.y * leadHeading.y;
+                    if (dLong > 0.0f && dLong <= Config::DRAFTING_MAX_DISTANCE) {
+                        float yLat = std::abs(d.x * leadNormal.x + d.y * leadNormal.y);
+                        if (yLat <= Config::DRAFTING_MAX_WIDTH) {
+                            float factorLong = (dLong * dLong) / (2.0f * Config::DRAFTING_SIGMA_LONG * Config::DRAFTING_SIGMA_LONG);
+                            float factorLat = (yLat * yLat) / (2.0f * Config::DRAFTING_SIGMA_LAT * Config::DRAFTING_SIGMA_LAT);
+                            float factor = std::exp(-factorLong - factorLat);
+                            if (factor > draftingFactor) {
+                                draftingFactor = factor;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     // 3. Friction Circle / Kamm Ellipse Coupling:
     // When cornering or sliding, lateral tire force demand restricts available forward engine traction
     float tractionMultiplier = std::clamp(1.0f + (longAccelEst * Config::WEIGHT_TRANSFER_FACTOR), 0.5f, 1.5f);
@@ -117,18 +165,20 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const FlatSpatia
     currentSurfaceFriction = SurfaceDynamics::GetFrictionCoefficient(currentSurface);
     float rollingResistanceFactor = SurfaceDynamics::GetRollingResistanceFactor(currentSurface);
     float thermalGrip = tireThermals.thermalGripFactor;
-    float effectiveGripLimit = Config::TIRE_GRIP_LIMIT * currentSurfaceFriction * thermalGrip;
+    float dirtyAirPenalty = 1.0f - draftingFactor * Config::DRAFTING_DIRTY_AIR_PENALTY;
+    float effectiveGripLimit = Config::TIRE_GRIP_LIMIT * currentSurfaceFriction * thermalGrip * dirtyAirPenalty;
 
     float maxLateralGrip = effectiveGripLimit * Config::CAR_MASS * tractionMultiplier;
     float lateralDemand = std::abs(localLateral) * Config::CORNERING_STIFFNESS;
     float lateralDemandRatio = std::clamp(lateralDemand / std::max(1.0f, maxLateralGrip), 0.0f, 1.0f);
     float tractionBudget = std::sqrt(std::max(0.0f, 1.0f - (lateralDemandRatio * lateralDemandRatio)));
 
-    // Longitudinal forces: Engine/Brakes (governed by traction budget and surface adhesion), Aero Drag, Rolling Resistance, and Induced Turning Drag
+    // Longitudinal forces: Engine/Brakes (governed by traction budget and surface adhesion), Aero Drag (with drafting slipstream reduction), Rolling Resistance, and Induced Turning Drag
     float engineForce = (inputAccelerate > 0.0f) 
         ? (inputAccelerate * Config::ENGINE_POWER * tractionBudget * currentSurfaceFriction) 
         : (inputAccelerate * Config::BRAKING_POWER * currentSurfaceFriction);
-    float dragForce = -localForward * std::abs(localForward) * Config::DRAG_MULTIPLIER;
+    float effectiveDragMultiplier = Config::DRAG_MULTIPLIER * (1.0f - draftingFactor * Config::DRAFTING_MAX_DRAG_REDUCTION);
+    float dragForce = -localForward * std::abs(localForward) * effectiveDragMultiplier;
     float rollForce = (std::abs(localForward) > 0.01f) 
         ? -std::copysign(Config::ROLLING_RESISTANCE * rollingResistanceFactor, localForward) 
         : 0.0f;

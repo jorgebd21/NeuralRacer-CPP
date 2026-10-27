@@ -60,6 +60,14 @@ namespace Config {
     constexpr float TIRE_GRIP_LIMIT = 0.55f;
     constexpr float TIRE_SCRUB_FACTOR = 55.0f;  // Lateral tire scrub deceleration force scale
 
+    // Multi-Agent Aerodynamic Drafting & Slipstream Wake
+    constexpr float DRAFTING_MAX_DISTANCE = 160.0f;
+    constexpr float DRAFTING_MAX_WIDTH = 20.0f;
+    constexpr float DRAFTING_SIGMA_LONG = 60.0f;
+    constexpr float DRAFTING_SIGMA_LAT = 10.0f;
+    constexpr float DRAFTING_MAX_DRAG_REDUCTION = 0.40f;
+    constexpr float DRAFTING_DIRTY_AIR_PENALTY = 0.15f;
+
     // Surface friction coefficients (\mu)
     constexpr float FRICTION_ASPHALT = 1.00f;
     constexpr float FRICTION_APEX_CURBS = 0.85f;
