@@ -269,7 +269,8 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const FlatSpatia
         for (int gy = myCellY - 1; gy <= myCellY + 1 && !isCrashed; gy++) {
             const GridCell* cell = spatialGrid.GetCell(gx, gy);
             if (cell) {
-                for (const auto& wallLine : cell->segments) {
+                for (uint32_t k = 0; k < cell->count; ++k) {
+                    const auto& wallLine = spatialGrid.GetCellSegment(cell, k);
                     Vector2 unused;
                     if (TrackManager::GetSegmentIntersection(cornerFL, cornerFR, wallLine.first, wallLine.second, unused) ||
                         TrackManager::GetSegmentIntersection(cornerRL, cornerRR, wallLine.first, wallLine.second, unused) ||
@@ -295,7 +296,8 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const FlatSpatia
             for (int gy = rMinY; gy <= rMaxY; gy++) {
                 const GridCell* cell = spatialGrid.GetCell(gx, gy);
                 if (cell) {
-                    for (const auto& wallLine : cell->segments) {
+                    for (uint32_t k = 0; k < cell->count; ++k) {
+                        const auto& wallLine = spatialGrid.GetCellSegment(cell, k);
                         float dist;
                         if (TrackManager::GetLineIntersectionDist(position, rayEnd[i], wallLine.first, wallLine.second, dist)) {
                             if (dist < sensorDistances[i]) sensorDistances[i] = dist;

@@ -13,18 +13,20 @@
 using Segment = std::pair<Vector2, Vector2>;
 
 /**
- * @brief Flat spatial cell containing segments overlapping its spatial bounds.
+ * @brief Lightweight index-based spatial grid cell slice.
+ * Compact 8-byte structure maximizing L1 CPU cache residency.
  */
 struct GridCell {
-    std::vector<Segment> segments;
+    uint32_t startIndex = 0;
+    uint32_t count = 0;
 };
 
 /**
- * @brief High-performance 1D contiguous row-major spatial grid (FlatSpatialGrid).
+ * @brief High-performance 1D contiguous row-major spatial grid with pooled memory arena.
  * 
- * Deprecates pointer-chasing and dynamic bucket collisions from std::unordered_map.
- * Uses direct linear indexing: idx = y * COLS + x, providing O(1) deterministic
- * lookups with contiguous CPU cache lines.
+ * Segments and cell references are packed into contiguous linear memory arenas (std::vector<Segment>
+ * and std::vector<uint32_t> indices), eliminating per-cell dynamic vector allocations and
+ * maximizing cache locality during 60 Hz neighborhood sweeps.
  */
 class FlatSpatialGrid {
 public:
@@ -36,7 +38,10 @@ private:
     int m_rows = 0;
     float m_width = 0.0f;
     float m_height = 0.0f;
+
     std::vector<GridCell> m_grid;
+    std::vector<Segment> m_segmentArena;
+    std::vector<uint32_t> m_indexArena;
 
 public:
     FlatSpatialGrid() = default;
@@ -55,23 +60,34 @@ public:
         m_cols = static_cast<int>(std::ceil(worldWidth / static_cast<float>(m_cellSize))) + 2;
         m_rows = static_cast<int>(std::ceil(worldHeight / static_cast<float>(m_cellSize))) + 2;
         m_grid.assign(static_cast<size_t>(m_cols * m_rows), GridCell{});
+        m_segmentArena.clear();
+        m_indexArena.clear();
     }
 
     /**
-     * @brief Clears segments from all cells while retaining preallocated container capacity.
+     * @brief Clears segments and index arena while retaining preallocated container capacity.
      */
     void Clear() {
         for (auto& cell : m_grid) {
-            cell.segments.clear();
+            cell.startIndex = 0;
+            cell.count = 0;
         }
+        m_segmentArena.clear();
+        m_indexArena.clear();
     }
 
     /**
-     * @brief Rebuilds the spatial partition from track boundary wall segments.
+     * @brief Packs segments into contiguous memory arenas and indexes them into grid cells.
      */
     void Build(const std::vector<Segment>& walls) {
-        Clear();
-        for (const auto& wall : walls) {
+        m_segmentArena = walls;
+        m_indexArena.clear();
+
+        // Temporary builder bins for each cell
+        std::vector<std::vector<uint32_t>> tempCellIndices(m_grid.size());
+
+        for (uint32_t segIdx = 0; segIdx < static_cast<uint32_t>(walls.size()); ++segIdx) {
+            const auto& wall = walls[segIdx];
             int grid1X = static_cast<int>(std::floor(wall.first.x / static_cast<float>(m_cellSize)));
             int grid1Y = static_cast<int>(std::floor(wall.first.y / static_cast<float>(m_cellSize)));
             int grid2X = static_cast<int>(std::floor(wall.second.x / static_cast<float>(m_cellSize)));
@@ -84,9 +100,16 @@ public:
 
             for (int x = startX; x <= endX; ++x) {
                 for (int y = startY; y <= endY; ++y) {
-                    m_grid[static_cast<size_t>(y * m_cols + x)].segments.push_back(wall);
+                    tempCellIndices[static_cast<size_t>(y * m_cols + x)].push_back(segIdx);
                 }
             }
+        }
+
+        // Pack bins into contiguous index arena
+        for (size_t i = 0; i < m_grid.size(); ++i) {
+            m_grid[i].startIndex = static_cast<uint32_t>(m_indexArena.size());
+            m_grid[i].count = static_cast<uint32_t>(tempCellIndices[i].size());
+            m_indexArena.insert(m_indexArena.end(), tempCellIndices[i].begin(), tempCellIndices[i].end());
         }
     }
 
@@ -101,6 +124,29 @@ public:
         return nullptr;
     }
 
+    /**
+     * @brief Retrieves segment reference from the segment memory arena by index.
+     */
+    [[nodiscard]] inline const Segment& GetSegment(uint32_t index) const noexcept {
+        return m_segmentArena[index];
+    }
+
+    /**
+     * @brief Retrieves segment index in the segment arena for a cell's local element.
+     */
+    [[nodiscard]] inline uint32_t GetCellSegmentIndex(const GridCell* cell, uint32_t localIndex) const noexcept {
+        return m_indexArena[cell->startIndex + localIndex];
+    }
+
+    /**
+     * @brief Retrieves segment reference directly from the arena using cell local index.
+     */
+    [[nodiscard]] inline const Segment& GetCellSegment(const GridCell* cell, uint32_t localIndex) const noexcept {
+        return m_segmentArena[m_indexArena[cell->startIndex + localIndex]];
+    }
+
+    [[nodiscard]] inline const std::vector<Segment>& GetSegmentArena() const noexcept { return m_segmentArena; }
+    [[nodiscard]] inline const std::vector<uint32_t>& GetIndexArena() const noexcept { return m_indexArena; }
     [[nodiscard]] inline int GetCellSize() const noexcept { return m_cellSize; }
     [[nodiscard]] inline int GetCols() const noexcept { return m_cols; }
     [[nodiscard]] inline int GetRows() const noexcept { return m_rows; }
