@@ -561,3 +561,21 @@ void Telemetry::DrawGhostVehicle(int currentTick) {
         DrawCircleV(fastestLapBuffer[trailIdx].position, 2.5f, Fade(SKYBLUE, alpha));
     }
 }
+
+void Telemetry::DrawJacobianVectors(Vector2 carPos, float carRotDeg, float sensFront, float sensLat, float scale) {
+    float rad = carRotDeg * DEG2RAD;
+    Vector2 forwardDir = { std::cos(rad), std::sin(rad) };
+    Vector2 lateralDir = { -std::sin(rad), std::cos(rad) };
+
+    // Longitudinal steering sensitivity vector (Front obstacle gradient)
+    float frontLen = std::clamp(sensFront * scale, -50.0f, 50.0f);
+    Vector2 frontEnd = { carPos.x + forwardDir.x * frontLen, carPos.y + forwardDir.y * frontLen };
+    DrawLineEx(carPos, frontEnd, 2.5f, MAGENTA);
+    DrawCircleV(frontEnd, 3.5f, MAGENTA);
+
+    // Lateral steering sensitivity vector (Left/Right differential gradient)
+    float latLen = std::clamp(sensLat * scale, -50.0f, 50.0f);
+    Vector2 latEnd = { carPos.x + lateralDir.x * latLen, carPos.y + lateralDir.y * latLen };
+    DrawLineEx(carPos, latEnd, 2.5f, ORANGE);
+    DrawCircleV(latEnd, 3.5f, ORANGE);
+}

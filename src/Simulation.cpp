@@ -719,6 +719,11 @@ void Simulation::DrawTraining() {
                     DrawLineV(car.position, actualRayEnd, Fade(GREEN, 0.5f));
                     DrawCircleV(actualRayEnd, 3.0f, Fade(GREEN, 0.5f));
                 }
+                float jacobian[OUTPUT_NODES][INPUT_NODES];
+                car.brain.ComputeJacobian(jacobian);
+                float sensFront = jacobian[1][2];
+                float sensLat = jacobian[1][1] - jacobian[1][3];
+                Telemetry::DrawJacobianVectors(car.position, car.rotation, sensFront, sensLat);
             }
         }
     }
@@ -1096,6 +1101,8 @@ void Simulation::DrawReplay() {
             DrawLineV(s.position, rayEnd, Fade(GREEN, 0.4f));
             DrawCircleV(rayEnd, 2.5f, Fade(GREEN, 0.6f));
         }
+
+        Telemetry::DrawJacobianVectors(s.position, rotDeg, s.sensSteerFront, s.sensSteerLat);
     }
     EndMode2D();
 

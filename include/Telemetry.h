@@ -57,6 +57,7 @@ public:
     static void DrawRacingLineHeatmap(float alpha = 0.85f);
     static Color ComputeHeatmapColor(float speed, float kammUtil, float throttle, float alpha = 0.85f);
     static void DrawGhostVehicle(int currentTick);
+    static void DrawJacobianVectors(Vector2 carPos, float carRotDeg, float sensFront, float sensLat, float scale = 40.0f);
     static const std::vector<TelemetrySample>& GetFastestLapBuffer();
     static bool HasFastestLap();
     static bool LoadFastestLapCSV(const std::string& filename = "data/telemetry_best_lap.csv");
