@@ -22,7 +22,50 @@ inline float HorizontalSum256(__m256 v) noexcept {
     sums = _mm_add_ss(sums, shuf);
     return _mm_cvtss_f32(sums);
 }
+
+/**
+ * @brief Vectorized Padé [5/4] rational polynomial approximation of tanh(x) across 8 float lanes.
+ * 
+ * Computes tanh(x) ≈ x * (945 + 105*x^2 + x^4) / (945 + 420*x^2 + 15*x^4) clamped to [-1.0, 1.0].
+ * Replaces expensive transcendental function calls with direct hardware FMA pipeline operations.
+ */
+inline __m256 FastTanhAVX2(__m256 x) noexcept {
+    const __m256 c945 = _mm256_set1_ps(945.0f);
+    const __m256 c105 = _mm256_set1_ps(105.0f);
+    const __m256 c420 = _mm256_set1_ps(420.0f);
+    const __m256 c15  = _mm256_set1_ps(15.0f);
+    const __m256 one  = _mm256_set1_ps(1.0f);
+    const __m256 neg1 = _mm256_set1_ps(-1.0f);
+
+    __m256 x2 = _mm256_mul_ps(x, x);
+    __m256 x4 = _mm256_mul_ps(x2, x2);
+
+    __m256 num_poly = _mm256_fmadd_ps(c105, x2, c945);
+    num_poly = _mm256_add_ps(num_poly, x4);
+    __m256 num = _mm256_mul_ps(x, num_poly);
+
+    __m256 den = _mm256_fmadd_ps(c420, x2, c945);
+    den = _mm256_fmadd_ps(c15, x4, den);
+
+    __m256 result = _mm256_div_ps(num, den);
+    result = _mm256_min_ps(result, one);
+    result = _mm256_max_ps(result, neg1);
+    return result;
+}
 #endif
+
+/**
+ * @brief High-precision Padé [5/4] rational polynomial approximation of tanh(x).
+ */
+inline float FastTanh(float x) noexcept {
+    if (x >= 4.5f) return 1.0f;
+    if (x <= -4.5f) return -1.0f;
+    float x2 = x * x;
+    float x4 = x2 * x2;
+    float num = x * (945.0f + 105.0f * x2 + x4);
+    float den = 945.0f + 420.0f * x2 + 15.0f * x4;
+    return std::clamp(num / den, -1.0f, 1.0f);
+}
 
 const int HIDDEN_NODES = 10;
 const int INPUT_NODES = 9;
@@ -107,7 +150,7 @@ struct Brain {
             __m256 prod = _mm256_mul_ps(in0_7, w0_7);
             float dot = HorizontalSum256(prod);
             float z = std::fma(in8, weights_input_hidden[i][8], dot + biases_hidden[i]);
-            hidden_values[i] = std::tanh(z);
+            hidden_values[i] = FastTanh(z);
             last_hidden[i] = hidden_values[i];
         }
 
@@ -122,7 +165,7 @@ struct Brain {
             __m256 prod = _mm256_mul_ps(h0_7, wo0_7);
             float dot = HorizontalSum256(prod);
             float tail = (h8 * weights_hidden_output[i][8]) + (h9 * weights_hidden_output[i][9]) + biases_output[i];
-            output_values[i] = std::tanh(dot + tail);
+            output_values[i] = FastTanh(dot + tail);
             last_output[i] = output_values[i];
         }
 #else
@@ -132,7 +175,7 @@ struct Brain {
                 hidden_values[i] += input[j] * weights_input_hidden[i][j];
             }
             hidden_values[i] += biases_hidden[i];
-            hidden_values[i] = std::tanh(hidden_values[i]);
+            hidden_values[i] = FastTanh(hidden_values[i]);
             last_hidden[i] = hidden_values[i];
         }
 
@@ -143,7 +186,7 @@ struct Brain {
                 output_values[i] += hidden_values[j] * weights_hidden_output[i][j];
             }
             output_values[i] += biases_output[i];
-            output_values[i] = std::tanh(output_values[i]);
+            output_values[i] = FastTanh(output_values[i]);
             last_output[i] = output_values[i];
         }
 #endif
@@ -176,10 +219,7 @@ struct Brain {
                 __m256 weight = _mm256_set1_ps(weights_input_hidden[h][f]);
                 accum = _mm256_fmadd_ps(weight, inFeat[f], accum);
             }
-            alignas(32) float temp[8];
-            _mm256_store_ps(temp, accum);
-            for (int c = 0; c < 8; ++c) temp[c] = std::tanh(temp[c]);
-            hiddenAct[h] = _mm256_load_ps(temp);
+            hiddenAct[h] = FastTanhAVX2(accum);
         }
 
         for (int o = 0; o < OUTPUT_NODES; ++o) {
@@ -188,12 +228,12 @@ struct Brain {
                 __m256 weight = _mm256_set1_ps(weights_hidden_output[o][h]);
                 accum = _mm256_fmadd_ps(weight, hiddenAct[h], accum);
             }
+            __m256 out_act = FastTanhAVX2(accum);
             alignas(32) float temp[8];
-            _mm256_store_ps(temp, accum);
+            _mm256_store_ps(temp, out_act);
             for (int c = 0; c < 8; ++c) {
-                float val = std::tanh(temp[c]);
-                if (o == 0) outAccelerate[c] = val;
-                else outTurn[c] = val;
+                if (o == 0) outAccelerate[c] = temp[c];
+                else outTurn[c] = temp[c];
             }
         }
 #else
