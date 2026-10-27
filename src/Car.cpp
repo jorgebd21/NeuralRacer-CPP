@@ -73,12 +73,16 @@ void Car::Reset(float startX, float startY, float startRot, bool fullReset) {
     for (int i = 0; i < FRONT_HISTORY_SIZE; i++) {
         frontSensorHistory[i] = Config::CAR_FRONT_SENSOR_DIST;
     }
+    closestCompetitorId = -1;
     for (int i = 0; i < 5; i++) {
-        sensorDistances[i] = (i == 2) ? Config::CAR_FRONT_SENSOR_DIST : Config::CAR_MAX_SENSOR_DIST;
+        float maxDist = (i == 2) ? Config::CAR_FRONT_SENSOR_DIST : Config::CAR_MAX_SENSOR_DIST;
+        sensorDistances[i] = maxDist;
+        competitorDistances[i] = maxDist;
+        competitorClosingVel[i] = 0.0f;
     }
 }
 
-void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const FlatSpatialGrid &spatialGrid, int timer, const std::vector<Vector2>& trackCheckpoints) {
+void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const FlatSpatialGrid &spatialGrid, int timer, const std::vector<Vector2>& trackCheckpoints, const VehicleSpatialGrid* vehicleGrid, uint32_t myCarIndex) {
     if (isCrashed) return;
     timeAlive++;
     timeSinceLastCheckpoint++;
@@ -308,7 +312,13 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const FlatSpatia
     }
 
     // 2. Localized Raycasting: test only grid cells covered by each ray's bounding box
+    closestCompetitorId = -1;
+    float closestCompDist = 999999.0f;
     for (int i = 0; i < 5; i++) {
+        float maxDist = (i == 2) ? Config::CAR_FRONT_SENSOR_DIST : Config::CAR_MAX_SENSOR_DIST;
+        competitorDistances[i] = maxDist;
+        competitorClosingVel[i] = 0.0f;
+
         int rMinX = (int)std::floor(std::min(position.x, rayEnd[i].x) / static_cast<float>(cellSize));
         int rMaxX = (int)std::floor(std::max(position.x, rayEnd[i].x) / static_cast<float>(cellSize));
         int rMinY = (int)std::floor(std::min(position.y, rayEnd[i].y) / static_cast<float>(cellSize));
@@ -323,6 +333,53 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const FlatSpatia
                         float dist;
                         if (TrackManager::GetLineIntersectionDist(position, rayEnd[i], wallLine.first, wallLine.second, dist)) {
                             if (dist < sensorDistances[i]) sensorDistances[i] = dist;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Multi-Agent Raycasting against competitor vehicles
+        if (vehicleGrid != nullptr) {
+            int vCellSize = vehicleGrid->GetCellSize();
+            int vrMinX = (int)std::floor(std::min(position.x, rayEnd[i].x) / static_cast<float>(vCellSize));
+            int vrMaxX = (int)std::floor(std::max(position.x, rayEnd[i].x) / static_cast<float>(vCellSize));
+            int vrMinY = (int)std::floor(std::min(position.y, rayEnd[i].y) / static_cast<float>(vCellSize));
+            int vrMaxY = (int)std::floor(std::max(position.y, rayEnd[i].y) / static_cast<float>(vCellSize));
+
+            Vector2 rayDir = { rayEnd[i].x - position.x, rayEnd[i].y - position.y };
+            float rayLen = std::sqrt(rayDir.x * rayDir.x + rayDir.y * rayDir.y);
+            Vector2 rayDirNorm = (rayLen > 0.001f) ? Vector2{ rayDir.x / rayLen, rayDir.y / rayLen } : Vector2{ 0.0f, 0.0f };
+
+            for (int gx = vrMinX; gx <= vrMaxX; gx++) {
+                for (int gy = vrMinY; gy <= vrMaxY; gy++) {
+                    const auto* vCell = vehicleGrid->GetCell(gx, gy);
+                    if (!vCell) continue;
+                    for (uint8_t k = 0; k < vCell->count; ++k) {
+                        const VehicleOBB& comp = vehicleGrid->GetVehicle(vCell->vehicleIndices[k]);
+                        if (comp.carIndex == myCarIndex || !comp.active) continue;
+
+                        for (int e = 0; e < 4; ++e) {
+                            Vector2 p1 = comp.GetSegmentStart(e);
+                            Vector2 p2 = comp.GetSegmentEnd(e);
+                            float dist;
+                            if (TrackManager::GetLineIntersectionDist(position, rayEnd[i], p1, p2, dist)) {
+                                if (dist < sensorDistances[i]) {
+                                    sensorDistances[i] = dist;
+                                }
+                                if (dist < competitorDistances[i]) {
+                                    competitorDistances[i] = dist;
+                                    float relVx = comp.velocity.x - velocity.x;
+                                    float relVy = comp.velocity.y - velocity.y;
+                                    float closingSpeed = -(relVx * rayDirNorm.x + relVy * rayDirNorm.y);
+                                    competitorClosingVel[i] = closingSpeed;
+
+                                    if (dist < closestCompDist) {
+                                        closestCompDist = dist;
+                                        closestCompetitorId = static_cast<int>(comp.carIndex);
+                                    }
+                                }
+                            }
                         }
                     }
                 }

@@ -3,6 +3,7 @@
 #include "raylib.h"
 #include "Car.h"
 #include "FlatSpatialGrid.h"
+#include "VehicleSpatialGrid.h"
 #include <vector>
 #include <string>
 #include <utility>
@@ -97,6 +98,7 @@ private:
     std::vector<Vector2> trackCheckpoints;
     std::vector<Vector2> trackDenseLine;
     FlatSpatialGrid spatialGrid;
+    VehicleSpatialGrid vehicleGrid;
     std::vector<Vector2> proceduralPoints;
 
     std::vector<Car> population;

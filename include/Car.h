@@ -7,6 +7,7 @@
 #include "TelemetrySample.h"
 #include "TireThermals.h"
 #include "SurfaceDynamics.h"
+#include "VehicleSpatialGrid.h"
 #include "raylib.h"
 #include <vector>
 #include <utility>
@@ -68,6 +69,11 @@ struct Car {
 
     // Thermodynamic tire degradation model
     TireThermalState tireThermals;
+
+    // Multi-Agent Perception & Competitor Tracking
+    float competitorDistances[5];
+    float competitorClosingVel[5];
+    int closestCompetitorId;
 
     // Track surface dynamics & adhesion
     SurfaceType currentSurface;
@@ -143,5 +149,5 @@ struct Car {
      * @param spatialGrid Spatial grid containing the track walls for collision detection and sensors.
      * @param timer The current lifetime of the car in the simulation.
      */
-    void UpdatePhysics(float inputAccelerate, float inputTurn, const FlatSpatialGrid &spatialGrid, int timer, const std::vector<Vector2>& trackCheckpoints);
+    void UpdatePhysics(float inputAccelerate, float inputTurn, const FlatSpatialGrid &spatialGrid, int timer, const std::vector<Vector2>& trackCheckpoints, const VehicleSpatialGrid* vehicleGrid = nullptr, uint32_t myCarIndex = 0);
 };

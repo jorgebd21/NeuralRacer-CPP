@@ -248,6 +248,14 @@ void Simulation::UpdateTraining() {
     for (int s = 0; s < simSpeed; s++) {
         std::atomic<int> carsAlive{0};
 
+        // Multi-Agent: register active vehicle OBBs for inter-vehicle raycasting
+        vehicleGrid.Clear();
+        for (int i = 0; i < (int)population.size(); i++) {
+            if (!population[i].isCrashed) {
+                vehicleGrid.RegisterVehicle(i, population[i].position, population[i].velocity, population[i].rotation);
+            }
+        }
+
         // High-performance OpenMP multi-core parallelization across all available CPU threads
         #pragma omp parallel for schedule(static)
         for (int i = 0; i < (int)population.size(); i++) {
@@ -260,7 +268,7 @@ void Simulation::UpdateTraining() {
                 car.Think(inputAccelerate, inputTurn);
 
                 // 2. The car moves according to the decision and checks if it crashed
-                car.UpdatePhysics(inputAccelerate, inputTurn, spatialGrid, generationTimer, trackCheckpoints);
+                car.UpdatePhysics(inputAccelerate, inputTurn, spatialGrid, generationTimer, trackCheckpoints, &vehicleGrid, i);
             }
         }
 
