@@ -51,3 +51,15 @@ target_link_libraries(test_kamm_thermal_coupling raylib GL m pthread dl rt X11)
 # 10. Test de Exportación de Telemetría Térmica
 add_executable(test_thermal_telemetry tests/test_thermal_telemetry.cpp src/Car.cpp src/TrackManager.cpp src/Telemetry.cpp)
 target_link_libraries(test_thermal_telemetry raylib GL m pthread dl rt X11)
+
+# 11. Test de Física de Trampas de Grava y Superficies
+add_executable(test_gravel_physics tests/test_gravel_physics.cpp src/Car.cpp src/TrackManager.cpp)
+target_link_libraries(test_gravel_physics raylib GL m pthread dl rt X11)
+
+# Tests complementarios
+add_executable(test_ringbuffer tests/test_ringbuffer.cpp)
+add_executable(test_spatial_grid tests/test_spatial_grid.cpp)
+add_executable(test_brain_simd tests/test_brain_simd.cpp)
+add_executable(test_surface_dynamics tests/test_surface_dynamics.cpp)
+add_executable(test_track_surfaces tests/test_track_surfaces.cpp src/TrackManager.cpp)
+target_link_libraries(test_track_surfaces raylib GL m pthread dl rt X11)

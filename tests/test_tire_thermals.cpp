@@ -10,6 +10,7 @@ void TestGripFactorCurve() {
     float gripCold = TireThermalState::ComputeThermalGripFactor(40.0f);
     assert(gripCold < 1.0f);
     assert(gripCold >= 0.75f);
+    (void)gripCold;
 
     // 2. Optimal window [85 C, 100 C]
     assert(TireThermalState::ComputeThermalGripFactor(85.0f) == 1.00f);
@@ -19,10 +20,12 @@ void TestGripFactorCurve() {
     // 3. Overheating window (100 C, 115 C]
     float gripWarm = TireThermalState::ComputeThermalGripFactor(110.0f);
     assert(gripWarm < 1.0f && gripWarm >= 0.88f);
+    (void)gripWarm;
 
     // 4. Critical blistering window (> 115 C)
     float gripBlister = TireThermalState::ComputeThermalGripFactor(130.0f);
     assert(gripBlister < 0.88f && gripBlister >= 0.55f);
+    (void)gripBlister;
 
     std::cout << "[PASS] TestGripFactorCurve passed." << std::endl;
 }
@@ -39,6 +42,7 @@ void TestThermodynamicHeatingAndCooling() {
         state.Update(3.0f, 2.5f, 25.0f, 1.2f, 1.0f / 60.0f);
     }
     assert(state.surfaceTemp > initialSurf);
+    (void)initialSurf;
     // Surface heats faster than carcass bulk
     assert(state.surfaceTemp > state.bulkTemp);
 
@@ -48,6 +52,7 @@ void TestThermodynamicHeatingAndCooling() {
         state.Update(0.0f, 0.0f, 0.0f, 1.0f, 1.0f / 60.0f);
     }
     assert(state.surfaceTemp < hotSurf);
+    (void)hotSurf;
     assert(state.surfaceTemp >= TireThermalState::AMBIENT_TEMP);
 
     std::cout << "[PASS] TestThermodynamicHeatingAndCooling passed." << std::endl;

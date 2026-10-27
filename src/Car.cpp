@@ -193,9 +193,6 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const FlatSpatia
     throttleChatter += std::abs(inputAccelerate - prevAccelInput);
     prevAccelInput = inputAccelerate;
 
-    // Store old position to check if a checkpoint has been crossed
-    Vector2 oldPosition = position;
-
     position.x = position.x + velocity.x;
     position.y = position.y + velocity.y;
 
