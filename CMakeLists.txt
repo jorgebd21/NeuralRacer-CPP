@@ -59,6 +59,7 @@ target_link_libraries(test_gravel_physics raylib GL m pthread dl rt X11)
 # Tests complementarios
 add_executable(test_ringbuffer tests/test_ringbuffer.cpp)
 add_executable(test_spatial_grid tests/test_spatial_grid.cpp)
+add_executable(test_vehicle_spatial_grid tests/test_vehicle_spatial_grid.cpp)
 add_executable(test_brain_simd tests/test_brain_simd.cpp)
 add_executable(test_surface_dynamics tests/test_surface_dynamics.cpp)
 add_executable(test_track_surfaces tests/test_track_surfaces.cpp src/TrackManager.cpp)
