@@ -68,6 +68,8 @@ add_executable(test_interagent_collisions tests/test_interagent_collisions.cpp s
 target_link_libraries(test_interagent_collisions raylib GL m pthread dl rt X11)
 add_executable(test_collision_perf tests/test_collision_perf.cpp src/Car.cpp src/TrackManager.cpp)
 target_link_libraries(test_collision_perf raylib GL m pthread dl rt X11)
+add_executable(test_mgu_cell tests/test_mgu_cell.cpp src/Car.cpp src/TrackManager.cpp)
+target_link_libraries(test_mgu_cell raylib GL m pthread dl rt X11)
 add_executable(test_brain_simd tests/test_brain_simd.cpp)
 add_executable(test_surface_dynamics tests/test_surface_dynamics.cpp)
 add_executable(test_track_surfaces tests/test_track_surfaces.cpp src/TrackManager.cpp)

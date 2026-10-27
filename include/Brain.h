@@ -67,15 +67,26 @@ inline float FastTanh(float x) noexcept {
     return std::clamp(num / den, -1.0f, 1.0f);
 }
 
+/**
+ * @brief High-performance rational approximation of the logistic sigmoid function sigma(x).
+ * 
+ * Maps real-valued activation to (0, 1) gate probabilities:
+ *   sigma(x) = 0.5 * (tanh(0.5 * x) + 1.0)
+ */
+inline float FastSigmoid(float x) noexcept {
+    return 0.5f * (FastTanh(0.5f * x) + 1.0f);
+}
+
 const int HIDDEN_NODES = 10;
 const int INPUT_NODES = 12;
 const int OUTPUT_NODES = 2;
+const int RECURRENT_NODES = 8;
 
 /**
  * @brief Structure representing the brain (Neural Network) of a car.
  * 
- * Implements a feedforward neural network with one hidden layer (12-10-2).
- * Evaluates sensor readings, temporal delta, chassis velocities, and competitor closing speeds.
+ * Supports both feedforward 12-10-2 evaluation and 8-cell Minimal Gated Unit (MGU)
+ * temporal recurrent working memory for multi-agent anticipation and curve sequencing.
  */
 struct Brain {
     float weights_input_hidden[HIDDEN_NODES][INPUT_NODES];
@@ -83,6 +94,23 @@ struct Brain {
     float weights_hidden_output[OUTPUT_NODES][HIDDEN_NODES];
     float biases_output[OUTPUT_NODES];
     
+    // Minimal Gated Unit (MGU / GRU) Recurrent Topology Matrices
+    float W_f[RECURRENT_NODES][INPUT_NODES];
+    float U_f[RECURRENT_NODES][RECURRENT_NODES];
+    float b_f[RECURRENT_NODES];
+
+    float W_h[RECURRENT_NODES][INPUT_NODES];
+    float U_h[RECURRENT_NODES][RECURRENT_NODES];
+    float b_h[RECURRENT_NODES];
+
+    float W_out[OUTPUT_NODES][RECURRENT_NODES];
+    float b_out[OUTPUT_NODES];
+
+    // Temporal recurrent hidden state vector h_t
+    float h_state[RECURRENT_NODES];
+    float last_f_gate[RECURRENT_NODES];
+    bool useRecurrent;
+
     // Store the last activations to draw them in the graphical interface
     float last_input[INPUT_NODES];
     float last_hidden[HIDDEN_NODES];
@@ -93,7 +121,7 @@ struct Brain {
      * 
      * Uses a random number generator to assign initial values between -1.0 and 1.0.
      */
-    Brain() {
+    Brain() : useRecurrent(false) {
         thread_local static std::random_device rd; 
         thread_local static std::mt19937 generator(rd()); 
         std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
@@ -110,9 +138,97 @@ struct Brain {
                 weights_hidden_output[i][j] = dist(generator);
             }
         }
+
+        // Initialize MGU Recurrent Cell Parameters
+        for (int i = 0; i < RECURRENT_NODES; ++i) {
+            b_f[i] = dist(generator);
+            b_h[i] = dist(generator);
+            for (int j = 0; j < INPUT_NODES; ++j) {
+                W_f[i][j] = dist(generator);
+                W_h[i][j] = dist(generator);
+            }
+            for (int j = 0; j < RECURRENT_NODES; ++j) {
+                U_f[i][j] = dist(generator);
+                U_h[i][j] = dist(generator);
+            }
+        }
+        for (int o = 0; o < OUTPUT_NODES; ++o) {
+            b_out[o] = dist(generator);
+            for (int j = 0; j < RECURRENT_NODES; ++j) {
+                W_out[o][j] = dist(generator);
+            }
+        }
+
+        ResetState();
         for(int i = 0; i < INPUT_NODES; i++) last_input[i] = 0.0f;
         for(int i = 0; i < HIDDEN_NODES; i++) last_hidden[i] = 0.0f;
         for(int i = 0; i < OUTPUT_NODES; i++) last_output[i] = 0.0f;
+    }
+
+    /**
+     * @brief Resets recurrent hidden state vector h_t to baseline zeroes.
+     */
+    void ResetState() noexcept {
+        for (int i = 0; i < RECURRENT_NODES; ++i) {
+            h_state[i] = 0.0f;
+            last_f_gate[i] = 0.0f;
+        }
+    }
+
+    /**
+     * @brief Steps the Minimal Gated Unit (MGU) recurrent cell forward one discrete tick.
+     * 
+     * Formulations:
+     *   f_t = sigma(W_f x_t + U_f h_{t-1} + b_f)
+     *   h_tilde = tanh(W_h x_t + U_h (f_t (*) h_{t-1}) + b_h)
+     *   h_t = (1 - f_t) (*) h_{t-1} + f_t (*) h_tilde
+     *   y_t = tanh(W_out h_t + b_out)
+     */
+    void StepMGU(const float x[INPUT_NODES], float &outAccelerate, float &outTurn) noexcept {
+        float f_gate[RECURRENT_NODES];
+        float h_cand[RECURRENT_NODES];
+
+        // 1. Forget / Update gate
+        for (int i = 0; i < RECURRENT_NODES; ++i) {
+            float sum = b_f[i];
+            for (int j = 0; j < INPUT_NODES; ++j) {
+                sum += W_f[i][j] * x[j];
+            }
+            for (int j = 0; j < RECURRENT_NODES; ++j) {
+                sum += U_f[i][j] * h_state[j];
+            }
+            f_gate[i] = FastSigmoid(sum);
+            last_f_gate[i] = f_gate[i];
+        }
+
+        // 2. Candidate state with gated memory
+        for (int i = 0; i < RECURRENT_NODES; ++i) {
+            float sum = b_h[i];
+            for (int j = 0; j < INPUT_NODES; ++j) {
+                sum += W_h[i][j] * x[j];
+            }
+            for (int j = 0; j < RECURRENT_NODES; ++j) {
+                sum += U_h[i][j] * (f_gate[j] * h_state[j]);
+            }
+            h_cand[i] = FastTanh(sum);
+        }
+
+        // 3. Convex linear interpolation of temporal hidden state
+        for (int i = 0; i < RECURRENT_NODES; ++i) {
+            h_state[i] = (1.0f - f_gate[i]) * h_state[i] + f_gate[i] * h_cand[i];
+        }
+
+        // 4. Output projection to control actions
+        float outA = b_out[0];
+        float outT = b_out[1];
+        for (int j = 0; j < RECURRENT_NODES; ++j) {
+            outA += W_out[0][j] * h_state[j];
+            outT += W_out[1][j] * h_state[j];
+        }
+        outAccelerate = FastTanh(outA);
+        outTurn = FastTanh(outT);
+        last_output[0] = outAccelerate;
+        last_output[1] = outTurn;
     }
 
     /**
@@ -144,6 +260,11 @@ struct Brain {
 
         for(int i = 0; i < INPUT_NODES; i++) last_input[i] = input[i];
         
+        if (useRecurrent) {
+            StepMGU(input, outAccelerate, outTurn);
+            return;
+        }
+
         float hidden_values[HIDDEN_NODES];
 #if defined(__AVX2__) && defined(__FMA__)
         // Vectorized SIMD AVX2 + FMA Matrix-Vector Forward Pass (Input 12 -> Hidden 10)

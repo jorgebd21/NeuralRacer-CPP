@@ -75,6 +75,7 @@ void Car::Reset(float startX, float startY, float startRot, bool fullReset) {
     }
     closestCompetitorId = -1;
     draftingFactor = 0.0f;
+    brain.ResetState();
     for (int i = 0; i < 5; i++) {
         float maxDist = (i == 2) ? Config::CAR_FRONT_SENSOR_DIST : Config::CAR_MAX_SENSOR_DIST;
         sensorDistances[i] = maxDist;
