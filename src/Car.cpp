@@ -361,6 +361,85 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const FlatSpatia
         }
     }
 
+    // 1.5 Inter-Agent Collision Resolution against neighboring vehicles
+    if (!isCrashed && vehicleGrid != nullptr) {
+        int vCellSize = vehicleGrid->GetCellSize();
+        int vCellX = static_cast<int>(std::floor(position.x / static_cast<float>(vCellSize)));
+        int vCellY = static_cast<int>(std::floor(position.y / static_cast<float>(vCellSize)));
+
+        Vector2 myCorners[4] = { cornerFL, cornerFR, cornerRR, cornerRL };
+        Vector2 myHeading = { cosf(rotation * DEG2RAD), sinf(rotation * DEG2RAD) };
+
+        for (int gx = vCellX - 1; gx <= vCellX + 1 && !isCrashed; ++gx) {
+            for (int gy = vCellY - 1; gy <= vCellY + 1 && !isCrashed; ++gy) {
+                const auto* cell = vehicleGrid->GetCell(gx, gy);
+                if (!cell) continue;
+
+                for (uint8_t k = 0; k < cell->count && !isCrashed; ++k) {
+                    const VehicleOBB& comp = vehicleGrid->GetVehicle(cell->vehicleIndices[k]);
+                    if (comp.carIndex == myCarIndex || !comp.active) continue;
+
+                    // Broadphase distance check between centers
+                    float dx = position.x - comp.position.x;
+                    float dy = position.y - comp.position.y;
+                    float distSq = dx * dx + dy * dy;
+                    constexpr float MAX_CONTACT_DIST = (Config::CAR_HALF_LENGTH * 2.0f);
+                    if (distSq > MAX_CONTACT_DIST * MAX_CONTACT_DIST) continue;
+
+                    // Narrowphase: check edge-edge intersections between ego and competitor OBB
+                    bool contact = false;
+                    for (int me = 0; me < 4 && !contact; ++me) {
+                        Vector2 m1 = myCorners[me];
+                        Vector2 m2 = myCorners[(me + 1) % 4];
+                        for (int ce = 0; ce < 4 && !contact; ++ce) {
+                            Vector2 c1 = comp.corners[ce];
+                            Vector2 c2 = comp.corners[(ce + 1) % 4];
+                            Vector2 hit;
+                            if (TrackManager::GetSegmentIntersection(m1, m2, c1, c2, hit)) {
+                                contact = true;
+                            }
+                        }
+                    }
+
+                    if (contact) {
+                        float dist = std::sqrt(distSq);
+                        Vector2 n = (dist > 0.001f) ? Vector2{ dx / dist, dy / dist } : Vector2{ 1.0f, 0.0f };
+
+                        // Relative velocity vector (ego relative to competitor)
+                        Vector2 vRel = { velocity.x - comp.velocity.x, velocity.y - comp.velocity.y };
+                        float relSpeed = std::sqrt(vRel.x * vRel.x + vRel.y * vRel.y);
+
+                        float compRad = comp.rotation * DEG2RAD;
+                        Vector2 compHeading = { cosf(compRad), sinf(compRad) };
+                        float headingAlignment = std::abs(myHeading.x * compHeading.x + myHeading.y * compHeading.y);
+
+                        // Terminal condition: violent perpendicular T-bone impact (high speed + low heading alignment)
+                        if (relSpeed > 4.5f && headingAlignment < 0.35f) {
+                            isCrashed = true;
+                            justCrashed = true;
+                        } else {
+                            // Non-terminal elastic restitution
+                            constexpr float RESTITUTION = 0.40f;
+                            float vn = vRel.x * n.x + vRel.y * n.y;
+                            if (vn < 0.0f) {
+                                float impulse = -((1.0f + RESTITUTION) * 0.5f) * vn;
+                                velocity.x += impulse * n.x;
+                                velocity.y += impulse * n.y;
+
+                                // Position push-back to resolve interpenetration
+                                position.x += n.x * 0.75f;
+                                position.y += n.y * 0.75f;
+
+                                // Deflection angular yaw perturbation
+                                angularVelocity += std::copysign(0.35f, -localLateral);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     // 2. Localized Raycasting: test only grid cells covered by each ray's bounding box
     closestCompetitorId = -1;
     float closestCompDist = 999999.0f;
