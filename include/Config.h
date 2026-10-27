@@ -74,6 +74,12 @@ namespace Config {
     constexpr float FRICTION_RUNOFF_TURF = 0.65f;
     constexpr float FRICTION_GRAVEL_TRAP = 0.25f;
 
+    // Speciation & Recurrent Neuroevolution (v2.3.0)
+    constexpr float SPECIATION_C1 = 1.0f;           // Weight of excess genes E / N
+    constexpr float SPECIATION_C2 = 1.0f;           // Weight of disjoint genes D / N
+    constexpr float SPECIATION_C3 = 0.4f;           // Weight of average synaptic weight divergence W_diff
+    constexpr float SPECIATION_THRESHOLD = 0.35f;   // Compatibility distance threshold delta_t
+
     constexpr float CAR_HALF_WIDTH = 4.0f;
     constexpr float CAR_HALF_LENGTH = 8.5f;
     constexpr float CHECKPOINT_RADIUS = 28.0f;

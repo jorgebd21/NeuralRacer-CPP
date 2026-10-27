@@ -9,6 +9,148 @@
 
 namespace Evolution {
 
+static std::vector<Species> activeSpecies;
+static int nextSpeciesId = 1;
+
+static float SumFeedforwardDiff(const Brain& a, const Brain& b) noexcept {
+    float diff = 0.0f;
+    for (int i = 0; i < HIDDEN_NODES; ++i) {
+        for (int j = 0; j < INPUT_NODES; ++j) {
+            diff += std::abs(a.weights_input_hidden[i][j] - b.weights_input_hidden[i][j]);
+        }
+        diff += std::abs(a.biases_hidden[i] - b.biases_hidden[i]);
+    }
+    for (int i = 0; i < OUTPUT_NODES; ++i) {
+        for (int j = 0; j < HIDDEN_NODES; ++j) {
+            diff += std::abs(a.weights_hidden_output[i][j] - b.weights_hidden_output[i][j]);
+        }
+        diff += std::abs(a.biases_output[i] - b.biases_output[i]);
+    }
+    return diff;
+}
+
+static float SumRecurrentDiff(const Brain& a, const Brain& b) noexcept {
+    float diff = 0.0f;
+    for (int i = 0; i < RECURRENT_NODES; ++i) {
+        for (int j = 0; j < INPUT_NODES; ++j) {
+            diff += std::abs(a.W_f[i][j] - b.W_f[i][j]);
+            diff += std::abs(a.W_h[i][j] - b.W_h[i][j]);
+        }
+        for (int j = 0; j < RECURRENT_NODES; ++j) {
+            diff += std::abs(a.U_f[i][j] - b.U_f[i][j]);
+            diff += std::abs(a.U_h[i][j] - b.U_h[i][j]);
+        }
+        diff += std::abs(a.b_f[i] - b.b_f[i]);
+        diff += std::abs(a.b_h[i] - b.b_h[i]);
+    }
+    for (int o = 0; o < OUTPUT_NODES; ++o) {
+        for (int j = 0; j < RECURRENT_NODES; ++j) {
+            diff += std::abs(a.W_out[o][j] - b.W_out[o][j]);
+        }
+        diff += std::abs(a.b_out[o] - b.b_out[o]);
+    }
+    return diff;
+}
+
+float ComputeCompatibilityDistance(const Brain& a, const Brain& b,
+                                   float c1, float c2, float c3) {
+    constexpr int FEEDFORWARD_GENES = HIDDEN_NODES * INPUT_NODES + HIDDEN_NODES +
+                                      OUTPUT_NODES * HIDDEN_NODES + OUTPUT_NODES; // 152
+    constexpr int RECURRENT_GENES = RECURRENT_NODES * INPUT_NODES * 2 +
+                                    RECURRENT_NODES * RECURRENT_NODES * 2 +
+                                    RECURRENT_NODES * 2 +
+                                    OUTPUT_NODES * RECURRENT_NODES + OUTPUT_NODES; // 354
+    constexpr int TOTAL_RECURRENT_GENES = FEEDFORWARD_GENES + RECURRENT_GENES; // 506
+
+    int E = 0;
+    int D = 0;
+    int N = FEEDFORWARD_GENES;
+    float avgWDiff = 0.0f;
+
+    if (a.useRecurrent == b.useRecurrent) {
+        if (!a.useRecurrent) {
+            float diff = SumFeedforwardDiff(a, b);
+            avgWDiff = diff / static_cast<float>(FEEDFORWARD_GENES);
+            N = FEEDFORWARD_GENES;
+        } else {
+            float diff = SumFeedforwardDiff(a, b) + SumRecurrentDiff(a, b);
+            avgWDiff = diff / static_cast<float>(TOTAL_RECURRENT_GENES);
+            N = TOTAL_RECURRENT_GENES;
+        }
+    } else {
+        E = RECURRENT_GENES;
+        N = TOTAL_RECURRENT_GENES;
+        float diff = SumFeedforwardDiff(a, b);
+        avgWDiff = diff / static_cast<float>(FEEDFORWARD_GENES);
+    }
+
+    float delta = (c1 * static_cast<float>(E) + c2 * static_cast<float>(D)) / static_cast<float>(N) + c3 * avgWDiff;
+    return delta;
+}
+
+void ClusterSpecies(const std::vector<Car>& population, std::vector<Species>& speciesList,
+                    float threshold) {
+    for (auto& s : speciesList) {
+        s.memberIndices.clear();
+    }
+
+    for (size_t i = 0; i < population.size(); ++i) {
+        bool found = false;
+        for (auto& s : speciesList) {
+            float dist = ComputeCompatibilityDistance(population[i].brain, s.representative,
+                                                    Config::SPECIATION_C1,
+                                                    Config::SPECIATION_C2,
+                                                    Config::SPECIATION_C3);
+            if (dist < threshold) {
+                s.memberIndices.push_back(static_cast<int>(i));
+                found = true;
+                break;
+            }
+        }
+
+        if (!found) {
+            Species newSpecies;
+            newSpecies.id = nextSpeciesId++;
+            newSpecies.representative = population[i].brain;
+            newSpecies.memberIndices.push_back(static_cast<int>(i));
+            newSpecies.maxFitness = population[i].fitness;
+            newSpecies.averageFitness = population[i].fitness;
+            newSpecies.staleness = 0;
+            speciesList.push_back(newSpecies);
+        }
+    }
+
+    speciesList.erase(std::remove_if(speciesList.begin(), speciesList.end(),
+                                     [](const Species& s) { return s.memberIndices.empty(); }),
+                      speciesList.end());
+
+    for (auto& s : speciesList) {
+        float sumFit = 0.0f;
+        float maxFit = -1e9f;
+        int bestMemberIdx = s.memberIndices[0];
+        for (int idx : s.memberIndices) {
+            float f = population[idx].fitness;
+            sumFit += f;
+            if (f > maxFit) {
+                maxFit = f;
+                bestMemberIdx = idx;
+            }
+        }
+        s.averageFitness = sumFit / static_cast<float>(s.memberIndices.size());
+        if (maxFit > s.maxFitness) {
+            s.maxFitness = maxFit;
+            s.staleness = 0;
+        } else {
+            s.staleness++;
+        }
+        s.representative = population[bestMemberIdx].brain;
+    }
+}
+
+const std::vector<Species>& GetActiveSpecies() {
+    return activeSpecies;
+}
+
 /**
  * @brief Applies two-parent crossover and Gaussian mutation to all non-elite individuals.
  *
@@ -192,6 +334,8 @@ void EvolvePopulation(std::vector<Car>& population, Vector2 startPosition, float
         return a.fitness > b.fitness;
     });
 
+    ClusterSpecies(population, activeSpecies, Config::SPECIATION_THRESHOLD);
+
     SaveBestBrains(population, genCount);
 
     // Breed the next generation using crossover and mutation on the elite pool.
@@ -200,7 +344,7 @@ void EvolvePopulation(std::vector<Car>& population, Vector2 startPosition, float
     for (auto& car : population) {
         car.Reset(startPosition.x, startPosition.y, startRotation);
     }
-    std::cout << "Generation finished. Evolving population!" << std::endl;
+    std::cout << "Generation finished. Evolving population! (" << activeSpecies.size() << " active species)" << std::endl;
 }
 
 } // namespace Evolution
