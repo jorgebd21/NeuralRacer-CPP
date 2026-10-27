@@ -75,7 +75,7 @@ void Car::Reset(float startX, float startY, float startRot, bool fullReset) {
     }
 }
 
-void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const std::unordered_map<uint64_t, std::vector<std::pair<Vector2, Vector2>>> &spatialGrid, int timer, const std::vector<Vector2>& trackCheckpoints) {
+void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const FlatSpatialGrid &spatialGrid, int timer, const std::vector<Vector2>& trackCheckpoints) {
     if (isCrashed) return;
     timeAlive++;
     timeSinceLastCheckpoint++;
@@ -260,16 +260,16 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const std::unord
         rayEnd[i] = { position.x + cos(rayAngle) * maxDist, position.y + sin(rayAngle) * maxDist };
     }
 
-    int myCellX = (int)std::floor(position.x / TrackManager::GRID_CELL_SIZE);
-    int myCellY = (int)std::floor(position.y / TrackManager::GRID_CELL_SIZE);
+    int cellSize = spatialGrid.GetCellSize();
+    int myCellX = (int)std::floor(position.x / static_cast<float>(cellSize));
+    int myCellY = (int)std::floor(position.y / static_cast<float>(cellSize));
 
     // 1. OBB Collision against immediate 3x3 neighboring cells around the vehicle
     for (int gx = myCellX - 1; gx <= myCellX + 1 && !isCrashed; gx++) {
         for (int gy = myCellY - 1; gy <= myCellY + 1 && !isCrashed; gy++) {
-            uint64_t key = TrackManager::GetGridKey(gx, gy);
-            auto it = spatialGrid.find(key);
-            if (it != spatialGrid.end()) {
-                for (const auto& wallLine : it->second) {
+            const GridCell* cell = spatialGrid.GetCell(gx, gy);
+            if (cell) {
+                for (const auto& wallLine : cell->segments) {
                     Vector2 unused;
                     if (TrackManager::GetSegmentIntersection(cornerFL, cornerFR, wallLine.first, wallLine.second, unused) ||
                         TrackManager::GetSegmentIntersection(cornerRL, cornerRR, wallLine.first, wallLine.second, unused) ||
@@ -286,17 +286,16 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const std::unord
 
     // 2. Localized Raycasting: test only grid cells covered by each ray's bounding box
     for (int i = 0; i < 5; i++) {
-        int rMinX = (int)std::floor(std::min(position.x, rayEnd[i].x) / TrackManager::GRID_CELL_SIZE);
-        int rMaxX = (int)std::floor(std::max(position.x, rayEnd[i].x) / TrackManager::GRID_CELL_SIZE);
-        int rMinY = (int)std::floor(std::min(position.y, rayEnd[i].y) / TrackManager::GRID_CELL_SIZE);
-        int rMaxY = (int)std::floor(std::max(position.y, rayEnd[i].y) / TrackManager::GRID_CELL_SIZE);
+        int rMinX = (int)std::floor(std::min(position.x, rayEnd[i].x) / static_cast<float>(cellSize));
+        int rMaxX = (int)std::floor(std::max(position.x, rayEnd[i].x) / static_cast<float>(cellSize));
+        int rMinY = (int)std::floor(std::min(position.y, rayEnd[i].y) / static_cast<float>(cellSize));
+        int rMaxY = (int)std::floor(std::max(position.y, rayEnd[i].y) / static_cast<float>(cellSize));
 
         for (int gx = rMinX; gx <= rMaxX; gx++) {
             for (int gy = rMinY; gy <= rMaxY; gy++) {
-                uint64_t key = TrackManager::GetGridKey(gx, gy);
-                auto it = spatialGrid.find(key);
-                if (it != spatialGrid.end()) {
-                    for (const auto& wallLine : it->second) {
+                const GridCell* cell = spatialGrid.GetCell(gx, gy);
+                if (cell) {
+                    for (const auto& wallLine : cell->segments) {
                         float dist;
                         if (TrackManager::GetLineIntersectionDist(position, rayEnd[i], wallLine.first, wallLine.second, dist)) {
                             if (dist < sensorDistances[i]) sensorDistances[i] = dist;

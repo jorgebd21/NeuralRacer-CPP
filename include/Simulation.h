@@ -2,6 +2,7 @@
 
 #include "raylib.h"
 #include "Car.h"
+#include "FlatSpatialGrid.h"
 #include <vector>
 #include <string>
 #include <utility>
@@ -93,7 +94,7 @@ private:
     float startRotation;
     std::vector<std::pair<Vector2, Vector2>> trackWalls;
     std::vector<Vector2> trackCheckpoints;
-    std::unordered_map<uint64_t, std::vector<std::pair<Vector2, Vector2>>> spatialGrid;
+    FlatSpatialGrid spatialGrid;
     std::vector<Vector2> proceduralPoints;
 
     std::vector<Car> population;

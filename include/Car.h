@@ -3,6 +3,7 @@
 #include "Brain.h"
 #include "Config.h"
 #include "FixedRingBuffer.h"
+#include "FlatSpatialGrid.h"
 #include "TelemetrySample.h"
 #include "raylib.h"
 #include <vector>
@@ -133,5 +134,5 @@ struct Car {
      * @param spatialGrid Spatial grid containing the track walls for collision detection and sensors.
      * @param timer The current lifetime of the car in the simulation.
      */
-    void UpdatePhysics(float inputAccelerate, float inputTurn, const std::unordered_map<uint64_t, std::vector<std::pair<Vector2, Vector2>>> &spatialGrid, int timer, const std::vector<Vector2>& trackCheckpoints);
+    void UpdatePhysics(float inputAccelerate, float inputTurn, const FlatSpatialGrid &spatialGrid, int timer, const std::vector<Vector2>& trackCheckpoints);
 };

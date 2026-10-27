@@ -87,6 +87,7 @@ void Simulation::Init() {
         trackFile = mapFiles[currentMapIndex];
         TrackManager::LoadTrackFromFile(trackFile, trackWalls, startPosition, startRotation, trackCheckpoints);
     }
+    spatialGrid.Init(Config::WORLD_WIDTH, Config::WORLD_HEIGHT, TrackManager::GRID_CELL_SIZE);
     BuildSpatialGrid();
     if (trackWalls.empty()) trackWalls.push_back({{100, 100}, {900, 100}});
 
@@ -868,26 +869,7 @@ void Simulation::DrawTestAI() {
 }
 
 void Simulation::BuildSpatialGrid(){
-    spatialGrid.clear();
-
-    for(int i = 0; i < trackWalls.size(); i++){
-        int grid1X = (int)std::floor(trackWalls[i].first.x  / TrackManager::GRID_CELL_SIZE);
-        int grid1Y = (int)std::floor(trackWalls[i].first.y  / TrackManager::GRID_CELL_SIZE);
-        int grid2X = (int)std::floor(trackWalls[i].second.x / TrackManager::GRID_CELL_SIZE);
-        int grid2Y = (int)std::floor(trackWalls[i].second.y / TrackManager::GRID_CELL_SIZE);
-        
-        int startX = std::min(grid1X, grid2X);
-        int startY = std::min(grid1Y, grid2Y);
-        int endX = std::max(grid1X, grid2X);
-        int endY = std::max(grid1Y, grid2Y);
-        
-        for(int x = startX; x <= endX; x++){
-            for(int y = startY; y <= endY; y++){
-                uint64_t key = TrackManager::GetGridKey(x, y);
-                spatialGrid[key].push_back(trackWalls[i]);
-            }
-        }
-    }
+    spatialGrid.Build(trackWalls);
 }
 
 void Simulation::InitTrainingTracks() {
