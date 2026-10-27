@@ -220,6 +220,7 @@ void Telemetry::ExportFastestLapAsync(const std::string& filename) {
         if (file.is_open()) {
             file << "tick,lap_tick,distance,x,y,speed,v_long,v_lat,angular_vel,throttle_input,steer_input,"
                  << "long_accel,lat_accel,kamm_util,slip_angle,jerk_long,jerk_lat,track_offset,"
+                 << "tire_surf_temp,tire_bulk_temp,tire_thermal_grip,surface_friction,"
                  << "lidar_0,lidar_1,lidar_2,lidar_3,lidar_4,sens_steer_front,sens_steer_lat\n";
             for (const auto& s : bufferCopy) {
                 file << s.tick << ","
@@ -240,6 +241,10 @@ void Telemetry::ExportFastestLapAsync(const std::string& filename) {
                      << s.jerkLong << ","
                      << s.jerkLat << ","
                      << s.trackOffset << ","
+                     << s.tireSurfaceTemp << ","
+                     << s.tireBulkTemp << ","
+                     << s.tireThermalGrip << ","
+                     << s.surfaceFriction << ","
                      << s.sensorDistances[0] << ","
                      << s.sensorDistances[1] << ","
                      << s.sensorDistances[2] << ","

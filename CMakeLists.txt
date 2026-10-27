@@ -47,3 +47,7 @@ target_link_libraries(test_tire_thermals raylib GL m pthread dl rt X11)
 # 9. Test de Acoplamiento Kamm-Térmico y Fricción
 add_executable(test_kamm_thermal_coupling tests/test_kamm_thermal_coupling.cpp src/Car.cpp src/TrackManager.cpp)
 target_link_libraries(test_kamm_thermal_coupling raylib GL m pthread dl rt X11)
+
+# 10. Test de Exportación de Telemetría Térmica
+add_executable(test_thermal_telemetry tests/test_thermal_telemetry.cpp src/Car.cpp src/TrackManager.cpp src/Telemetry.cpp)
+target_link_libraries(test_thermal_telemetry raylib GL m pthread dl rt X11)

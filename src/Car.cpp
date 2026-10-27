@@ -391,6 +391,10 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const FlatSpatia
         sample.jerkLong = jerkLong;
         sample.jerkLat = jerkLat;
         sample.trackOffset = currentTrackOffset;
+        sample.tireSurfaceTemp = tireThermals.surfaceTemp;
+        sample.tireBulkTemp = tireThermals.bulkTemp;
+        sample.tireThermalGrip = tireThermals.thermalGripFactor;
+        sample.surfaceFriction = currentSurfaceFriction;
         for (int s = 0; s < 5; s++) sample.sensorDistances[s] = sensorDistances[s];
         sample.sensSteerFront = sensSteerFront;
         sample.sensSteerLat = sensSteerLat;

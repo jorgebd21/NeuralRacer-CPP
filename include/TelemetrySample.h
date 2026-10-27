@@ -25,6 +25,10 @@ struct TelemetrySample {
     float jerkLong;
     float jerkLat;
     float trackOffset;
+    float tireSurfaceTemp;
+    float tireBulkTemp;
+    float tireThermalGrip;
+    float surfaceFriction;
     float sensorDistances[5];
     float sensSteerFront; // Analytical Jacobian: d(Steer) / d(Lidar_Front)
     float sensSteerLat;   // Analytical Jacobian: d(Steer) / d(Lidar_Left) - d(Steer) / d(Lidar_Right)
