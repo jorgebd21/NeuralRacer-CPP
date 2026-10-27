@@ -151,12 +151,163 @@ const std::vector<Species>& GetActiveSpecies() {
     return activeSpecies;
 }
 
+void ApplyFitnessSharing(std::vector<Car>& population, std::vector<Species>& speciesList) {
+    for (auto& s : speciesList) {
+        float nicheSize = static_cast<float>(std::max(1, static_cast<int>(s.memberIndices.size())));
+        float sumAdjusted = 0.0f;
+        for (int idx : s.memberIndices) {
+            float rawFit = std::max(0.0f, population[idx].fitness);
+            population[idx].adjustedFitness = rawFit / nicheSize;
+            population[idx].speciesId = s.id;
+            sumAdjusted += population[idx].adjustedFitness;
+        }
+        if (s.staleness > 15) {
+            sumAdjusted *= 0.2f; // Penalize stagnant lineages
+        }
+        s.adjustedFitnessSum = sumAdjusted;
+    }
+}
+
+std::vector<int> ComputeSpeciesAllotments(const std::vector<Species>& speciesList, int totalSlots) {
+    std::vector<int> allotments(speciesList.size(), 0);
+    if (speciesList.empty() || totalSlots <= 0) return allotments;
+
+    float totalAdjustedFitness = 0.0f;
+    for (const auto& s : speciesList) {
+        totalAdjustedFitness += s.adjustedFitnessSum;
+    }
+
+    if (totalAdjustedFitness <= 1e-6f) {
+        int base = totalSlots / static_cast<int>(speciesList.size());
+        int remainder = totalSlots % static_cast<int>(speciesList.size());
+        for (size_t i = 0; i < speciesList.size(); ++i) {
+            allotments[i] = base + (static_cast<int>(i) < remainder ? 1 : 0);
+        }
+        return allotments;
+    }
+
+    int allocated = 0;
+    for (size_t i = 0; i < speciesList.size(); ++i) {
+        float ratio = speciesList[i].adjustedFitnessSum / totalAdjustedFitness;
+        int count = static_cast<int>(std::round(ratio * static_cast<float>(totalSlots)));
+        if (count == 0 && !speciesList[i].memberIndices.empty() && allocated < totalSlots) {
+            count = 1;
+        }
+        allotments[i] = count;
+        allocated += count;
+    }
+
+    int diff = totalSlots - allocated;
+    while (diff != 0) {
+        if (diff > 0) {
+            size_t bestIdx = 0;
+            float maxFit = -1.0f;
+            for (size_t i = 0; i < speciesList.size(); ++i) {
+                if (speciesList[i].adjustedFitnessSum > maxFit) {
+                    maxFit = speciesList[i].adjustedFitnessSum;
+                    bestIdx = i;
+                }
+            }
+            allotments[bestIdx]++;
+            diff--;
+        } else {
+            size_t maxAllocIdx = 0;
+            int maxAlloc = 0;
+            for (size_t i = 0; i < speciesList.size(); ++i) {
+                if (allotments[i] > maxAlloc) {
+                    maxAlloc = allotments[i];
+                    maxAllocIdx = i;
+                }
+            }
+            if (allotments[maxAllocIdx] > 1) {
+                allotments[maxAllocIdx]--;
+                diff++;
+            } else {
+                break;
+            }
+        }
+    }
+
+    return allotments;
+}
+
+static void CrossAndMutateOffspring(Car& child, const Car& parentA, const Car& parentB) {
+    thread_local static std::random_device rd;
+    thread_local static std::mt19937 generator(rd());
+    std::uniform_int_distribution<int> distMutation(0, 99);
+
+    for (int i = 0; i < HIDDEN_NODES; i++) {
+        for (int j = 0; j < INPUT_NODES; j++) {
+            const Car& ref = (distMutation(generator) < 50) ? parentA : parentB;
+            child.brain.weights_input_hidden[i][j] = ref.brain.weights_input_hidden[i][j];
+            if (distMutation(generator) < Config::MUTATION)
+                child.brain.weights_input_hidden[i][j] += child.brain.MutateGaussian(Config::MUTATION_SIGMA);
+        }
+        const Car& ref = (distMutation(generator) < 50) ? parentA : parentB;
+        child.brain.biases_hidden[i] = ref.brain.biases_hidden[i];
+        if (distMutation(generator) < Config::MUTATION)
+            child.brain.biases_hidden[i] += child.brain.MutateGaussian(Config::MUTATION_SIGMA);
+    }
+    for (int i = 0; i < OUTPUT_NODES; i++) {
+        for (int j = 0; j < HIDDEN_NODES; j++) {
+            const Car& ref = (distMutation(generator) < 50) ? parentA : parentB;
+            child.brain.weights_hidden_output[i][j] = ref.brain.weights_hidden_output[i][j];
+            if (distMutation(generator) < Config::MUTATION)
+                child.brain.weights_hidden_output[i][j] += child.brain.MutateGaussian(Config::MUTATION_SIGMA);
+        }
+        const Car& ref = (distMutation(generator) < 50) ? parentA : parentB;
+        child.brain.biases_output[i] = ref.brain.biases_output[i];
+        if (distMutation(generator) < Config::MUTATION)
+            child.brain.biases_output[i] += child.brain.MutateGaussian(Config::MUTATION_SIGMA);
+    }
+
+    child.brain.useRecurrent = (distMutation(generator) < 50) ? parentA.brain.useRecurrent : parentB.brain.useRecurrent;
+    for (int i = 0; i < RECURRENT_NODES; ++i) {
+        for (int j = 0; j < INPUT_NODES; ++j) {
+            const Car& ref = (distMutation(generator) < 50) ? parentA : parentB;
+            child.brain.W_f[i][j] = ref.brain.W_f[i][j];
+            child.brain.W_h[i][j] = ref.brain.W_h[i][j];
+            if (distMutation(generator) < Config::MUTATION) {
+                child.brain.W_f[i][j] += child.brain.MutateGaussian(Config::MUTATION_SIGMA);
+                child.brain.W_h[i][j] += child.brain.MutateGaussian(Config::MUTATION_SIGMA);
+            }
+        }
+        for (int j = 0; j < RECURRENT_NODES; ++j) {
+            const Car& ref = (distMutation(generator) < 50) ? parentA : parentB;
+            child.brain.U_f[i][j] = ref.brain.U_f[i][j];
+            child.brain.U_h[i][j] = ref.brain.U_h[i][j];
+            if (distMutation(generator) < Config::MUTATION) {
+                child.brain.U_f[i][j] += child.brain.MutateGaussian(Config::MUTATION_SIGMA);
+                child.brain.U_h[i][j] += child.brain.MutateGaussian(Config::MUTATION_SIGMA);
+            }
+        }
+        const Car& ref = (distMutation(generator) < 50) ? parentA : parentB;
+        child.brain.b_f[i] = ref.brain.b_f[i];
+        child.brain.b_h[i] = ref.brain.b_h[i];
+        if (distMutation(generator) < Config::MUTATION) {
+            child.brain.b_f[i] += child.brain.MutateGaussian(Config::MUTATION_SIGMA);
+            child.brain.b_h[i] += child.brain.MutateGaussian(Config::MUTATION_SIGMA);
+        }
+    }
+    for (int o = 0; o < OUTPUT_NODES; ++o) {
+        for (int j = 0; j < RECURRENT_NODES; ++j) {
+            const Car& ref = (distMutation(generator) < 50) ? parentA : parentB;
+            child.brain.W_out[o][j] = ref.brain.W_out[o][j];
+            if (distMutation(generator) < Config::MUTATION)
+                child.brain.W_out[o][j] += child.brain.MutateGaussian(Config::MUTATION_SIGMA);
+        }
+        const Car& ref = (distMutation(generator) < 50) ? parentA : parentB;
+        child.brain.b_out[o] = ref.brain.b_out[o];
+        if (distMutation(generator) < Config::MUTATION)
+            child.brain.b_out[o] += child.brain.MutateGaussian(Config::MUTATION_SIGMA);
+    }
+}
+
 /**
  * @brief Applies two-parent crossover and Gaussian mutation to all non-elite individuals.
  *
- * Selects two distinct parents exclusively from the elite group (indices 0..NUM_BEST-1),
- * blends their genomes with a 50/50 gene-level coin flip, and applies decaying
- * Gaussian mutation based on the current Config::MUTATION rate.
+ * Selects parents utilizing explicit species niche allotments and fitness sharing,
+ * preserving top elites and breeding intra-species offspring.
  *
  * @param population The full population. Indices 0..NUM_BEST-1 are treated as elite
  *                   (read-only parents). Indices NUM_BEST..POPULATION_SIZE-1 are overwritten.
@@ -164,6 +315,40 @@ const std::vector<Species>& GetActiveSpecies() {
 static void CrossoverAndMutate(std::vector<Car>& population) {
     thread_local static std::random_device rd;
     thread_local static std::mt19937 generator(rd());
+
+    int totalNonElite = Config::POPULATION_SIZE - Config::NUM_BEST;
+    if (totalNonElite <= 0) return;
+
+    if (!activeSpecies.empty()) {
+        std::vector<Car> oldPopulation = population;
+        std::vector<int> allotments = ComputeSpeciesAllotments(activeSpecies, totalNonElite);
+        int writeIdx = Config::NUM_BEST;
+
+        for (size_t sIdx = 0; sIdx < activeSpecies.size() && writeIdx < Config::POPULATION_SIZE; ++sIdx) {
+            const auto& sp = activeSpecies[sIdx];
+            int count = allotments[sIdx];
+            if (count <= 0 || sp.memberIndices.empty()) continue;
+
+            std::uniform_int_distribution<int> distMember(0, static_cast<int>(sp.memberIndices.size()) - 1);
+            for (int k = 0; k < count && writeIdx < Config::POPULATION_SIZE; ++k) {
+                int p1Idx = sp.memberIndices[distMember(generator)];
+                int p2Idx = sp.memberIndices[distMember(generator)];
+                CrossAndMutateOffspring(population[writeIdx], oldPopulation[p1Idx], oldPopulation[p2Idx]);
+                writeIdx++;
+            }
+        }
+
+        // Fill any remaining slots by breeding from top elites
+        std::uniform_int_distribution<int> distBest(0, Config::NUM_BEST - 1);
+        while (writeIdx < Config::POPULATION_SIZE && writeIdx < static_cast<int>(population.size())) {
+            int p1 = distBest(generator);
+            int p2 = distBest(generator);
+            CrossAndMutateOffspring(population[writeIdx], oldPopulation[p1], oldPopulation[p2]);
+            writeIdx++;
+        }
+        return;
+    }
+
     std::uniform_int_distribution<int> distBest(0, Config::NUM_BEST - 1);
     std::uniform_int_distribution<int> distMutation(0, 99);
 
@@ -173,35 +358,7 @@ static void CrossoverAndMutate(std::vector<Car>& population) {
         do {
             mother = distBest(generator);
         } while (mother == father);
-
-        for (int i = 0; i < HIDDEN_NODES; i++) {
-            for (int j = 0; j < INPUT_NODES; j++) {
-                int ref = distMutation(generator) < 50 ? father : mother;
-                population[n].brain.weights_input_hidden[i][j] = population[ref].brain.weights_input_hidden[i][j];
-                if (distMutation(generator) < Config::MUTATION)
-                    population[n].brain.weights_input_hidden[i][j] += population[n].brain.MutateGaussian(Config::MUTATION_SIGMA);
-            }
-        }
-        for (int i = 0; i < HIDDEN_NODES; i++) {
-            int ref = distMutation(generator) < 50 ? father : mother;
-            population[n].brain.biases_hidden[i] = population[ref].brain.biases_hidden[i];
-            if (distMutation(generator) < Config::MUTATION)
-                population[n].brain.biases_hidden[i] += population[n].brain.MutateGaussian(Config::MUTATION_SIGMA);
-        }
-        for (int i = 0; i < OUTPUT_NODES; i++) {
-            for (int j = 0; j < HIDDEN_NODES; j++) {
-                int ref = distMutation(generator) < 50 ? father : mother;
-                population[n].brain.weights_hidden_output[i][j] = population[ref].brain.weights_hidden_output[i][j];
-                if (distMutation(generator) < Config::MUTATION)
-                    population[n].brain.weights_hidden_output[i][j] += population[n].brain.MutateGaussian(Config::MUTATION_SIGMA);
-            }
-        }
-        for (int i = 0; i < OUTPUT_NODES; i++) {
-            int ref = distMutation(generator) < 50 ? father : mother;
-            population[n].brain.biases_output[i] = population[ref].brain.biases_output[i];
-            if (distMutation(generator) < Config::MUTATION)
-                population[n].brain.biases_output[i] += population[n].brain.MutateGaussian(Config::MUTATION_SIGMA);
-        }
+        CrossAndMutateOffspring(population[n], population[father], population[mother]);
     }
 }
 
@@ -335,6 +492,7 @@ void EvolvePopulation(std::vector<Car>& population, Vector2 startPosition, float
     });
 
     ClusterSpecies(population, activeSpecies, Config::SPECIATION_THRESHOLD);
+    ApplyFitnessSharing(population, activeSpecies);
 
     SaveBestBrains(population, genCount);
 

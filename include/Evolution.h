@@ -55,6 +55,25 @@ namespace Evolution {
     const std::vector<Species>& GetActiveSpecies();
 
     /**
+     * @brief Computes explicit niche-adjusted fitness for every individual in the population:
+     *        f'_i = f_i / |Species(i)|
+     * 
+     * @param population The evaluated agent population.
+     * @param speciesList Active species list containing member groupings.
+     */
+    void ApplyFitnessSharing(std::vector<Car>& population, std::vector<Species>& speciesList);
+
+    /**
+     * @brief Computes reproduction quotas per species proportional to their summed adjusted fitness:
+     *        quota_s = (F_s / F_total) * totalSlots
+     * 
+     * @param speciesList Active species list.
+     * @param totalSlots Total offspring slots to allocate across the population.
+     * @return std::vector<int> Integer offspring allotment per species.
+     */
+    std::vector<int> ComputeSpeciesAllotments(const std::vector<Species>& speciesList, int totalSlots);
+
+    /**
      * @brief Saves the brains of the best cars from the current generation to disk.
      * 
      * @param population The complete evaluated population of cars.

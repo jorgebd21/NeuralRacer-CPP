@@ -34,7 +34,9 @@ struct Car {
     bool justCrashed;
     
     float fitness;
+    float adjustedFitness;
     float accumulatedFitness;
+    int speciesId;
     int timeAlive;
     int timeSinceLastCheckpoint;
     float distanceTraveled;

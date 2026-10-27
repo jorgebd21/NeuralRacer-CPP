@@ -26,6 +26,8 @@ void Car::Reset(float startX, float startY, float startRot, bool fullReset) {
     if (fullReset) {
         accumulatedFitness = 0.0f;
         fitness = 0.0f;
+        adjustedFitness = 0.0f;
+        speciesId = -1;
         totalLapBonus = 0.0f;
         bestLapTicks = 0;
         lapsCompleted = 0;
