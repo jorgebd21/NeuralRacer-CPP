@@ -135,6 +135,7 @@ void Simulation::Update() {
     else if (currentState == TRAINING) UpdateTraining();
     else if (currentState == EXHIBITION) UpdateExhibition();
     else if (currentState == TEST_AI) UpdateTestAI();
+    else if (currentState == REPLAY) UpdateReplay();
 }
 
 void Simulation::UpdateMenu() {
@@ -174,6 +175,18 @@ void Simulation::UpdateMenu() {
         aiCar.Reset(startPosition.x, startPosition.y, startRotation);
         exhibitionResult = 0;
         currentState = TEST_AI;
+    }
+    if (IsKeyPressed(KEY_R)) {
+        if (!Telemetry::HasFastestLap()) {
+            Telemetry::LoadFastestLapCSV("data/telemetry_best_lap.csv");
+        }
+        replay.samples = Telemetry::GetFastestLapBuffer();
+        if (!replay.samples.empty()) {
+            replay.currentFrame = 0.0f;
+            replay.playbackRate = 1.0f;
+            replay.isPaused = false;
+            currentState = REPLAY;
+        }
     }
     if (IsKeyPressed(KEY_P)) {
         proceduralPoints = ModularTrackGenerator::GenerateProceduralCenterPoints();
@@ -424,6 +437,7 @@ void Simulation::Draw() {
     else if (currentState == TRAINING) DrawTraining();
     else if (currentState == EXHIBITION) DrawExhibition();
     else if (currentState == TEST_AI) DrawTestAI();
+    else if (currentState == REPLAY) DrawReplay();
     
     EndDrawing();
 }
@@ -655,9 +669,10 @@ void Simulation::DrawMenu() {
     DrawText("[ T ] TRAINING MODE (AI vs AI)", Config::SCREEN_WIDTH/2 - 200, 350, 20, LIGHTGRAY);
     DrawText("[ E ] EXHIBITION MODE (Player vs Best AI)", Config::SCREEN_WIDTH/2 - 200, 400, 20, LIGHTGRAY);
     DrawText("[ A ] TEST AI (Only watch best AI)", Config::SCREEN_WIDTH/2 - 200, 450, 20, LIGHTGRAY);
-    DrawText("[ P ] GENERATE PROCEDURAL TRACK (Modular Tiles)", Config::SCREEN_WIDTH/2 - 200, 500, 20, YELLOW);
+    DrawText("[ R ] REPLAY VIEWER (60Hz timeline scrubbing)", Config::SCREEN_WIDTH/2 - 200, 500, 20, SKYBLUE);
+    DrawText("[ P ] GENERATE PROCEDURAL TRACK (Modular Tiles)", Config::SCREEN_WIDTH/2 - 200, 550, 20, YELLOW);
     if (!proceduralPoints.empty()) {
-        DrawText("[ G ] SAVE CURRENT TRACK", Config::SCREEN_WIDTH/2 - 200, 550, 20, GREEN);
+        DrawText("[ G ] SAVE CURRENT TRACK", Config::SCREEN_WIDTH/2 - 200, 600, 20, GREEN);
     }
 }
 
@@ -975,5 +990,145 @@ void Simulation::SetTrainingTrack(int trackIndex) {
         startRotation = trainingTracks[trackIndex].startRot;
         BuildSpatialGrid();
         Telemetry::ResetHeatmap();
+    }
+}
+
+void Simulation::UpdateReplay() {
+    if (IsKeyPressed(KEY_M)) {
+        currentState = MENU;
+        return;
+    }
+
+    if (replay.samples.empty()) {
+        if (!Telemetry::HasFastestLap()) {
+            Telemetry::LoadFastestLapCSV("data/telemetry_best_lap.csv");
+        }
+        replay.samples = Telemetry::GetFastestLapBuffer();
+        if (replay.samples.empty()) {
+            currentState = MENU;
+            return;
+        }
+    }
+
+    if (IsKeyPressed(KEY_SPACE)) {
+        replay.isPaused = !replay.isPaused;
+    }
+
+    if (IsKeyPressed(KEY_ONE)) replay.playbackRate = 0.25f;
+    if (IsKeyPressed(KEY_TWO)) replay.playbackRate = 1.0f;
+    if (IsKeyPressed(KEY_THREE)) replay.playbackRate = 4.0f;
+
+    if (IsKeyPressed(KEY_LEFT)) {
+        replay.currentFrame = std::max(0.0f, replay.currentFrame - 1.0f);
+        replay.isPaused = true;
+    }
+    if (IsKeyPressed(KEY_RIGHT)) {
+        replay.currentFrame = std::min(static_cast<float>(replay.samples.size() - 1), replay.currentFrame + 1.0f);
+        replay.isPaused = true;
+    }
+
+    int barX = 100;
+    int barY = Config::SCREEN_HEIGHT - 60;
+    int barW = Config::SCREEN_WIDTH - 200;
+    int barH = 20;
+
+    Vector2 mousePos = GetMousePosition();
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+        if (mousePos.x >= barX && mousePos.x <= barX + barW &&
+            mousePos.y >= barY - 10 && mousePos.y <= barY + barH + 10) {
+            replay.isDraggingTimeline = true;
+        }
+    }
+    if (replay.isDraggingTimeline) {
+        if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
+            float ratio = std::clamp((mousePos.x - static_cast<float>(barX)) / static_cast<float>(barW), 0.0f, 1.0f);
+            replay.currentFrame = ratio * static_cast<float>(replay.samples.size() - 1);
+        } else {
+            replay.isDraggingTimeline = false;
+        }
+    }
+
+    if (!replay.isPaused && !replay.isDraggingTimeline) {
+        replay.currentFrame += replay.playbackRate;
+        if (replay.currentFrame >= static_cast<float>(replay.samples.size())) {
+            replay.currentFrame = 0.0f;
+        }
+    }
+
+    size_t fIdx = static_cast<size_t>(std::clamp(static_cast<int>(replay.currentFrame), 0, static_cast<int>(replay.samples.size() - 1)));
+    Vector2 targetPos = replay.samples[fIdx].position;
+    worldCamera.target.x += (targetPos.x - worldCamera.target.x) * 0.1f;
+    worldCamera.target.y += (targetPos.y - worldCamera.target.y) * 0.1f;
+}
+
+void Simulation::DrawReplay() {
+    BeginMode2D(worldCamera);
+    DrawFinishLine(1.0f);
+    DrawCheckpoints(0.5f);
+    Telemetry::DrawHeatmap();
+    Telemetry::DrawRacingLineHeatmap(0.85f);
+
+    for (const auto& wall : trackWalls) {
+        DrawLineEx(wall.first, wall.second, 6.0f, WHITE);
+    }
+
+    if (!replay.samples.empty()) {
+        size_t fIdx = static_cast<size_t>(std::clamp(static_cast<int>(replay.currentFrame), 0, static_cast<int>(replay.samples.size() - 1)));
+        size_t nextIdx = (fIdx + 1) % replay.samples.size();
+        const auto& s = replay.samples[fIdx];
+        const auto& sNext = replay.samples[nextIdx];
+
+        float rotDeg = 0.0f;
+        float dx = sNext.position.x - s.position.x;
+        float dy = sNext.position.y - s.position.y;
+        if (dx * dx + dy * dy > 0.001f) {
+            rotDeg = std::atan2(dy, dx) * RAD2DEG;
+        }
+
+        Rectangle carRec = { s.position.x, s.position.y, Config::CAR_HALF_LENGTH * 2.0f, Config::CAR_HALF_WIDTH * 2.0f };
+        Vector2 origin = { Config::CAR_HALF_LENGTH, Config::CAR_HALF_WIDTH };
+        DrawRectanglePro(carRec, origin, rotDeg, GOLD);
+
+        for (int i = 0; i < 5; ++i) {
+            float rayAngle = (rotDeg + Config::SENSOR_ANGLES[i]) * DEG2RAD;
+            Vector2 rayEnd = { s.position.x + std::cos(rayAngle) * s.sensorDistances[i],
+                               s.position.y + std::sin(rayAngle) * s.sensorDistances[i] };
+            DrawLineV(s.position, rayEnd, Fade(GREEN, 0.4f));
+            DrawCircleV(rayEnd, 2.5f, Fade(GREEN, 0.6f));
+        }
+    }
+    EndMode2D();
+
+    int barX = 100;
+    int barY = Config::SCREEN_HEIGHT - 60;
+    int barW = Config::SCREEN_WIDTH - 200;
+    int barH = 20;
+
+    DrawRectangle(50, Config::SCREEN_HEIGHT - 110, Config::SCREEN_WIDTH - 100, 95, Fade(BLACK, 0.85f));
+    DrawRectangleLines(50, Config::SCREEN_HEIGHT - 110, Config::SCREEN_WIDTH - 100, 95, Fade(WHITE, 0.5f));
+
+    DrawText("60 Hz TELEMETRY REPLAY SCRUBBER", 65, Config::SCREEN_HEIGHT - 102, 16, SKYBLUE);
+    const char* statusStr = replay.isPaused ? "PAUSED" : "PLAYING";
+    Color statusColor = replay.isPaused ? YELLOW : GREEN;
+    DrawText(TextFormat("[%s]  Speed: %.2fx  |  [SPACE] Play/Pause  |  [1/2/3] Rate  |  [M] Menu", statusStr, replay.playbackRate), 360, Config::SCREEN_HEIGHT - 100, 13, statusColor);
+
+    DrawRectangle(barX, barY, barW, barH, DARKGRAY);
+    float progressRatio = replay.samples.empty() ? 0.0f : (replay.currentFrame / static_cast<float>(replay.samples.size() - 1));
+    DrawRectangle(barX, barY, static_cast<int>(progressRatio * barW), barH, SKYBLUE);
+    DrawRectangleLines(barX, barY, barW, barH, WHITE);
+
+    int thumbX = barX + static_cast<int>(progressRatio * barW);
+    DrawCircle(thumbX, barY + barH / 2, 11, GOLD);
+    DrawCircleLines(thumbX, barY + barH / 2, 11, WHITE);
+
+    float curSec = replay.currentFrame / 60.0f;
+    float totalSec = replay.samples.empty() ? 0.0f : (replay.samples.size() / 60.0f);
+    DrawText(TextFormat("%.2fs / %.2fs (Frame %d / %zu)", curSec, totalSec, static_cast<int>(replay.currentFrame), replay.samples.size()), barX, barY + 24, 12, LIGHTGRAY);
+
+    if (!replay.samples.empty()) {
+        size_t fIdx = static_cast<size_t>(std::clamp(static_cast<int>(replay.currentFrame), 0, static_cast<int>(replay.samples.size() - 1)));
+        const auto& s = replay.samples[fIdx];
+        DrawText(TextFormat("Speed: %.1f px/t  Throttle: %.2f  Steer: %.2f", s.speed, s.throttleInput, s.steerInput), barX + 380, barY + 24, 12, WHITE);
+        DrawText(TextFormat("Kamm: %.1f%%  Tire: %.1f C  Grip: %.2f", s.kammUtil * 100.0f, s.tireSurfaceTemp, s.tireThermalGrip), barX + 700, barY + 24, 12, YELLOW);
     }
 }

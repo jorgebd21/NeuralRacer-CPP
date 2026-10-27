@@ -12,7 +12,7 @@
 /**
  * @brief Represents the global state of the application (finite state machine).
  */
-enum GameState { MENU, TRAINING, EXHIBITION, TEST_AI };
+enum GameState { MENU, TRAINING, EXHIBITION, TEST_AI, REPLAY };
 
 /**
  * @brief Main controller for graphical and logical simulation.
@@ -52,11 +52,13 @@ private:
     void UpdateTraining();
     void UpdateExhibition();
     void UpdateTestAI();
+    void UpdateReplay();
 
     void DrawMenu();
     void DrawTraining();
     void DrawExhibition();
     void DrawTestAI();
+    void DrawReplay();
 
     void DrawFinishLine(float alpha = 1.0f);
     void DrawCheckpoints(float alpha = 1.0f);
@@ -114,6 +116,15 @@ private:
 
     int generationTotalLaps;
     float benchmarkTopFitness;
+
+    // Replay mode & 60Hz timeline scrubbing
+    struct ReplayState {
+        float currentFrame{0.0f};
+        float playbackRate{1.0f};
+        bool isPaused{false};
+        bool isDraggingTimeline{false};
+        std::vector<TelemetrySample> samples;
+    } replay;
 
     // Dynamic 2D camera & multi-scale viewport navigation
     enum CameraMode { CAM_FOLLOW_LEADER = 0, CAM_OVERVIEW = 1, CAM_MANUAL = 2 };
