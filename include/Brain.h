@@ -3,7 +3,26 @@
 
 #include <random>
 #include <algorithm>
+#include <cmath>
 #include "Config.h"
+
+#if defined(__AVX2__) && defined(__FMA__)
+#include <immintrin.h>
+
+/**
+ * @brief Computes the horizontal sum of an 8-lane 32-bit single-precision float vector.
+ */
+inline float HorizontalSum256(__m256 v) noexcept {
+    __m128 vlow = _mm256_castps256_ps128(v);
+    __m128 vhigh = _mm256_extractf128_ps(v, 1);
+    __m128 sum128 = _mm_add_ps(vlow, vhigh);
+    __m128 shuf = _mm_movehdup_ps(sum128);
+    __m128 sums = _mm_add_ps(sum128, shuf);
+    shuf = _mm_movehl_ps(shuf, sums);
+    sums = _mm_add_ss(sums, shuf);
+    return _mm_cvtss_f32(sums);
+}
+#endif
 
 const int HIDDEN_NODES = 10;
 const int INPUT_NODES = 9;
@@ -78,15 +97,42 @@ struct Brain {
         for(int i = 0; i < INPUT_NODES; i++) last_input[i] = input[i];
         
         float hidden_values[HIDDEN_NODES];
+#if defined(__AVX2__) && defined(__FMA__)
+        // Vectorized SIMD AVX2 + FMA Matrix-Vector Forward Pass (Input 9 -> Hidden 10)
+        __m256 in0_7 = _mm256_loadu_ps(&input[0]);
+        float in8 = input[8];
+
+        for(int i = 0; i < HIDDEN_NODES; i++) {
+            __m256 w0_7 = _mm256_loadu_ps(&weights_input_hidden[i][0]);
+            __m256 prod = _mm256_mul_ps(in0_7, w0_7);
+            float dot = HorizontalSum256(prod);
+            float z = std::fma(in8, weights_input_hidden[i][8], dot + biases_hidden[i]);
+            hidden_values[i] = std::tanh(z);
+            last_hidden[i] = hidden_values[i];
+        }
+
+        // Vectorized SIMD AVX2 + FMA Matrix-Vector Forward Pass (Hidden 10 -> Output 2)
+        __m256 h0_7 = _mm256_loadu_ps(&hidden_values[0]);
+        float h8 = hidden_values[8];
+        float h9 = hidden_values[9];
+        float output_values[OUTPUT_NODES];
+
+        for(int i = 0; i < OUTPUT_NODES; i++) {
+            __m256 wo0_7 = _mm256_loadu_ps(&weights_hidden_output[i][0]);
+            __m256 prod = _mm256_mul_ps(h0_7, wo0_7);
+            float dot = HorizontalSum256(prod);
+            float tail = (h8 * weights_hidden_output[i][8]) + (h9 * weights_hidden_output[i][9]) + biases_output[i];
+            output_values[i] = std::tanh(dot + tail);
+            last_output[i] = output_values[i];
+        }
+#else
         for(int i = 0; i < HIDDEN_NODES; i++) {
             hidden_values[i] = 0.0f;
             for(int j = 0; j < INPUT_NODES; j++) {
                 hidden_values[i] += input[j] * weights_input_hidden[i][j];
             }
             hidden_values[i] += biases_hidden[i];
-            
-            // Use hyperbolic tangent to normalize values between -1 and 1
-            hidden_values[i] = tanh(hidden_values[i]);
+            hidden_values[i] = std::tanh(hidden_values[i]);
             last_hidden[i] = hidden_values[i];
         }
 
@@ -97,12 +143,77 @@ struct Brain {
                 output_values[i] += hidden_values[j] * weights_hidden_output[i][j];
             }
             output_values[i] += biases_output[i];
-            output_values[i] = tanh(output_values[i]);
+            output_values[i] = std::tanh(output_values[i]);
             last_output[i] = output_values[i];
         }
+#endif
 
         outAccelerate = output_values[0];
         outTurn = output_values[1]; 
+    }
+
+    /**
+     * @brief Performs simultaneous batched inference across 8 agent state vectors using SIMD registers.
+     * 
+     * @param batchInput Matrix of shape [8][9]: inputs for 8 cars.
+     * @param outAccelerate Array of 8 calculated acceleration values.
+     * @param outTurn Array of 8 calculated turn values.
+     */
+    void EvaluateBatch8(const float batchInput[8][INPUT_NODES], float outAccelerate[8], float outTurn[8]) const {
+#if defined(__AVX2__) && defined(__FMA__)
+        __m256 inFeat[INPUT_NODES];
+        for (int f = 0; f < INPUT_NODES; ++f) {
+            inFeat[f] = _mm256_set_ps(
+                batchInput[7][f], batchInput[6][f], batchInput[5][f], batchInput[4][f],
+                batchInput[3][f], batchInput[2][f], batchInput[1][f], batchInput[0][f]
+            );
+        }
+
+        __m256 hiddenAct[HIDDEN_NODES];
+        for (int h = 0; h < HIDDEN_NODES; ++h) {
+            __m256 accum = _mm256_set1_ps(biases_hidden[h]);
+            for (int f = 0; f < INPUT_NODES; ++f) {
+                __m256 weight = _mm256_set1_ps(weights_input_hidden[h][f]);
+                accum = _mm256_fmadd_ps(weight, inFeat[f], accum);
+            }
+            alignas(32) float temp[8];
+            _mm256_store_ps(temp, accum);
+            for (int c = 0; c < 8; ++c) temp[c] = std::tanh(temp[c]);
+            hiddenAct[h] = _mm256_load_ps(temp);
+        }
+
+        for (int o = 0; o < OUTPUT_NODES; ++o) {
+            __m256 accum = _mm256_set1_ps(biases_output[o]);
+            for (int h = 0; h < HIDDEN_NODES; ++h) {
+                __m256 weight = _mm256_set1_ps(weights_hidden_output[o][h]);
+                accum = _mm256_fmadd_ps(weight, hiddenAct[h], accum);
+            }
+            alignas(32) float temp[8];
+            _mm256_store_ps(temp, accum);
+            for (int c = 0; c < 8; ++c) {
+                float val = std::tanh(temp[c]);
+                if (o == 0) outAccelerate[c] = val;
+                else outTurn[c] = val;
+            }
+        }
+#else
+        for (int c = 0; c < 8; ++c) {
+            float hidden[HIDDEN_NODES];
+            for (int h = 0; h < HIDDEN_NODES; ++h) {
+                float sum = biases_hidden[h];
+                for (int f = 0; f < INPUT_NODES; ++f) sum += batchInput[c][f] * weights_input_hidden[h][f];
+                hidden[h] = std::tanh(sum);
+            }
+            float out0 = biases_output[0];
+            float out1 = biases_output[1];
+            for (int h = 0; h < HIDDEN_NODES; ++h) {
+                out0 += hidden[h] * weights_hidden_output[0][h];
+                out1 += hidden[h] * weights_hidden_output[1][h];
+            }
+            outAccelerate[c] = std::tanh(out0);
+            outTurn[c] = std::tanh(out1);
+        }
+#endif
     }
 
     /**

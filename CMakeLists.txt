@@ -13,6 +13,9 @@ project(NeuralRacer)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
+# Enable AVX2 and FMA SIMD instruction sets
+add_compile_options(-mavx2 -mfma)
+
 # Definir dónde guardar los binarios (ejecutable en build/bin)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_BUILD_RPATH "${CMAKE_SOURCE_DIR}/lib")
