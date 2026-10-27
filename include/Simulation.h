@@ -87,6 +87,7 @@ private:
     bool isHeadless;
     bool showCheckpoints;
     bool showTelemetry;
+    bool showGhostVehicle;
 
     std::vector<std::string> mapFiles;
     int currentMapIndex;

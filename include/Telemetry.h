@@ -54,6 +54,10 @@ public:
                                  float saturation = 0.0f);
     static void DrawDashboard(int screenWidth, int screenHeight);
     static void DrawHeatmap();
+    static void DrawGhostVehicle(int currentTick);
+    static const std::vector<TelemetrySample>& GetFastestLapBuffer();
+    static bool HasFastestLap();
+    static bool LoadFastestLapCSV(const std::string& filename = "data/telemetry_best_lap.csv");
     static void ExportDataAsync(const std::string& filename = "data/telemetry_log.csv");
     static void ExportFastestLapAsync(const std::string& filename = "data/telemetry_best_lap.csv");
     static void Flush(const std::string& filename = "data/telemetry_log.csv");

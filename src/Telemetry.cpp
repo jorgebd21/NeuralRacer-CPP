@@ -163,6 +163,7 @@ void Telemetry::RecordGeneration(int generation,
                                  float trackUtil,
                                  float saturation) {
     if (population.empty()) return;
+    (void)maxGenerationTime;
 
     GenerationMetrics metrics{};
     metrics.generation = generation;
@@ -331,6 +332,7 @@ void Telemetry::Flush(const std::string& filename) {
 }
 
 void Telemetry::DrawDashboard(int screenWidth, int screenHeight) {
+    (void)screenWidth;
     if (history.empty()) return;
 
     int panelWidth = 510;
@@ -411,5 +413,120 @@ void Telemetry::DrawHeatmap() {
     // Draw the points where cars have crashed
     for (const auto& cp : crashPoints) {
         DrawCircleV(cp, 4.0f, Fade(RED, 0.2f)); // Semi-transparent so accumulation looks brighter
+    }
+}
+
+const std::vector<TelemetrySample>& Telemetry::GetFastestLapBuffer() {
+    std::lock_guard<std::mutex> lock(dataMutex);
+    return fastestLapBuffer;
+}
+
+bool Telemetry::HasFastestLap() {
+    std::lock_guard<std::mutex> lock(dataMutex);
+    return !fastestLapBuffer.empty();
+}
+
+bool Telemetry::LoadFastestLapCSV(const std::string& filename) {
+    std::lock_guard<std::mutex> lock(dataMutex);
+    std::ifstream file(filename);
+    if (!file.is_open()) return false;
+
+    fastestLapBuffer.clear();
+    std::string line;
+    if (!std::getline(file, line)) return false; // skip CSV header
+
+    while (std::getline(file, line)) {
+        if (line.empty()) continue;
+        std::stringstream ss(line);
+        std::string token;
+        try {
+            TelemetrySample s{};
+            if (std::getline(ss, token, ',')) s.tick = std::stoi(token);
+            if (std::getline(ss, token, ',')) s.lapTick = std::stoi(token);
+            if (std::getline(ss, token, ',')) s.distance = std::stof(token);
+            if (std::getline(ss, token, ',')) s.position.x = std::stof(token);
+            if (std::getline(ss, token, ',')) s.position.y = std::stof(token);
+            if (std::getline(ss, token, ',')) s.speed = std::stof(token);
+            if (std::getline(ss, token, ',')) s.vLong = std::stof(token);
+            if (std::getline(ss, token, ',')) s.vLat = std::stof(token);
+            if (std::getline(ss, token, ',')) s.angularVel = std::stof(token);
+            if (std::getline(ss, token, ',')) s.throttleInput = std::stof(token);
+            if (std::getline(ss, token, ',')) s.steerInput = std::stof(token);
+            if (std::getline(ss, token, ',')) s.longAccel = std::stof(token);
+            if (std::getline(ss, token, ',')) s.latAccel = std::stof(token);
+            if (std::getline(ss, token, ',')) s.kammUtil = std::stof(token);
+            if (std::getline(ss, token, ',')) s.slipAngle = std::stof(token);
+            if (std::getline(ss, token, ',')) s.jerkLong = std::stof(token);
+            if (std::getline(ss, token, ',')) s.jerkLat = std::stof(token);
+            if (std::getline(ss, token, ',')) s.trackOffset = std::stof(token);
+            if (std::getline(ss, token, ',')) s.tireSurfaceTemp = std::stof(token);
+            if (std::getline(ss, token, ',')) s.tireBulkTemp = std::stof(token);
+            if (std::getline(ss, token, ',')) s.tireThermalGrip = std::stof(token);
+            if (std::getline(ss, token, ',')) s.surfaceFriction = std::stof(token);
+            for (int i = 0; i < 5; ++i) {
+                if (std::getline(ss, token, ',')) s.sensorDistances[i] = std::stof(token);
+            }
+            if (std::getline(ss, token, ',')) s.sensSteerFront = std::stof(token);
+            if (std::getline(ss, token, ',')) s.sensSteerLat = std::stof(token);
+
+            fastestLapBuffer.push_back(s);
+        } catch (...) {
+            // Ignore malformed sample row
+        }
+    }
+    return !fastestLapBuffer.empty();
+}
+
+void Telemetry::DrawGhostVehicle(int currentTick) {
+    std::lock_guard<std::mutex> lock(dataMutex);
+    if (fastestLapBuffer.empty()) return;
+
+    size_t sampleCount = fastestLapBuffer.size();
+    size_t idx0 = static_cast<size_t>(std::max(0, currentTick)) % sampleCount;
+    size_t idx1 = (idx0 + 1) % sampleCount;
+
+    const auto& s0 = fastestLapBuffer[idx0];
+    const auto& s1 = fastestLapBuffer[idx1];
+
+    float rotDeg = 0.0f;
+    float dx = s1.position.x - s0.position.x;
+    float dy = s1.position.y - s0.position.y;
+    if (dx * dx + dy * dy > 0.001f) {
+        rotDeg = std::atan2(dy, dx) * RAD2DEG;
+    }
+
+    Rectangle ghostRec = {
+        s0.position.x,
+        s0.position.y,
+        Config::CAR_HALF_LENGTH * 2.0f,
+        Config::CAR_HALF_WIDTH * 2.0f
+    };
+    Vector2 origin = { Config::CAR_HALF_LENGTH, Config::CAR_HALF_WIDTH };
+
+    // Draw semi-transparent ghost chassis
+    DrawRectanglePro(ghostRec, origin, rotDeg, Fade(SKYBLUE, 0.45f));
+
+    // Draw crisp outline
+    float rad = rotDeg * DEG2RAD;
+    float cosA = std::cos(rad);
+    float sinA = std::sin(rad);
+    float hLen = Config::CAR_HALF_LENGTH;
+    float hWid = Config::CAR_HALF_WIDTH;
+    Vector2 corners[4] = {
+        { s0.position.x + (-hLen * cosA - -hWid * sinA), s0.position.y + (-hLen * sinA + -hWid * cosA) },
+        { s0.position.x + ( hLen * cosA - -hWid * sinA), s0.position.y + ( hLen * sinA + -hWid * cosA) },
+        { s0.position.x + ( hLen * cosA -  hWid * sinA), s0.position.y + ( hLen * sinA +  hWid * cosA) },
+        { s0.position.x + (-hLen * cosA -  hWid * sinA), s0.position.y + (-hLen * sinA +  hWid * cosA) }
+    };
+    DrawLineEx(corners[0], corners[1], 1.5f, Fade(WHITE, 0.75f));
+    DrawLineEx(corners[1], corners[2], 1.5f, Fade(WHITE, 0.75f));
+    DrawLineEx(corners[2], corners[3], 1.5f, Fade(WHITE, 0.75f));
+    DrawLineEx(corners[3], corners[0], 1.5f, Fade(WHITE, 0.75f));
+
+    // Draw ghost vehicle wake trail (past 8 samples)
+    for (int t = 1; t <= 8; ++t) {
+        int trailIdx = (static_cast<int>(idx0) - t + static_cast<int>(sampleCount)) % static_cast<int>(sampleCount);
+        float alpha = 0.35f * (1.0f - static_cast<float>(t) / 9.0f);
+        DrawCircleV(fastestLapBuffer[trailIdx].position, 2.5f, Fade(SKYBLUE, alpha));
     }
 }

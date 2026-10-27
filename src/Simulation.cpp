@@ -22,6 +22,7 @@ Simulation::Simulation(bool isHeadless) :
     isHeadless(isHeadless),
     showCheckpoints(false),
     showTelemetry(false),
+    showGhostVehicle(true),
     currentState(MENU),
     currentMapIndex(0),
     startPosition{Config::SIM_START_POS_X, Config::SIM_START_POS_Y},
@@ -242,6 +243,7 @@ void Simulation::UpdateTraining() {
         if (IsKeyPressed(KEY_M)) currentState = MENU;
         if (IsKeyPressed(KEY_C)) showCheckpoints = !showCheckpoints;
         if (IsKeyPressed(KEY_H)) showTelemetry = !showTelemetry;
+        if (IsKeyPressed(KEY_G)) showGhostVehicle = !showGhostVehicle;
     }
 
     // Execute logic multiple times per frame if in fast forward mode
@@ -669,6 +671,10 @@ void Simulation::DrawTraining() {
     if (showTelemetry) {
         Telemetry::DrawHeatmap();
     }
+
+    if (showGhostVehicle) {
+        Telemetry::DrawGhostVehicle(generationTimer);
+    }
     
     for (const auto& wall : trackWalls) {
         DrawLineEx(wall.first, wall.second, 6.0f, WHITE);
@@ -733,8 +739,9 @@ void Simulation::DrawTraining() {
     DrawText("[H] Telemetry & Heatmap", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 176, 10, LIGHTGRAY);
     const char* camName = (cameraMode == CAM_FOLLOW_LEADER) ? "LEADER CHASE" : (cameraMode == CAM_OVERVIEW ? "OVERVIEW" : "MANUAL");
     DrawText(TextFormat("[V] Cam: %s", camName), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 188, 10, SKYBLUE);
+    DrawText(TextFormat("[G] Ghost Car: %s", showGhostVehicle ? "ON" : "OFF"), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 200, 10, showGhostVehicle ? SKYBLUE : GRAY);
 
-    DrawText("TOP 10 FITNESS", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 203, 17, YELLOW);
+    DrawText("TOP 10 FITNESS", Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 215, 17, YELLOW);
     for (int i = 0; i < 10 && i < (int)sortedPop.size(); i++) {
         Color rowColor = (sortedPop[i]->isCrashed) ? GRAY : WHITE;
         if (i == 0) rowColor = GOLD;
