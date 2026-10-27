@@ -6,6 +6,7 @@
 #include "FlatSpatialGrid.h"
 #include "TelemetrySample.h"
 #include "TireThermals.h"
+#include "SurfaceDynamics.h"
 #include "raylib.h"
 #include <vector>
 #include <utility>
@@ -67,6 +68,10 @@ struct Car {
 
     // Thermodynamic tire degradation model
     TireThermalState tireThermals;
+
+    // Track surface dynamics & adhesion
+    SurfaceType currentSurface;
+    float currentSurfaceFriction;
 
     // Control Ergonomics & Chatter
     int prevSteerSign;

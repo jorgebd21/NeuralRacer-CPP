@@ -51,6 +51,8 @@ void Car::Reset(float startX, float startY, float startRot, bool fullReset) {
     slipAngle = 0.0f;
     kammUtilization = 0.0f;
     tireThermals.Reset(75.0f);
+    currentSurface = SurfaceType::Asphalt;
+    currentSurfaceFriction = 1.0f;
 
     prevSteerSign = 0;
     steeringZeroCrossings = 0;
@@ -106,24 +108,36 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const FlatSpatia
     // 3. Friction Circle / Kamm Ellipse Coupling:
     // When cornering or sliding, lateral tire force demand restricts available forward engine traction
     float tractionMultiplier = std::clamp(1.0f + (longAccelEst * Config::WEIGHT_TRANSFER_FACTOR), 0.5f, 1.5f);
-    float maxLateralGrip = Config::TIRE_GRIP_LIMIT * Config::CAR_MASS * tractionMultiplier;
+    
+    currentSurface = spatialGrid.SampleSurface(position);
+    currentSurfaceFriction = SurfaceDynamics::GetFrictionCoefficient(currentSurface);
+    float rollingResistanceFactor = SurfaceDynamics::GetRollingResistanceFactor(currentSurface);
+    float thermalGrip = tireThermals.thermalGripFactor;
+    float effectiveGripLimit = Config::TIRE_GRIP_LIMIT * currentSurfaceFriction * thermalGrip;
+
+    float maxLateralGrip = effectiveGripLimit * Config::CAR_MASS * tractionMultiplier;
     float lateralDemand = std::abs(localLateral) * Config::CORNERING_STIFFNESS;
     float lateralDemandRatio = std::clamp(lateralDemand / std::max(1.0f, maxLateralGrip), 0.0f, 1.0f);
     float tractionBudget = std::sqrt(std::max(0.0f, 1.0f - (lateralDemandRatio * lateralDemandRatio)));
 
-    // Longitudinal forces: Engine/Brakes (governed by traction budget), Aero Drag, Rolling Resistance, and Induced Turning Drag
-    float engineForce = (inputAccelerate > 0.0f) ? (inputAccelerate * Config::ENGINE_POWER * tractionBudget) : (inputAccelerate * Config::BRAKING_POWER);
+    // Longitudinal forces: Engine/Brakes (governed by traction budget and surface adhesion), Aero Drag, Rolling Resistance, and Induced Turning Drag
+    float engineForce = (inputAccelerate > 0.0f) 
+        ? (inputAccelerate * Config::ENGINE_POWER * tractionBudget * currentSurfaceFriction) 
+        : (inputAccelerate * Config::BRAKING_POWER * currentSurfaceFriction);
     float dragForce = -localForward * std::abs(localForward) * Config::DRAG_MULTIPLIER;
-    float rollForce = (std::abs(localForward) > 0.01f) ? -std::copysign(Config::ROLLING_RESISTANCE, localForward) : 0.0f;
+    float rollForce = (std::abs(localForward) > 0.01f) 
+        ? -std::copysign(Config::ROLLING_RESISTANCE * rollingResistanceFactor, localForward) 
+        : 0.0f;
     float steeringInducedDrag = -localForward * (inputTurn * inputTurn) * (Config::CAR_TURN_PENALTY * Config::CAR_MASS * 0.05f);
-    float tireScrubForce = (std::abs(localForward) > 0.01f) ? -std::copysign(std::abs(localLateral) * Config::TIRE_SCRUB_FACTOR, localForward) : 0.0f;
+    float tireScrubCoeff = Config::TIRE_SCRUB_FACTOR * (1.0f / std::max(0.2f, currentSurfaceFriction));
+    float tireScrubForce = (std::abs(localForward) > 0.01f) ? -std::copysign(std::abs(localLateral) * tireScrubCoeff, localForward) : 0.0f;
 
     float totalLongForce = engineForce + dragForce + rollForce + steeringInducedDrag + tireScrubForce;
     float longitudinalAcceleration = totalLongForce / Config::CAR_MASS;
     localForward += longitudinalAcceleration;
 
     // 4. Lateral tire forces with dynamic friction limit (tire saturation for realistic drift)
-    float lateralForce = -localLateral * (Config::CORNERING_STIFFNESS * tractionMultiplier);
+    float lateralForce = -localLateral * (Config::CORNERING_STIFFNESS * tractionMultiplier * currentSurfaceFriction * thermalGrip);
     if (std::abs(lateralForce) > maxLateralGrip) {
         // Exceeded friction limit: tires saturate into dynamic drift
         lateralForce = std::copysign(maxLateralGrip, lateralForce);
@@ -136,6 +150,13 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const FlatSpatia
         } else {
             localLateral += lateralAcceleration;
         }
+    }
+
+    // Apex curb oscillation impulse (rumble strip vibration perturbation)
+    float curbImpulse = SurfaceDynamics::GetCurbOscillationImpulse(currentSurface);
+    if (curbImpulse > 0.0f && std::abs(localForward) > 0.5f) {
+        float rumblePhase = std::sin(static_cast<float>(timer) * 1.5f + position.x * 0.2f + position.y * 0.2f);
+        localLateral += rumblePhase * curbImpulse * 0.15f;
     }
 
     // 5. Reconstruct world velocity from updated chassis local velocities
@@ -156,7 +177,7 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const FlatSpatia
 
     // Kamm friction utilization & Slip Angle
     float totalAccelMag = std::sqrt(longAccel * longAccel + latAccel * latAccel);
-    float gripBudget = std::max(0.01f, Config::TIRE_GRIP_LIMIT * tractionMultiplier);
+    float gripBudget = std::max(0.01f, effectiveGripLimit * tractionMultiplier);
     kammUtilization = totalAccelMag / gripBudget;
     slipAngle = std::atan2(lateralVelocity, std::max(0.1f, std::abs(longitudinalVelocity))) * (180.0f / 3.14159265f);
 

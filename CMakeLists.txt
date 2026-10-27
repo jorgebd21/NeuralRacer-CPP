@@ -43,3 +43,7 @@ target_link_libraries(bench_zero_alloc raylib GL m pthread dl rt X11)
 # 8. Test de Dinámica Térmica de Neumáticos
 add_executable(test_tire_thermals tests/test_tire_thermals.cpp src/Car.cpp src/TrackManager.cpp)
 target_link_libraries(test_tire_thermals raylib GL m pthread dl rt X11)
+
+# 9. Test de Acoplamiento Kamm-Térmico y Fricción
+add_executable(test_kamm_thermal_coupling tests/test_kamm_thermal_coupling.cpp src/Car.cpp src/TrackManager.cpp)
+target_link_libraries(test_kamm_thermal_coupling raylib GL m pthread dl rt X11)
