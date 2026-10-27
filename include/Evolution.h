@@ -78,18 +78,20 @@ namespace Evolution {
      * 
      * @param population The complete evaluated population of cars.
      * @param generation The current generation number.
+     * @param filepath Target JSON file path (default "data/best.json").
      */
-    void SaveBestBrains(const std::vector<Car>& population, int generation);
+    void SaveBestBrains(const std::vector<Car>& population, int generation, const std::string& filepath = "data/best.json");
 
     /**
      * @brief Loads the best previously saved brains from disk for the new generation.
      * 
      * @param population The population into which the loaded brains will be injected.
      * @param generation Reference to store the loaded generation number.
+     * @param filepath Source JSON file path (default "data/best.json").
      * @return true If loading was successful.
      * @return false If an error occurred during loading or the file was not found.
      */
-    bool LoadBestBrains(std::vector<Car>& population, int &generation);
+    bool LoadBestBrains(std::vector<Car>& population, int &generation, const std::string& filepath = "data/best.json");
 
     /**
      * @brief Evaluates the current population and applies genetic algorithms to generate the next generation.

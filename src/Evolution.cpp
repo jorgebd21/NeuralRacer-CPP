@@ -362,28 +362,43 @@ static void CrossoverAndMutate(std::vector<Car>& population) {
     }
 }
 
-void SaveBestBrains(const std::vector<Car>& population, int generation) {
-    std::ofstream bestFile("data/best.json", std::ios::out);
+void SaveBestBrains(const std::vector<Car>& population, int generation, const std::string& filepath) {
+    std::ofstream bestFile(filepath, std::ios::out);
     nlohmann::json data;
     data["generation"] = generation;
-    for (int n = 0; n < Config::NUM_BEST; n++) {
+    for (int n = 0; n < Config::NUM_BEST && n < static_cast<int>(population.size()); n++) {
         nlohmann::json car;
         car["id"] = n;
         car["weights_input_hidden"] = population[n].brain.weights_input_hidden;
         car["biases_hidden"] = population[n].brain.biases_hidden;
         car["weights_hidden_output"] = population[n].brain.weights_hidden_output;
         car["biases_output"] = population[n].brain.biases_output;
+
+        // Recurrent MGU matrices
+        car["useRecurrent"] = population[n].brain.useRecurrent;
+        car["W_f"] = population[n].brain.W_f;
+        car["U_f"] = population[n].brain.U_f;
+        car["b_f"] = population[n].brain.b_f;
+        car["W_h"] = population[n].brain.W_h;
+        car["U_h"] = population[n].brain.U_h;
+        car["b_h"] = population[n].brain.b_h;
+        car["W_out"] = population[n].brain.W_out;
+        car["b_out"] = population[n].brain.b_out;
+
         data["elite"].push_back(car);
     }
     bestFile << data.dump(4);
 }
 
-bool LoadBestBrains(std::vector<Car>& population, int& generation) {
-    std::ifstream file("data/best.json");
-    // Fallback to old name if best.json doesn't exist yet, but only read it, we will save to best.json later.
+bool LoadBestBrains(std::vector<Car>& population, int& generation, const std::string& filepath) {
+    std::ifstream file(filepath);
     if (!file.is_open()) {
-        file.open("data/mejores.json");
-        if (!file.is_open()) return false;
+        if (filepath == "data/best.json") {
+            file.open("data/mejores.json");
+            if (!file.is_open()) return false;
+        } else {
+            return false;
+        }
     }
 
     nlohmann::json data;
@@ -394,24 +409,21 @@ bool LoadBestBrains(std::vector<Car>& population, int& generation) {
         return false;
     }
 
-    // Validate network topology compatibility (e.g. upgraded 9-10-2)
+    // Validate network topology compatibility
     if (!data.contains("elite") || data["elite"].empty() ||
         (data["elite"][0].contains("biases_hidden") && data["elite"][0]["biases_hidden"].size() != HIDDEN_NODES) ||
         (data["elite"][0].contains("weights_input_hidden") && data["elite"][0]["weights_input_hidden"][0].size() != INPUT_NODES)) {
         generation = 0;
-        std::cout << "Notice: 'data/best.json' contains legacy topology. Starting population with fresh 9-10-2 network." << std::endl;
+        std::cout << "Notice: '" << filepath << "' contains legacy topology. Starting population with fresh network." << std::endl;
         return false;
     }
 
-    // Support for old json keys for backward compatibility initially, though saving uses new ones
     if (data.contains("generacion")) generation = data["generacion"];
     else if (data.contains("generation")) generation = data["generation"];
 
     UpdateMutationParameters(generation);
 
-    // The first phase of loading directly injects the elite brains from the previous generation.
-    // This ensures we do not lose progress ("elitism").
-    for (int n = 0; n < Config::NUM_BEST && n < (int)population.size(); n++) {
+    for (int n = 0; n < Config::NUM_BEST && n < static_cast<int>(population.size()) && n < static_cast<int>(data["elite"].size()); n++) {
         for (int i = 0; i < HIDDEN_NODES; i++) {
             for (int j = 0; j < INPUT_NODES; j++) {
                 if (data["elite"][n].contains("pesos_entrada_oculta"))
@@ -440,12 +452,37 @@ bool LoadBestBrains(std::vector<Car>& population, int& generation) {
             else
                 population[n].brain.biases_output[i] = data["elite"][n]["biases_output"][i];
         }
+
+        // Deserialize recurrent MGU matrices if present
+        if (data["elite"][n].contains("useRecurrent")) {
+            population[n].brain.useRecurrent = data["elite"][n]["useRecurrent"].get<bool>();
+        } else {
+            population[n].brain.useRecurrent = false;
+        }
+
+        if (data["elite"][n].contains("W_f")) {
+            for (int i = 0; i < RECURRENT_NODES; ++i) {
+                for (int j = 0; j < INPUT_NODES; ++j) {
+                    population[n].brain.W_f[i][j] = data["elite"][n]["W_f"][i][j];
+                    population[n].brain.W_h[i][j] = data["elite"][n]["W_h"][i][j];
+                }
+                for (int j = 0; j < RECURRENT_NODES; ++j) {
+                    population[n].brain.U_f[i][j] = data["elite"][n]["U_f"][i][j];
+                    population[n].brain.U_h[i][j] = data["elite"][n]["U_h"][i][j];
+                }
+                population[n].brain.b_f[i] = data["elite"][n]["b_f"][i];
+                population[n].brain.b_h[i] = data["elite"][n]["b_h"][i];
+            }
+            for (int o = 0; o < OUTPUT_NODES; ++o) {
+                for (int j = 0; j < RECURRENT_NODES; ++j) {
+                    population[n].brain.W_out[o][j] = data["elite"][n]["W_out"][o][j];
+                }
+                population[n].brain.b_out[o] = data["elite"][n]["b_out"][o];
+            }
+        }
     }
 
-    // The rest of the population is generated by randomly copying genomes from the elites and applying mutation.
-    // This introduces genetic diversity while relying on proven successful traits.
     CrossoverAndMutate(population);
-
     return true;
 }
 
