@@ -50,6 +50,7 @@ void Car::Reset(float startX, float startY, float startRot, bool fullReset) {
     jerkLat = 0.0f;
     slipAngle = 0.0f;
     kammUtilization = 0.0f;
+    tireThermals.Reset(75.0f);
 
     prevSteerSign = 0;
     steeringZeroCrossings = 0;
@@ -158,6 +159,9 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const FlatSpatia
     float gripBudget = std::max(0.01f, Config::TIRE_GRIP_LIMIT * tractionMultiplier);
     kammUtilization = totalAccelMag / gripBudget;
     slipAngle = std::atan2(lateralVelocity, std::max(0.1f, std::abs(longitudinalVelocity))) * (180.0f / 3.14159265f);
+
+    // Dynamic lumped-parameter tire thermal state update
+    tireThermals.Update(longitudinalVelocity, lateralVelocity, slipAngle, tractionMultiplier);
 
     // Control Ergonomics & Chatter
     int steerSign = (inputTurn > 0.05f) ? 1 : (inputTurn < -0.05f ? -1 : 0);

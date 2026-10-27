@@ -5,6 +5,7 @@
 #include "FixedRingBuffer.h"
 #include "FlatSpatialGrid.h"
 #include "TelemetrySample.h"
+#include "TireThermals.h"
 #include "raylib.h"
 #include <vector>
 #include <utility>
@@ -63,6 +64,9 @@ struct Car {
     float jerkLat;
     float slipAngle;
     float kammUtilization;
+
+    // Thermodynamic tire degradation model
+    TireThermalState tireThermals;
 
     // Control Ergonomics & Chatter
     int prevSteerSign;
