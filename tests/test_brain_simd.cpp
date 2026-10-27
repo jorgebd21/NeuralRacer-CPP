@@ -46,12 +46,16 @@ int main() {
 
     float accel = 0.0f;
     float turn = 0.0f;
-    brain.Evaluate(sensors, frontDelta, vLong, vLat, angularVel, accel, turn);
+    float compVel[5] = { 0.0f, 1.5f, 3.2f, -1.0f, 0.0f };
+    brain.Evaluate(sensors, frontDelta, vLong, vLat, angularVel, compVel, accel, turn);
 
     assert(accel >= -1.0f && accel <= 1.0f);
     assert(turn >= -1.0f && turn <= 1.0f);
     assert(!std::isnan(accel));
     assert(!std::isnan(turn));
+    assert(brain.last_input[9] == std::clamp(compVel[2] / 10.0f, -1.0f, 1.0f));
+    assert(brain.last_input[10] == std::clamp(compVel[1] / 10.0f, -1.0f, 1.0f));
+    assert(brain.last_input[11] == std::clamp(compVel[3] / 10.0f, -1.0f, 1.0f));
 
     // 4. Test Batch-of-8 inference vs individual evaluation
     float batchInput[8][INPUT_NODES];

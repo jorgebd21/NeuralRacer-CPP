@@ -68,14 +68,14 @@ inline float FastTanh(float x) noexcept {
 }
 
 const int HIDDEN_NODES = 10;
-const int INPUT_NODES = 9;
+const int INPUT_NODES = 12;
 const int OUTPUT_NODES = 2;
 
 /**
  * @brief Structure representing the brain (Neural Network) of a car.
  * 
- * Implements a simple feedforward neural network with one hidden layer (9-10-2).
- * Used to evaluate sensor readings, temporal delta, velocities and decide acceleration and turn.
+ * Implements a feedforward neural network with one hidden layer (12-10-2).
+ * Evaluates sensor readings, temporal delta, chassis velocities, and competitor closing speeds.
  */
 struct Brain {
     float weights_input_hidden[HIDDEN_NODES][INPUT_NODES];
@@ -123,10 +123,11 @@ struct Brain {
      * @param vLong Longitudinal velocity.
      * @param vLat Lateral velocity (slip).
      * @param angularVelocity Angular velocity (yaw rate).
+     * @param competitorClosingVel Array of 5 competitor relative closing velocities.
      * @param outAccelerate Reference where the calculated acceleration value will be stored.
      * @param outTurn Reference where the calculated turn value will be stored.
      */
-    void Evaluate(const float sensorDistances[5], float frontSensorDelta, float vLong, float vLat, float angularVelocity, float &outAccelerate, float &outTurn) {
+    void Evaluate(const float sensorDistances[5], float frontSensorDelta, float vLong, float vLat, float angularVelocity, const float competitorClosingVel[5], float &outAccelerate, float &outTurn) {
         float input[INPUT_NODES];
         for(int i = 0; i < 5; i++) {
             float maxDist = (i == 2) ? Config::CAR_FRONT_SENSOR_DIST : Config::CAR_MAX_SENSOR_DIST;
@@ -136,21 +137,27 @@ struct Brain {
         input[6] = std::clamp(vLong / 20.0f, -1.0f, 1.0f);
         input[7] = std::clamp(vLat / 10.0f, -1.0f, 1.0f);
         input[8] = std::clamp(angularVelocity / Config::CAR_TURN_SPEED, -1.0f, 1.0f);
+        // Multi-Agent competitor relative closing velocities
+        input[9] = std::clamp(competitorClosingVel[2] / 10.0f, -1.0f, 1.0f);  // Front closing velocity
+        input[10] = std::clamp(competitorClosingVel[1] / 10.0f, -1.0f, 1.0f); // Left-front closing velocity
+        input[11] = std::clamp(competitorClosingVel[3] / 10.0f, -1.0f, 1.0f); // Right-front closing velocity
 
         for(int i = 0; i < INPUT_NODES; i++) last_input[i] = input[i];
         
         float hidden_values[HIDDEN_NODES];
 #if defined(__AVX2__) && defined(__FMA__)
-        // Vectorized SIMD AVX2 + FMA Matrix-Vector Forward Pass (Input 9 -> Hidden 10)
+        // Vectorized SIMD AVX2 + FMA Matrix-Vector Forward Pass (Input 12 -> Hidden 10)
         __m256 in0_7 = _mm256_loadu_ps(&input[0]);
-        float in8 = input[8];
 
         for(int i = 0; i < HIDDEN_NODES; i++) {
             __m256 w0_7 = _mm256_loadu_ps(&weights_input_hidden[i][0]);
             __m256 prod = _mm256_mul_ps(in0_7, w0_7);
             float dot = HorizontalSum256(prod);
-            float z = std::fma(in8, weights_input_hidden[i][8], dot + biases_hidden[i]);
-            hidden_values[i] = FastTanh(z);
+            float tail = (input[8] * weights_input_hidden[i][8]) + 
+                         (input[9] * weights_input_hidden[i][9]) + 
+                         (input[10] * weights_input_hidden[i][10]) + 
+                         (input[11] * weights_input_hidden[i][11]) + biases_hidden[i];
+            hidden_values[i] = FastTanh(dot + tail);
             last_hidden[i] = hidden_values[i];
         }
 
@@ -193,6 +200,14 @@ struct Brain {
 
         outAccelerate = output_values[0];
         outTurn = output_values[1]; 
+    }
+
+    /**
+     * @brief Backward-compatible overload without explicit competitor closing velocities.
+     */
+    void Evaluate(const float sensorDistances[5], float frontSensorDelta, float vLong, float vLat, float angularVelocity, float &outAccelerate, float &outTurn) {
+        float defaultCompVel[5] = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
+        Evaluate(sensorDistances, frontSensorDelta, vLong, vLat, angularVelocity, defaultCompVel, outAccelerate, outTurn);
     }
 
     /**

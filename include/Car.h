@@ -133,13 +133,13 @@ struct Car {
     float GetAverageSpeed() const { return timeAlive > 0 ? (distanceTraveled / timeAlive) : 0.0f; }
 
     /**
-     * @brief Evaluates the brain using the 9-dimensional state space.
+     * @brief Evaluates the brain using the 12-dimensional state space.
      * 
      * @param outAccelerate Calculated acceleration output.
      * @param outTurn Calculated steering output.
      */
     void Think(float &outAccelerate, float &outTurn) {
-        brain.Evaluate(sensorDistances, frontSensorDelta, longitudinalVelocity, lateralVelocity, angularVelocity, outAccelerate, outTurn);
+        brain.Evaluate(sensorDistances, frontSensorDelta, longitudinalVelocity, lateralVelocity, angularVelocity, competitorClosingVel, outAccelerate, outTurn);
     }
 
     /**

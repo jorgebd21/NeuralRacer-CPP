@@ -66,10 +66,35 @@ void TestCompetitorOutsideConeIgnored() {
     std::cout << "[PASS] TestCompetitorOutsideConeIgnored passed." << std::endl;
 }
 
+void TestNeuralInputClosingVelocity() {
+    FlatSpatialGrid trackGrid(2000.0f, 2000.0f, 50.0f);
+    VehicleSpatialGrid vehicleGrid(2000.0f, 2000.0f, 50.0f);
+    std::vector<Vector2> checkpoints;
+
+    Car ego(200.0f, 300.0f, 0.0f);
+    ego.velocity = { 5.0f, 0.0f };
+    ego.longitudinalVelocity = 5.0f;
+
+    vehicleGrid.Clear();
+    vehicleGrid.RegisterVehicle(9, { 300.0f, 300.0f }, { 2.0f, 0.0f }, 0.0f);
+
+    ego.UpdatePhysics(0.5f, 0.0f, trackGrid, 0, checkpoints, &vehicleGrid, 0);
+
+    float accel = 0.0f, turn = 0.0f;
+    ego.Think(accel, turn);
+
+    assert(ego.brain.last_input[9] > 0.20f && ego.brain.last_input[9] < 0.35f);
+    assert(!std::isnan(accel) && !std::isnan(turn));
+
+    std::cout << "[PASS] TestNeuralInputClosingVelocity passed (Front closing input: " 
+              << ego.brain.last_input[9] << ")." << std::endl;
+}
+
 int main() {
     std::cout << "Running Competitor Sensor Tests..." << std::endl;
     TestCompetitorRaycastDetection();
     TestCompetitorOutsideConeIgnored();
+    TestNeuralInputClosingVelocity();
     std::cout << "All Competitor Sensor tests completed successfully!" << std::endl;
     return 0;
 }
