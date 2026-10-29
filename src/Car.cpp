@@ -386,6 +386,7 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const FlatSpatia
                     float dx = position.x - comp.position.x;
                     float dy = position.y - comp.position.y;
                     float distSq = dx * dx + dy * dy;
+                    if (distSq < 4.0f) continue; // Ignore vehicles overlapping at identical spawn positions
                     constexpr float MAX_CONTACT_DIST = (Config::CAR_HALF_LENGTH * 2.0f);
                     if (distSq > MAX_CONTACT_DIST * MAX_CONTACT_DIST) continue;
 
@@ -496,19 +497,21 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const FlatSpatia
                             Vector2 p2 = comp.GetSegmentEnd(e);
                             float dist;
                             if (TrackManager::GetLineIntersectionDist(position, rayEnd[i], p1, p2, dist)) {
-                                if (dist < sensorDistances[i]) {
-                                    sensorDistances[i] = dist;
-                                }
-                                if (dist < competitorDistances[i]) {
-                                    competitorDistances[i] = dist;
-                                    float relVx = comp.velocity.x - velocity.x;
-                                    float relVy = comp.velocity.y - velocity.y;
-                                    float closingSpeed = -(relVx * rayDirNorm.x + relVy * rayDirNorm.y);
-                                    competitorClosingVel[i] = closingSpeed;
+                                if (dist > 5.0f) {
+                                    if (dist < sensorDistances[i]) {
+                                        sensorDistances[i] = dist;
+                                    }
+                                    if (dist < competitorDistances[i]) {
+                                        competitorDistances[i] = dist;
+                                        float relVx = comp.velocity.x - velocity.x;
+                                        float relVy = comp.velocity.y - velocity.y;
+                                        float closingSpeed = -(relVx * rayDirNorm.x + relVy * rayDirNorm.y);
+                                        competitorClosingVel[i] = closingSpeed;
 
-                                    if (dist < closestCompDist) {
-                                        closestCompDist = dist;
-                                        closestCompetitorId = static_cast<int>(comp.carIndex);
+                                        if (dist < closestCompDist) {
+                                            closestCompDist = dist;
+                                            closestCompetitorId = static_cast<int>(comp.carIndex);
+                                        }
                                     }
                                 }
                             }
@@ -527,19 +530,22 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const FlatSpatia
     // Fitness breakdown:
     //  - Checkpoints (250 each): balanced milestone reward
     //  - Total Lap Bonus: normalized time-to-complete + fastest lap milestones
-    //  - Distance * 0.5: smooth exploration gradient (calibrated to prevent lateral weaving)
-    //  - Speed * 1.5: cruising speed incentive to prevent ultra-slow crawling
-    if (GetSpeed() > 0.0f) {
-        distanceTraveled += GetSpeed();
+    //  - Distance * 0.5: forward exploration gradient (strictly forward momentum along track)
+    //  - Forward Speed * 1.5: cruising speed incentive to prevent ultra-slow crawling
+    if (longitudinalVelocity > 0.2f) {
+        distanceTraveled += longitudinalVelocity;
     }
+    // Prevent degenerate idling: distance reward before crossing checkpoint 0 is capped
+    float effectiveDistance = (totalCheckPointsCrossed > 0) ? distanceTraveled : std::min(distanceTraveled, 80.0f);
     fitness = accumulatedFitness
             + (totalCheckPointsCrossed * 250.0f)
             + totalLapBonus
-            + (distanceTraveled * 0.5f)
-            + (GetSpeed() * 1.5f);
+            + (effectiveDistance * 0.5f)
+            + (std::max(0.0f, longitudinalVelocity) * 1.5f);
 
-    // Controlled braking / stall filter
-    if (GetSpeed() < 0.1f) {
+    // Forward progression filter: must maintain forward velocity (> 0.2 px/tick)
+    // Standing still, reversing or oscillating in place accumulates stallTicks
+    if (longitudinalVelocity < 0.2f) {
         stallTicks++;
     } else {
         stallTicks = 0;

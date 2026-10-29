@@ -329,7 +329,10 @@ static void CrossoverAndMutate(std::vector<Car>& population) {
             int count = allotments[sIdx];
             if (count <= 0 || sp.memberIndices.empty()) continue;
 
-            std::uniform_int_distribution<int> distMember(0, static_cast<int>(sp.memberIndices.size()) - 1);
+            // Restrict parent selection to the top performers within this species (top 40%)
+            // to maintain strong directional selection pressure alongside topological diversity
+            int poolSize = std::max(1, static_cast<int>(sp.memberIndices.size() * 0.40f));
+            std::uniform_int_distribution<int> distMember(0, poolSize - 1);
             for (int k = 0; k < count && writeIdx < Config::POPULATION_SIZE; ++k) {
                 int p1Idx = sp.memberIndices[distMember(generator)];
                 int p2Idx = sp.memberIndices[distMember(generator)];
