@@ -98,10 +98,11 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const FlatSpatia
     float longAccelEst = (engineForceEst + dragForceEst) / Config::CAR_MASS;
     float turnWeightMultiplier = std::clamp(1.0f - (longAccelEst * Config::WEIGHT_TRANSFER_FACTOR), 0.5f, 1.5f);
 
-    // Speed-dependent steer angle scaling: low speed has minimum turning authority, high speed has stability damping
-    float vEff = std::max(0.8f, std::min(5.5f, std::abs(longitudinalVelocity)));
-    float speedFactor = (vEff / 4.0f) / (1.0f + 0.12f * std::max(0.0f, std::abs(longitudinalVelocity) - 3.0f));
-    float targetYawRate = inputTurn * turnWeightMultiplier * Config::CAR_TURN_SPEED * speedFactor;
+    // Realistic steering authority: Full turning authority at cornering speeds (1.0 - 3.5 px/tick)
+    // with aerodynamic stability damping above 3.5 px/tick and rolling engagement from rest.
+    float speedDamping = 1.0f / (1.0f + 0.15f * std::max(0.0f, std::abs(longitudinalVelocity) - 3.5f));
+    float rollingEngagement = std::clamp(std::abs(longitudinalVelocity) / 0.3f, 0.0f, 1.0f);
+    float targetYawRate = inputTurn * turnWeightMultiplier * Config::CAR_TURN_SPEED * speedDamping * rollingEngagement;
 
     // Angular inertia / low-pass filter (eliminates unphysical 1-tick bang-bang steering oscillation exploit)
     angularVelocity = (angularVelocity * 0.65f) + (targetYawRate * 0.35f);
@@ -553,7 +554,7 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const FlatSpatia
     //  - Total Lap Bonus: normalized time-to-complete + fastest lap milestones
     //  - Distance * 0.5: forward exploration gradient (strictly forward momentum along track)
     //  - Forward Speed * 1.5: cruising speed incentive to prevent ultra-slow crawling
-    if (longitudinalVelocity > 0.2f) {
+    if (longitudinalVelocity > 0.15f) {
         distanceTraveled += longitudinalVelocity;
     }
     // Prevent degenerate idling: distance reward before crossing checkpoint 0 is capped
@@ -564,9 +565,9 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const FlatSpatia
             + (effectiveDistance * 0.5f)
             + (std::max(0.0f, longitudinalVelocity) * 1.5f);
 
-    // Forward progression filter: must maintain forward velocity (> 0.2 px/tick)
+    // Forward progression filter: must maintain forward velocity (> 0.15 px/tick)
     // Standing still, reversing or oscillating in place accumulates stallTicks
-    if (longitudinalVelocity < 0.2f) {
+    if (longitudinalVelocity < 0.15f) {
         stallTicks++;
     } else {
         stallTicks = 0;

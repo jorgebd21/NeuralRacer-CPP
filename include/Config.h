@@ -48,7 +48,7 @@ namespace Config {
     constexpr float ROLLING_RESISTANCE = 3.5f; // Constant Coulomb rolling resistance (N)
     constexpr float CAR_MAX_SENSOR_DIST = 350.0f;
     constexpr float CAR_FRONT_SENSOR_DIST = 450.0f;
-    constexpr int CAR_STALL_TIME_THRESHOLD = 60;
+    constexpr int CAR_STALL_TIME_THRESHOLD = 90;
     constexpr float CAR_STALL_SPEED_THRESHOLD = -0.3f;
     constexpr int CAR_MAX_TIME_WITHOUT_CHECKPOINT = 320; // Calibrated for 2400x1600 F1 track checkpoint pacing
 

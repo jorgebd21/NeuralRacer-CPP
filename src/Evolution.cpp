@@ -522,6 +522,11 @@ void UpdateMutationParameters(int generation) {
         Config::MUTATION = Config::STAGE2_MUTATION_MIN;
         Config::MUTATION_SIGMA = Config::STAGE2_SIGMA_MIN;
     }
+
+    // Adaptive Exploration Floor: Prevent genetic freezing (stagnation in dead local minima)
+    // Maintain at least 20% mutation and 0.08 sigma to ensure continuous active exploration
+    Config::MUTATION = std::max(20, Config::MUTATION);
+    Config::MUTATION_SIGMA = std::max(0.08f, Config::MUTATION_SIGMA);
 }
 
 void EvolvePopulation(std::vector<Car>& population, Vector2 startPosition, float startRotation, int genCount) {
