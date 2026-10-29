@@ -2,7 +2,9 @@
 
 A High-Performance 2D Autonomous Driving Simulation and Neuroevolution Engine in Modern C++17.
 
+[![Engine Version](https://img.shields.io/badge/Version-2.4.0-brightgreen.svg?style=flat-square)](https://github.com/jorgebd21/NeuralRacer-CPP/releases/tag/v2.4.0)
 [![C++ Version](https://img.shields.io/badge/C%2B%2B-17-blue.svg?style=flat-square&logo=c%2B%2B)](https://en.cppreference.com/w/cpp/17)
+[![SIMD Acceleration](https://img.shields.io/badge/SIMD-AVX2%20%2F%20FMA-purple.svg?style=flat-square)](https://en.wikipedia.org/wiki/Advanced_Vector_Extensions)
 [![Graphics Library](https://img.shields.io/badge/Graphics-Raylib-red.svg?style=flat-square)](https://www.raylib.com/)
 [![Build System](https://img.shields.io/badge/Build-CMake-orange.svg?style=flat-square&logo=cmake)](https://cmake.org/)
 [![Concurrency](https://img.shields.io/badge/Concurrency-OpenMP%20%2F%20Intel%20TBB-yellow.svg?style=flat-square)](https://www.openmp.org/)
@@ -24,11 +26,15 @@ NeuralRacer-CPP is a high-performance simulation engine designed to explore auto
 
 To achieve maximum computational efficiency and real-time responsiveness, the entire system is built **completely from scratch** in Modern C++17 without relying on high-level machine learning frameworks or pre-existing physics engines.
 
-*   **Spatial Partitioning:** Utilizes a custom **Spatial Hashing Grid** to reduce narrow-phase collision checks and sensor raycasting from $O(N)$ to $O(1)$, limiting OBB checks to immediate $3\times3$ neighboring cells and raycasts to local grid bounding boxes across the entire $2400 \times 1600\text{ px}$ world canvas.
+*   **Zero-Allocation HPC Pipeline & 1D Flat Spatial Grid:** Eliminates runtime dynamic heap allocations (`0 malloc/new` calls in hot path) using preallocated contiguous `FixedRingBuffer` per vehicle and a cache-friendly 1D row-major `FlatSpatialGrid` backed by a centralized segment pool arena.
+*   **SIMD AVX2 / FMA Acceleration:** Fully vectorizes neural network matrix-vector operations ($\mathbf{W}\mathbf{x} + \mathbf{b}$) and employs a high-precision [3/3] rational Padé polynomial approximation of $\tanh(x)$ for ultra-low latency forward inference.
+*   **Multi-Surface Dynamics & Tire Thermodynamics:** Implements dynamic surface grip zones ($\mu$ partitioning for asphalt, FIA apex curbs, astroturf runoff, and gravel traps) integrated with a lumped-parameter tire thermal degradation model ($85^\circ\text{C}\text{--}100^\circ\text{C}$ optimal grip envelope).
+*   **Multi-Agent Perception & Aerodynamic Slipstream:** Equips agents with vehicle-detecting 5-ray LIDAR sweeps and relative velocity sensing ($\Delta v$), aerodynamic slipstream wake drafting for high-speed overtakes, and momentum-conserving 2D elastic impulse collisions.
+*   **Temporal Recurrent Neuroevolution (MGU) & Speciation:** Replaces purely memoryless feedforward networks with an 8-cell Minimal Gated Unit (MGU) recurrent layer for temporal corner anticipation, safeguarded by NEAT-inspired genomic compatibility clustering and fitness sharing.
+*   **Telemetry Visualizer & 60Hz Replay Engine:** Features semi-transparent ghost vehicle replay from historical fastest laps, GPU-accelerated racing line heatmaps (speed, trail-braking, scrub), an interactive timeline scrubber with variable playback ($0.25\times, 1\times, 4\times$), and real-time cockpit XAI Jacobian sensitivity vectors.
 *   **F1-Scale World Expansion & Dynamic 2D Camera:** Expands the simulation canvas to an expansive $2400 \times 1600\text{ px}$ arena ($6.4\times$ track area) supporting genuine Grand Prix aspect ratios (up to 3.5:1) and $600\text{--}900\text{ px}$ DRS straights. Decoupled world rendering features a Raylib `Camera2D` dynamic chase drone with spring-damper tracking (`CAM_FOLLOW_LEADER`), adaptive full-track overview (`CAM_OVERVIEW`), smooth mouse-wheel zooming, and a real-time tactical F1 Minimap HUD.
 *   **Hardware Concurrency:** Exploits multi-core architectures by parallelizing the physics engine and neural network evaluations using native **OpenMP** multi-threading and C++17 vectorization across all CPU cores.
 *   **Asynchronous Subsystems:** Implements non-blocking disk serialization (`std::async`/`std::future`) to isolate high-frequency hot paths from storage delays during generational checkpoints.
-*   **Custom Neural Control:** Employs a custom 9-10-2 Feedforward Neural Network (FNN) and a Genetic Algorithm featuring dynamic Gaussian mutation decay with a sustained exploration floor, Time-to-Collision observation, and deterministic multi-circuit elitism, all written from first principles.
 
 ---
 
@@ -36,10 +42,10 @@ To achieve maximum computational efficiency and real-time responsiveness, the en
 
 The engine provides three distinct simulation configurations to analyze agent behaviors and allow interactive testing:
 
-| **1. Training Mode** | **2. Exhibition Mode** | **3. Test AI Mode** |
-| :---: | :---: | :---: |
-| ![Training Mode](docs/Training.png) | ![Exhibition Mode](docs/Exhibition.png) | ![Test AI Mode](docs/TestAI.png) |
-| *Neural network undergoing continuous training with live dashboard metrics and weight visualizations.* | *Manual player driving (blue car) competing head-to-head against the elite neural network brain (red car).* | *Observing the standalone driving strategy of the saved elite network navigate challenging curves.* |
+| **1. Training Mode** | **2. Exhibition Mode** | **3. Test AI Mode** | **4. Replay Mode** |
+| :---: | :---: | :---: | :---: |
+| ![Training Mode](docs/Training.png) | ![Exhibition Mode](docs/Exhibition.png) | ![Test AI Mode](docs/TestAI.png) | `[ R ] Key` |
+| *Neural network undergoing continuous training with live dashboard metrics and weight visualizations.* | *Manual player driving (blue car) competing head-to-head against the elite neural network brain (red car).* | *Observing the standalone driving strategy of the saved elite network navigate challenging curves.* | *Interactive 60Hz telemetry scrubber with ghost car projection, speed heatmaps, and cockpit Jacobians.* |
 
 ---
 
@@ -409,6 +415,48 @@ $$F_{\text{lateral}} = \begin{cases} \text{sgn}(-v_{\text{lat}}) \cdot F_{\text{
 Following force integration, updated local chassis velocities are projected back to global space:
 $$v_x = v_{\text{long}} \cos(\theta_t) - v_{\text{lat}} \sin(\theta_t)$$
 $$v_y = v_{\text{long}} \sin(\theta_t) + v_{\text{lat}} \cos(\theta_t)$$
+
+### 6. SIMD Rational Padé Polynomial Approximation for $\tanh(x)$
+In performance-critical AVX2 forward passes, $\tanh(x)$ is evaluated via a [3/3] rational Padé approximant across 8-wide float vectors:
+$$\tanh(x) \approx x \cdot \frac{105.0 + 10.0 x^2}{105.0 + 45.0 x^2 + x^4} \quad \text{clamped to } [-1.0, 1.0]$$
+
+### 7. Lumped-Parameter Tire Thermal Degradation
+Dynamic tire temperatures evolve according to heat generation from lateral/longitudinal slip and carcass deflection against convective ambient cooling:
+$$T_{t} = T_{t-1} + \left( Q_{\text{slip}} + Q_{\text{deflection}} - Q_{\text{cooling}} \right) \cdot \Delta t$$
+$$Q_{\text{slip}} = K_{\text{slip}} \cdot |v_{\text{lat}}| \cdot |F_{\text{lateral}}|, \quad Q_{\text{cooling}} = H_{\text{conv}} \cdot (1.0 + \alpha_{\text{speed}} \|\vec{v}\|) \cdot (T_{t-1} - T_{\text{ambient}})$$
+Effective cornering grip peaks within the optimal thermal window ($85^\circ\text{C}\text{--}100^\circ\text{C}$):
+$$\mu_{\text{effective}} = \mu_{\text{surface}} \cdot \eta_{\text{thermal}}(T)$$
+
+### 8. Aerodynamic Slipstream & Drafting Wake
+Vehicles trailing directly inside an opponent's aerodynamic wake cone experience reduced frontal drag and downforce:
+$$C_{d,\text{eff}} = C_d \cdot \left(1.0 - 0.40 \cdot \exp\left(-\frac{\Delta x^2}{2\sigma_{\text{wake}}^2}\right)\right)$$
+
+### 9. Minimal Gated Unit (MGU) Recurrent Dynamics
+Temporal state retention is computed using an 8-dimensional hidden recurrent vector $\mathbf{h}_t$:
+$$\mathbf{f}_t = \sigma\left(\mathbf{W}_f \mathbf{x}_t + \mathbf{U}_f \mathbf{h}_{t-1} + \mathbf{b}_f\right)$$
+$$\tilde{\mathbf{h}}_t = \tanh\left(\mathbf{W}_h \mathbf{x}_t + \mathbf{U}_h (\mathbf{f}_t \odot \mathbf{h}_{t-1}) + \mathbf{b}_h\right)$$
+$$\mathbf{h}_t = (1 - \mathbf{f}_t) \odot \mathbf{h}_{t-1} + \mathbf{f}_t \odot \tilde{\mathbf{h}}_t$$
+
+### 10. Genomic Compatibility Distance & Speciation
+Species clustering prevents premature convergence by partitioning genomes based on excess genes ($E$), disjoint genes ($D$), and average synaptic weight divergence ($\bar{W}_{\text{diff}}$):
+$$\delta = \frac{c_1 E}{N} + \frac{c_2 D}{N} + c_3 \cdot \bar{W}_{\text{diff}}$$
+$$f'_i = \frac{f_i}{\sum_{j \in S} \text{sh}(\delta(i, j))}$$
+
+---
+
+## Versioning & Release Milestones
+
+| Version | Milestone Theme | Key Capabilities |
+| :--- | :--- | :--- |
+| [**v2.4.0**](https://github.com/jorgebd21/NeuralRacer-CPP/releases/tag/v2.4.0) | **Advanced Telemetry Visualizer & Replay** | Historical ghost vehicle replay, GPU racing line heatmap, 60Hz scrubber HUD, real-time XAI Jacobians. |
+| [**v2.3.0**](https://github.com/jorgebd21/NeuralRacer-CPP/releases/tag/v2.3.0) | **Temporal Recurrent Neuroevolution** | Minimal Gated Unit (MGU) recurrent cells, genomic compatibility distance, explicit fitness sharing. |
+| [**v2.2.0**](https://github.com/jorgebd21/NeuralRacer-CPP/releases/tag/v2.2.0) | **Multi-Agent Perception & Racecraft** | Competitor OBB spatial registration, 5-ray dynamic LIDAR sweep, slipstream drafting, elastic collision impulses. |
+| [**v2.1.0**](https://github.com/jorgebd21/NeuralRacer-CPP/releases/tag/v2.1.0) | **Advanced Surface Dynamics & Thermals** | Multi-surface $\mu$ grid (curbs, runoff, gravel), lumped-parameter tire thermal degradation model. |
+| [**v2.0.0**](https://github.com/jorgebd21/NeuralRacer-CPP/releases/tag/v2.0.0) | **Low-Latency HPC & Memory Pipeline** | 0 heap allocations in hot path, FlatSpatialGrid with segment pool arena, AVX2/FMA SIMD matrix kernel. |
+| [**v1.3.0**](https://github.com/jorgebd21/NeuralRacer-CPP/releases/tag/v1.3.0) | **Grand Prix Scale & Procedural Evaluation** | $2400 \times 1600\text{ px}$ canvas, 6-track procedural curriculum, Kamm friction ellipse, XAI Jacobians. |
+| [**v1.2.0**](https://github.com/jorgebd21/NeuralRacer-CPP/releases/tag/v1.2.0) | **Lateral Kinematics & Scientific Telemetry** | Inertial slip velocity decomposition, cornering scrub drag, 14-parameter telemetry logger. |
+| [**v1.1.0**](https://github.com/jorgebd21/NeuralRacer-CPP/releases/tag/v1.1.0) | **Stability & OpenMP Concurrency** | OpenMP parallel for hot loops, thread-safe crash telemetry, decoupled rendering. |
+| [**v1.0.0**](https://github.com/jorgebd21/NeuralRacer-CPP/releases/tag/v1.0.0) | **Initial Stable Autonomous Driving Engine** | Custom 9-10-2 FNN, genetic algorithm, spatial hashing grid, Raylib rendering. |
 
 ---
 
