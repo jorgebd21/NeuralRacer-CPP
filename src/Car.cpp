@@ -23,6 +23,7 @@ void Car::Reset(float startX, float startY, float startRot, bool fullReset) {
     nextCheckPointIndex = 0;
     totalCheckPointsCrossed = 0;
     currentLapTicks = 0;
+    segmentProgress = 0.0f;
     if (fullReset) {
         accumulatedFitness = 0.0f;
         fitness = 0.0f;
@@ -287,6 +288,7 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const FlatSpatia
         float segLenSq = segX * segX + segY * segY;
         if (segLenSq > 1.0f) {
             float u = std::clamp(((position.x - cpPrev.x) * segX + (position.y - cpPrev.y) * segY) / segLenSq, 0.0f, 1.0f);
+            segmentProgress = u;
             Vector2 proj = { cpPrev.x + u * segX, cpPrev.y + u * segY };
             float distToCenter = std::sqrt((position.x - proj.x) * (position.x - proj.x) + (position.y - proj.y) * (position.y - proj.y));
             currentTrackOffset = std::clamp(distToCenter / 35.0f, 0.0f, 1.0f);
@@ -550,19 +552,18 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const FlatSpatia
     frontSensorHistoryIdx = (frontSensorHistoryIdx + 1) % FRONT_HISTORY_SIZE;
 
     // Fitness breakdown:
-    //  - Checkpoints (250 each): balanced milestone reward
+    //  - Continuous Checkpoints (250 each + continuous segment progress): continuous forward potential field
     //  - Total Lap Bonus: normalized time-to-complete + fastest lap milestones
     //  - Distance * 0.5: forward exploration gradient (strictly forward momentum along track)
     //  - Forward Speed * 1.5: cruising speed incentive to prevent ultra-slow crawling
     if (longitudinalVelocity > 0.15f) {
         distanceTraveled += longitudinalVelocity;
     }
-    // Prevent degenerate idling: distance reward before crossing checkpoint 0 is capped
-    float effectiveDistance = (totalCheckPointsCrossed > 0) ? distanceTraveled : std::min(distanceTraveled, 80.0f);
+    float continuousProgress = static_cast<float>(totalCheckPointsCrossed) + segmentProgress;
     fitness = accumulatedFitness
-            + (totalCheckPointsCrossed * 250.0f)
+            + (continuousProgress * 250.0f)
             + totalLapBonus
-            + (effectiveDistance * 0.5f)
+            + (distanceTraveled * 0.5f)
             + (std::max(0.0f, longitudinalVelocity) * 1.5f);
 
     // Forward progression filter: must maintain forward velocity (> 0.15 px/tick)

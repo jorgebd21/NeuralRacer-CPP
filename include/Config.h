@@ -38,9 +38,9 @@ namespace Config {
     inline float MUTATION_SIGMA = 0.12f;       // Active generational Gaussian mutation step size (sigma)
 
     constexpr int MAX_GENERATION_TIME = 2000;
-    constexpr int TRACKS_PER_GENERATION = 6; // Pure procedural multi-circuit evaluation from Gen 0
-    constexpr int CURRICULUM_PHASE_1_END = 0;
-    constexpr int CURRICULUM_PHASE_2_END = 0;
+    constexpr int TRACKS_PER_GENERATION = 6; // Maximum procedural multi-circuit evaluation limit
+    constexpr int CURRICULUM_PHASE_1_END = 40;  // Phase 1 Induction: single benchmark track
+    constexpr int CURRICULUM_PHASE_2_END = 100; // Phase 2 Consolidation: 3 benchmark circuits
     constexpr float SENSOR_ANGLES[5] = {-90.0f, -45.0f, 0.0f, 45.0f, 90.0f};
 
     constexpr float CAR_TURN_SPEED = 3.5f;
@@ -79,7 +79,7 @@ namespace Config {
     constexpr float SPECIATION_C1 = 1.0f;           // Weight of excess genes E / N
     constexpr float SPECIATION_C2 = 1.0f;           // Weight of disjoint genes D / N
     constexpr float SPECIATION_C3 = 0.4f;           // Weight of average synaptic weight divergence W_diff
-    constexpr float SPECIATION_THRESHOLD = 0.35f;   // Compatibility distance threshold delta_t
+    constexpr float SPECIATION_THRESHOLD = 0.18f;   // Compatibility distance threshold delta_t (calibrated for 3-5 species)
 
     constexpr float CAR_HALF_WIDTH = 4.0f;
     constexpr float CAR_HALF_LENGTH = 8.5f;

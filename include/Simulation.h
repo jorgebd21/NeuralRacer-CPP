@@ -115,6 +115,7 @@ private:
     int exhibitionResult;
 
     int generationTotalLaps;
+    int globalLapsCompleted{0};
     float benchmarkTopFitness;
 
     // Replay mode & 60Hz timeline scrubbing

@@ -529,6 +529,8 @@ void UpdateMutationParameters(int generation) {
     Config::MUTATION_SIGMA = std::max(0.08f, Config::MUTATION_SIGMA);
 }
 
+static float adaptiveSpeciationThreshold = Config::SPECIATION_THRESHOLD;
+
 void EvolvePopulation(std::vector<Car>& population, Vector2 startPosition, float startRotation, int genCount) {
     UpdateMutationParameters(genCount);
 
@@ -536,7 +538,14 @@ void EvolvePopulation(std::vector<Car>& population, Vector2 startPosition, float
         return a.fitness > b.fitness;
     });
 
-    ClusterSpecies(population, activeSpecies, Config::SPECIATION_THRESHOLD);
+    // Dynamic speciation threshold targeting 3-5 distinct niches (standard NEAT niching)
+    if (activeSpecies.size() < 3 && adaptiveSpeciationThreshold > 0.08f) {
+        adaptiveSpeciationThreshold -= 0.01f;
+    } else if (activeSpecies.size() > 5 && adaptiveSpeciationThreshold < 0.40f) {
+        adaptiveSpeciationThreshold += 0.01f;
+    }
+
+    ClusterSpecies(population, activeSpecies, adaptiveSpeciationThreshold);
     ApplyFitnessSharing(population, activeSpecies);
 
     SaveBestBrains(population, genCount);

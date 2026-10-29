@@ -92,6 +92,7 @@ struct Car {
     float currentTrackOffset;
     float sumTrackOffset;
     int trackOffsetSamples;
+    float segmentProgress;
     float lastApexDistance;
     float lastApexSpeed;
 
