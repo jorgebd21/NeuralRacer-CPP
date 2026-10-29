@@ -22,7 +22,7 @@ Simulation::Simulation(bool isHeadless) :
     isHeadless(isHeadless),
     showCheckpoints(false),
     showTelemetry(false),
-    showGhostVehicle(true),
+    showGhostVehicle(false),
     currentState(MENU),
     currentMapIndex(0),
     startPosition{Config::SIM_START_POS_X, Config::SIM_START_POS_Y},
@@ -150,6 +150,18 @@ void Simulation::UpdateMenu() {
 
     if (IsKeyPressed(KEY_T)) {
         currentEvaluationTrack = 0;
+        SetupCurriculumForGeneration(generationCount);
+        SetTrainingTrack(0);
+        for (auto& car : population) car.Reset(startPosition.x, startPosition.y, startRotation);
+        currentState = TRAINING;
+    }
+    if (IsKeyPressed(KEY_N)) {
+        generationCount = 0;
+        currentEvaluationTrack = 0;
+        population.clear();
+        for (int i = 0; i < Config::POPULATION_SIZE; i++) {
+            population.push_back(Car(startPosition.x, startPosition.y, startRotation));
+        }
         SetupCurriculumForGeneration(generationCount);
         SetTrainingTrack(0);
         for (auto& car : population) car.Reset(startPosition.x, startPosition.y, startRotation);
@@ -360,13 +372,8 @@ void Simulation::UpdateTraining() {
                         }
                     }
                 }
-                if (!fastestCar && !sortedPop.empty()) {
-                    if (!sortedPop[0]->bestLapSamples.empty()) fastestCar = sortedPop[0];
-                    else if (!sortedPop[0]->currentLapSamples.empty()) fastestCar = sortedPop[0];
-                }
-                if (fastestCar) {
-                    const auto& samples = !fastestCar->bestLapSamples.empty() ? fastestCar->bestLapSamples : fastestCar->currentLapSamples;
-                    Telemetry::RecordFastestLap(samples);
+                if (fastestCar && !fastestCar->bestLapSamples.empty()) {
+                    Telemetry::RecordFastestLap(fastestCar->bestLapSamples);
                     Telemetry::ExportFastestLapAsync();
                 }
 
@@ -666,9 +673,11 @@ void Simulation::DrawMenu() {
     
     DrawText("GENETIC SIMULATOR", Config::SCREEN_WIDTH/2 - 250, 200, 40, WHITE);
     DrawText(TextFormat("Current Track: < %s >", displayName.c_str()), Config::SCREEN_WIDTH/2 - 200, 300, 25, SKYBLUE);
-    DrawText("[ T ] TRAINING MODE (AI vs AI)", Config::SCREEN_WIDTH/2 - 200, 350, 20, LIGHTGRAY);
-    DrawText("[ E ] EXHIBITION MODE (Player vs Best AI)", Config::SCREEN_WIDTH/2 - 200, 400, 20, LIGHTGRAY);
-    DrawText("[ A ] TEST AI (Only watch best AI)", Config::SCREEN_WIDTH/2 - 200, 450, 20, LIGHTGRAY);
+    DrawText("[ T ] RESUME TRAINING (Load Best)", Config::SCREEN_WIDTH/2 - 200, 345, 20, LIGHTGRAY);
+    DrawText("[ N ] NEW TRAINING (Fresh Gen 0)", Config::SCREEN_WIDTH/2 - 200, 375, 20, YELLOW);
+    DrawText("[ E ] EXHIBITION MODE (Player vs Best AI)", Config::SCREEN_WIDTH/2 - 200, 410, 20, LIGHTGRAY);
+    DrawText("[ A ] TEST AI (Only watch best AI)", Config::SCREEN_WIDTH/2 - 200, 445, 20, LIGHTGRAY);
+    DrawText("[ R ] REPLAY MODE (60Hz Scrubber & Jacobians)", Config::SCREEN_WIDTH/2 - 200, 480, 20, GOLD);
     DrawText("[ R ] REPLAY VIEWER (60Hz timeline scrubbing)", Config::SCREEN_WIDTH/2 - 200, 500, 20, SKYBLUE);
     DrawText("[ P ] GENERATE PROCEDURAL TRACK (Modular Tiles)", Config::SCREEN_WIDTH/2 - 200, 550, 20, YELLOW);
     if (!proceduralPoints.empty()) {
@@ -995,6 +1004,7 @@ void Simulation::SetTrainingTrack(int trackIndex) {
         startRotation = trainingTracks[trackIndex].startRot;
         BuildSpatialGrid();
         Telemetry::ResetHeatmap();
+        Telemetry::ClearFastestLap();
     }
 }
 

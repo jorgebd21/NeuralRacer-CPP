@@ -457,6 +457,11 @@ bool Telemetry::HasFastestLap() {
     return !fastestLapBuffer.empty();
 }
 
+void Telemetry::ClearFastestLap() {
+    std::lock_guard<std::mutex> lock(dataMutex);
+    fastestLapBuffer.clear();
+}
+
 bool Telemetry::LoadFastestLapCSV(const std::string& filename) {
     std::lock_guard<std::mutex> lock(dataMutex);
     std::ifstream file(filename);

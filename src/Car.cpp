@@ -177,9 +177,25 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const FlatSpatia
     float tractionBudget = std::sqrt(std::max(0.0f, 1.0f - (lateralDemandRatio * lateralDemandRatio)));
 
     // Longitudinal forces: Engine/Brakes (governed by traction budget and surface adhesion), Aero Drag (with drafting slipstream reduction), Rolling Resistance, and Induced Turning Drag
-    float engineForce = (inputAccelerate > 0.0f) 
-        ? (inputAccelerate * Config::ENGINE_POWER * tractionBudget * currentSurfaceFriction) 
-        : (inputAccelerate * Config::BRAKING_POWER * currentSurfaceFriction);
+    // Longitudinal forces: Engine/Brakes (governed by traction budget and surface adhesion), Aero Drag (with drafting slipstream reduction), Rolling Resistance, and Induced Turning Drag
+    float engineForce = 0.0f;
+    if (inputAccelerate > 0.0f) {
+        // Forward engine propulsion
+        engineForce = inputAccelerate * Config::ENGINE_POWER * tractionBudget * currentSurfaceFriction;
+    } else if (inputAccelerate < 0.0f) {
+        // Pure resistive braking: decelerates the car towards 0, strictly cannot propel in reverse
+        float brakeForce = std::abs(inputAccelerate) * Config::BRAKING_POWER * currentSurfaceFriction;
+        if (localForward > 0.01f) {
+            float maxBrakeForce = localForward * Config::CAR_MASS;
+            engineForce = -std::min(brakeForce, maxBrakeForce);
+        } else if (localForward < -0.01f) {
+            float maxBrakeForce = -localForward * Config::CAR_MASS;
+            engineForce = std::min(brakeForce, maxBrakeForce);
+        } else {
+            engineForce = 0.0f;
+            localForward = 0.0f;
+        }
+    }
     float effectiveDragMultiplier = Config::DRAG_MULTIPLIER * (1.0f - draftingFactor * Config::DRAFTING_MAX_DRAG_REDUCTION);
     float dragForce = -localForward * std::abs(localForward) * effectiveDragMultiplier;
     float rollForce = (std::abs(localForward) > 0.01f) 
@@ -192,6 +208,11 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const FlatSpatia
     float totalLongForce = engineForce + dragForce + rollForce + steeringInducedDrag + tireScrubForce;
     float longitudinalAcceleration = totalLongForce / Config::CAR_MASS;
     localForward += longitudinalAcceleration;
+
+    // Enforce no reverse propulsion: braking and rolling friction cannot invert velocity
+    if (inputAccelerate <= 0.0f && localForward < 0.0f) {
+        localForward = 0.0f;
+    }
 
     // 4. Lateral tire forces with dynamic friction limit (tire saturation for realistic drift)
     float lateralForce = -localLateral * (Config::CORNERING_STIFFNESS * tractionMultiplier * currentSurfaceFriction * thermalGrip);

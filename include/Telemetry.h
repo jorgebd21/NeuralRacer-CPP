@@ -60,6 +60,7 @@ public:
     static void DrawJacobianVectors(Vector2 carPos, float carRotDeg, float sensFront, float sensLat, float scale = 40.0f);
     static const std::vector<TelemetrySample>& GetFastestLapBuffer();
     static bool HasFastestLap();
+    static void ClearFastestLap();
     static bool LoadFastestLapCSV(const std::string& filename = "data/telemetry_best_lap.csv");
     static void ExportDataAsync(const std::string& filename = "data/telemetry_log.csv");
     static void ExportFastestLapAsync(const std::string& filename = "data/telemetry_best_lap.csv");
