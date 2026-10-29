@@ -276,14 +276,6 @@ void Simulation::UpdateTraining() {
     for (int s = 0; s < simSpeed; s++) {
         std::atomic<int> carsAlive{0};
 
-        // Multi-Agent: register active vehicle OBBs for inter-vehicle raycasting
-        vehicleGrid.Clear();
-        for (int i = 0; i < (int)population.size(); i++) {
-            if (!population[i].isCrashed) {
-                vehicleGrid.RegisterVehicle(i, population[i].position, population[i].velocity, population[i].rotation);
-            }
-        }
-
         // High-performance OpenMP multi-core parallelization across all available CPU threads
         #pragma omp parallel for schedule(static)
         for (int i = 0; i < (int)population.size(); i++) {
@@ -291,12 +283,13 @@ void Simulation::UpdateTraining() {
             if (!car.isCrashed) {
                 carsAlive++;
 
-                // 1. The brain decides what to do based on the 9-dimensional state space
+                // 1. The brain decides what to do based on the 12-dimensional state space
                 float inputAccelerate = 0.0f, inputTurn = 0.0f;
                 car.Think(inputAccelerate, inputTurn);
 
-                // 2. The car moves according to the decision and checks if it crashed
-                car.UpdatePhysics(inputAccelerate, inputTurn, spatialGrid, generationTimer, trackCheckpoints, &vehicleGrid, i);
+                // 2. The car moves according to the decision and checks if it crashed.
+                // In training mode, vehicles evaluate independently with clean wall LIDAR (no inter-agent pack occlusion)
+                car.UpdatePhysics(inputAccelerate, inputTurn, spatialGrid, generationTimer, trackCheckpoints, nullptr, i);
             }
         }
 

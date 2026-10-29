@@ -306,8 +306,8 @@ static void CrossAndMutateOffspring(Car& child, const Car& parentA, const Car& p
 /**
  * @brief Applies two-parent crossover and Gaussian mutation to all non-elite individuals.
  *
- * Selects parents utilizing explicit species niche allotments and fitness sharing,
- * preserving top elites and breeding intra-species offspring.
+ * Utilizes direct 100% elitist selection on the top NUM_BEST (10) performing genomes,
+ * preserving top elites and breeding strictly from successful trajectories.
  *
  * @param population The full population. Indices 0..NUM_BEST-1 are treated as elite
  *                   (read-only parents). Indices NUM_BEST..POPULATION_SIZE-1 are overwritten.
@@ -315,53 +315,19 @@ static void CrossAndMutateOffspring(Car& child, const Car& parentA, const Car& p
 static void CrossoverAndMutate(std::vector<Car>& population) {
     thread_local static std::random_device rd;
     thread_local static std::mt19937 generator(rd());
-
-    int totalNonElite = Config::POPULATION_SIZE - Config::NUM_BEST;
-    if (totalNonElite <= 0) return;
-
-    if (!activeSpecies.empty()) {
-        std::vector<Car> oldPopulation = population;
-        std::vector<int> allotments = ComputeSpeciesAllotments(activeSpecies, totalNonElite);
-        int writeIdx = Config::NUM_BEST;
-
-        for (size_t sIdx = 0; sIdx < activeSpecies.size() && writeIdx < Config::POPULATION_SIZE; ++sIdx) {
-            const auto& sp = activeSpecies[sIdx];
-            int count = allotments[sIdx];
-            if (count <= 0 || sp.memberIndices.empty()) continue;
-
-            // Restrict parent selection to the top performers within this species (top 40%)
-            // to maintain strong directional selection pressure alongside topological diversity
-            int poolSize = std::max(1, static_cast<int>(sp.memberIndices.size() * 0.40f));
-            std::uniform_int_distribution<int> distMember(0, poolSize - 1);
-            for (int k = 0; k < count && writeIdx < Config::POPULATION_SIZE; ++k) {
-                int p1Idx = sp.memberIndices[distMember(generator)];
-                int p2Idx = sp.memberIndices[distMember(generator)];
-                CrossAndMutateOffspring(population[writeIdx], oldPopulation[p1Idx], oldPopulation[p2Idx]);
-                writeIdx++;
-            }
-        }
-
-        // Fill any remaining slots by breeding from top elites
-        std::uniform_int_distribution<int> distBest(0, Config::NUM_BEST - 1);
-        while (writeIdx < Config::POPULATION_SIZE && writeIdx < static_cast<int>(population.size())) {
-            int p1 = distBest(generator);
-            int p2 = distBest(generator);
-            CrossAndMutateOffspring(population[writeIdx], oldPopulation[p1], oldPopulation[p2]);
-            writeIdx++;
-        }
-        return;
-    }
-
     std::uniform_int_distribution<int> distBest(0, Config::NUM_BEST - 1);
-    std::uniform_int_distribution<int> distMutation(0, 99);
 
-    for (int n = Config::NUM_BEST; n < Config::POPULATION_SIZE && n < (int)population.size(); n++) {
+    std::vector<Car> oldPopulation = population;
+
+    for (int n = Config::NUM_BEST; n < Config::POPULATION_SIZE && n < static_cast<int>(population.size()); ++n) {
         int father = distBest(generator);
         int mother;
         do {
             mother = distBest(generator);
-        } while (mother == father);
-        CrossAndMutateOffspring(population[n], population[father], population[mother]);
+        } while (mother == father && Config::NUM_BEST > 1);
+
+        CrossAndMutateOffspring(population[n], oldPopulation[father], oldPopulation[mother]);
+        population[n].brain.useRecurrent = false; // Pure feedforward control for stable, non-oscillating trajectory
     }
 }
 

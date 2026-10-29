@@ -78,5 +78,7 @@ RoadMap.md
 
 # Data
 best.json
+best_backup.json
+data/best*.json
 telemetry_log.csv
 telemetry_best_lap.csv
