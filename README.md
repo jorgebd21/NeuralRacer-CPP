@@ -282,10 +282,10 @@ The engineering challenges resolved in the codebase are mapped below to show the
 
 ```
 NeuralRacer-CPP/
-├── CMakeLists.txt         # CMake build configuration
+├── CMakeLists.txt         # CMake build configuration with CTest integration
 ├── LICENSE                # MIT License
 ├── README.md              # Project documentation
-├── ROADMAP.md             # Development status tracker
+├── CHANGELOG.md           # Semantic versioning release log
 ├── docs/                  # Media and instructional documentation
 │   ├── INSTRUCTIONS.md    # Guide on capturing images/GIFs for the simulator
 │   ├── Training.gif       # Principal animated training loop capture
@@ -293,28 +293,43 @@ NeuralRacer-CPP/
 │   ├── Exhibition.png     # Exhibition mode screenshot
 │   └── TestAI.png         # Test AI mode screenshot
 ├── include/               # Header definitions
-│   ├── Brain.h            # Neural network struct and inference functions
-│   ├── Car.h              # Vehicle state, kinematics, and OBB structure
-│   ├── Config.h           # Simulation parameters, 2400x1600 world canvas dimensions, physical constants, and GA variables
-│   ├── Evolution.h        # Genetic operators, crossover, and serialization helpers
-│   ├── ModularTrackGenerator.h # Discrete tile/segment coupling engine (17 primitives, 5 F1 macro-skeletons, pre-flight geometric watchdog)
-│   ├── Simulation.h       # Main coordinator, dynamic 2D camera system, minimap HUD, and screen state machine
-│   ├── Telemetry.h        # Metrics collector, live dashboard, and CSV logger
+│   ├── Brain.h            # Neural network struct, MGU cell, and inference functions
+│   ├── Car.h              # Vehicle state, kinematics, steering slew rate, and OBB structure
+│   ├── Config.h           # Simulation parameters, 2400x1600 canvas dimensions, and GA variables
+│   ├── Evolution.h        # Genetic operators, species-allotted crossover, and serialization helpers
+│   ├── ExhaustiveTelemetry.h # 60Hz 45-parameter recorder and behavioral coherence auditor
+│   ├── FixedRingBuffer.h  # Zero-allocation high-throughput circular delay buffer
+│   ├── FlatSpatialGrid.h  # Contiguous 1D spatial hash grid with segment pool arena
+│   ├── ModularTrackGenerator.h # Discrete tile/segment coupling engine (17 primitives, 5 F1 archetypes)
+│   ├── Simulation.h       # Coordinator, dynamic 2D camera system, minimap HUD, and state machine
+│   ├── SurfaceDynamics.h  # Multi-surface friction mapping (asphalt, curbs, astroturf, gravel)
+│   ├── Telemetry.h        # Metrics collector, live dashboard, heatmap renderer, and CSV logger
 │   ├── TelemetrySample.h  # Time-series sample struct for 60 Hz high-frequency telemetry logging
+│   ├── TireThermals.h     # Lumped-parameter dynamic tire thermal degradation model
 │   ├── TrackGenerator.h   # High-entropy procedural engine (macro-graphs, motifs, 360° affine transforms)
-│   ├── TrackManager.h     # Grid Hashing utilities and track I/O routines
+│   ├── TrackManager.h     # Grid hashing utilities, Catmull-Rom splines, and track I/O routines
+│   ├── VehicleSpatialGrid.h # Dynamic secondary spatial grid for multi-agent competitor perception
 │   └── json.hpp           # nlohmann JSON utility library
 ├── src/                   # Source implementations
-│   ├── Car.cpp            # Vehicle physics, weight transfer, and OBB checks
-│   ├── Evolution.cpp      # Genetic algorithm execution and genome loading
+│   ├── Car.cpp            # Vehicle physics, steering limiter, trail-braking, and OBB checks
+│   ├── Evolution.cpp      # Genetic algorithm execution, speciation quotas, and genome I/O
+│   ├── ExhaustiveTelemetry.cpp # 60Hz recorder, anomaly auditor, and CSV/JSON exporter
 │   ├── Simulation.cpp     # Execution loops, window drawing, and input handling
 │   ├── Telemetry.cpp      # GUI dashboard rendering and async file writers
 │   ├── TrackManager.cpp   # Catmull-Rom math, grid insertion, and raycasts
 │   └── main.cpp           # Program entry point and CLI parser
+├── tests/                 # Unit, integration, and performance test suites
+│   ├── bench_zero_alloc.cpp
+│   ├── test_brain_simd.cpp
+│   ├── test_exhaustive_telemetry.cpp
+│   ├── test_mgu_cell.cpp
+│   ├── test_speciation.cpp
+│   └── ...
 ├── data/                  # Persistent data directory
 │   ├── best.json          # Serialized genomes of elite agents
 │   ├── telemetry_log.csv  # Generational fitness logs (20 metrics)
 │   ├── telemetry_best_lap.csv # 60 Hz per-tick high-frequency lap telemetry (MoTeC/ATLAS grade)
+│   ├── exhaustive_telemetry.csv # 60 Hz 45-parameter time-series audit
 │   └── tracks/            # JSON track files
 └── lib/                   # Project dependencies (optional)
 ```
@@ -346,11 +361,34 @@ mkdir build && cd build
 # 3. Configure build environment
 cmake ..
 
-# 4. Compile binary target
-cmake --build .
+# 4. Compile binary target (-j2 recommended to prevent memory starvation)
+cmake --build . -j2
 
-# 5. Run the application
+# 5. Run automated test suite
+ctest --output-on-failure
+```
+
+### Command-Line Interface (CLI) Options
+
+The compiled executable supports multiple launch modes and training configurations:
+
+```bash
+# Launch interactive graphical simulation (Default Raylib UI)
 ./bin/app
+
+# Launch ultra-fast headless training (no window rendering, maximal OpenMP throughput)
+./bin/app --headless
+
+# Launch headless training with generation limit
+./bin/app --headless --generations 25
+
+# Launch clean training from scratch (ignores data/best.json to initialize Gen 0)
+./bin/app --headless --fresh --generations 50
+
+# Run standalone 60 Hz exhaustive telemetry and behavioral coherence auditor
+./bin/test_exhaustive_telemetry --brain data/best.json --track monza --ticks 2000
+./bin/test_exhaustive_telemetry --brain data/best.json --track silverstone --ticks 2000
+./bin/test_exhaustive_telemetry --brain data/best.json --track interlagos --ticks 2000
 ```
 
 ---

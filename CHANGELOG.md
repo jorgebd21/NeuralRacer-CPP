@@ -5,6 +5,43 @@ The project adheres strictly to [Semantic Versioning 2.0.0](https://semver.org/)
 
 ---
 
+## [v2.5.0] — 2026-10-31
+### Exhaustive Telemetry & Behavioral Coherence Engine
+
+#### Summary
+Introduces a high-resolution 60 Hz 45-parameter exhaustive telemetry recorder, automated real-time behavioral incoherence auditor, lookahead sensor geometry re-architecting, physical steering rack rate-limiting, and species-allotted evolutionary crossover. These improvements eliminate corridor blindness and premature genetic convergence, unlocking multi-lap survival across Formula 1 Grand Prix archetypes and dynamic procedural tracks.
+
+#### Features & Improvements
+- **60 Hz Exhaustive Telemetry & Behavioral Incoherence Auditor (`ExhaustiveTelemetry`):**
+  - Continuous 45-field synchronized physics and neurocognitive telemetry recording (`data/exhaustive_telemetry.csv` and `.json`).
+  - Automated behavioral auditor detecting cognitive contradictions:
+    - *Steering into immediate walls* (anomalous negative obstacle avoidance).
+    - *Full-throttle wall impacts* (failure to trail-brake or lift off).
+    - *Braking on open straights* (phantom obstacle deceleration).
+    - *Bang-bang steering chatter* ($|\Delta \text{steer}| > 1.2$ in a single tick).
+    - *Tire adhesion collapses* ($\text{slip angle} > 35^\circ$ or continuous spinning).
+    - *Lateral Jacobian inversions* ($\partial \text{Steer} / \partial \text{Lidar}_{\text{lat}} \cdot \text{error} < 0$).
+  - Computes formal Steering, Throttle, and Grip Coherence Indexes ($\%$ coherent ticks).
+- **Adaptive Lookahead Sensor Geometry & Rescaled Corridor Perception:**
+  - Reshaped 5-ray LIDAR sweep to `{-75°, -20°, 0°, 20°, 75°}`.
+  - Wide lateral rays ($\pm 75^\circ$) normalized to $80.0\text{ px}$ prevent dynamic range collapse in narrow $35\text{ px}$ corridors.
+  - Narrow lookahead rays ($\pm 20^\circ$) normalized to $350.0\text{ px}$ detect approaching bends $>250\text{ px}$ in advance, enabling decisive corner anticipation.
+  - Front Time-to-Collision ($\Delta \text{TTC}$) sensor signal normalized to $[-1.0, 1.0]$.
+- **Physical Steering Slew Rate Limiter & Anti-Chatter Damping:**
+  - Implements realistic steering rack mechanical latency with a maximum slew rate limit of $0.20/\text{tick}$.
+  - Penalizes steering actuator chatter ($0.35 \cdot |\Delta \text{steer}|$ per tick), eliminating high-frequency bang-bang oscillation exploits.
+- **True Species-Allotted Breeding & Diversity Niches:**
+  - Fully connects `ComputeSpeciesAllotments` into `CrossoverAndMutate`, ensuring offspring allocation is proportionally distributed across active species niches.
+  - Eliminates the genetic sinkhole where straight-line speed records in early generations wiped out cornering and braking exploratory phenotypes.
+- **Chassis Operating Bounds & In-Bounds Neural Input Scaling:**
+  - Rescales longitudinal velocity to $v_{\text{long}} / 4.0\text{f}$ and lateral slip to $v_{\text{lat}} / 1.5\text{f}$ in the neural perception vector, balancing synaptic weight activations.
+- **Longitudinal Training CLI Options:**
+  - Added `--headless` mode for ultra-fast OpenMP multi-core training without Raylib window overhead.
+  - Added `--fresh` / `--new` flag to initialize clean generation 0 populations from scratch.
+  - Added `--generations <N>` limiter to execute deterministic bounded evolutionary training runs.
+
+---
+
 ## [v2.4.0] — 2026-10-29
 ### Advanced Telemetry Visualizer & Replay Engine
 
