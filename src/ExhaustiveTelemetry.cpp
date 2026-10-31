@@ -104,11 +104,11 @@ void ExhaustiveTelemetryRecorder::RecordTick(const Car& car,
 
     // Evaluate Behavioral Incoherences
     uint32_t flags = INCOH_NONE;
-    if (car.sensorDistances[1] < 25.0f && s.outSteer < -0.2f) {
+    if ((car.sensorDistances[0] < 25.0f || car.sensorDistances[1] < 25.0f) && s.outSteer < -0.2f) {
         flags |= INCOH_STEER_INTO_LEFT_WALL;
         summary.countSteerIntoWall++;
     }
-    if (car.sensorDistances[3] < 25.0f && s.outSteer > 0.2f) {
+    if ((car.sensorDistances[4] < 25.0f || car.sensorDistances[3] < 25.0f) && s.outSteer > 0.2f) {
         flags |= INCOH_STEER_INTO_RIGHT_WALL;
         summary.countSteerIntoWall++;
     }

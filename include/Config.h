@@ -41,12 +41,13 @@ namespace Config {
     constexpr int TRACKS_PER_GENERATION = 6; // Maximum procedural multi-circuit evaluation limit
     constexpr int CURRICULUM_PHASE_1_END = 40;  // Phase 1 Induction: single benchmark track
     constexpr int CURRICULUM_PHASE_2_END = 100; // Phase 2 Consolidation: 3 benchmark circuits
-    constexpr float SENSOR_ANGLES[5] = {-90.0f, -45.0f, 0.0f, 45.0f, 90.0f};
+    constexpr float SENSOR_ANGLES[5] = {-75.0f, -20.0f, 0.0f, 20.0f, 75.0f};
 
     constexpr float CAR_TURN_SPEED = 3.5f;
     constexpr float CAR_TURN_PENALTY = 0.08f;  // Induced steering deflection drag factor
     constexpr float ROLLING_RESISTANCE = 3.5f; // Constant Coulomb rolling resistance (N)
     constexpr float CAR_MAX_SENSOR_DIST = 350.0f;
+    constexpr float CAR_LATERAL_SENSOR_MAX = 80.0f;
     constexpr float CAR_FRONT_SENSOR_DIST = 450.0f;
     constexpr int CAR_STALL_TIME_THRESHOLD = 90;
     constexpr float CAR_STALL_SPEED_THRESHOLD = -0.3f;
