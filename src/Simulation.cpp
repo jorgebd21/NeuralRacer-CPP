@@ -354,8 +354,7 @@ void Simulation::UpdateTraining() {
                 std::sort(sortedPop.begin(), sortedPop.end(), [](const Car* a, const Car* b) { return a->fitness > b->fitness; });
                 std::cout << "Best fitness: " << sortedPop[0]->fitness << std::endl;
                 
-                int phase = (globalLapsCompleted < 3) ? 1 :
-                            (globalLapsCompleted < 12) ? 2 : 3;
+                int phase = GetCurriculumPhase(generationCount);
                 float totalTopFit = sortedPop[0]->fitness;
                 float procFit = (phase == 1) ? 0.0f : std::max(0.0f, totalTopFit - benchmarkTopFitness);
                 float eliteAvgSpeed = sortedPop[0]->GetAverageSpeed();
@@ -765,11 +764,12 @@ void Simulation::DrawTraining() {
     DrawRectangle(Config::SCREEN_WIDTH - UI_PANEL_WIDTH, 0, UI_PANEL_WIDTH, Config::SCREEN_HEIGHT, Fade(BLACK, 0.85f));
     DrawText(TextFormat("Generation: %d (Track %d/%d)", generationCount, currentEvaluationTrack + 1, (int)trainingTracks.size()), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 12, 17, WHITE);
     
-    int phase = (globalLapsCompleted < 3) ? 1 :
-                (globalLapsCompleted < 12) ? 2 : 3;
-    const char* phaseStr = (phase == 1) ? "PHASE 1: INDUCTION (MONZA BENCHMARK)" :
-                           (phase == 2) ? "PHASE 2: CONSOLIDATION (3 F1 CIRCUITS)" :
-                           "PHASE 3: PROCEDURAL GENERALIZATION";
+    int phase = GetCurriculumPhase(generationCount);
+    int trackVar = (generationCount / Config::PHASE_1_TRACK_CHANGE_GENS) % 3;
+    const char* phaseStr = (phase == 1) ? 
+                           ((trackVar == 0) ? "PHASE 1: INDUCTION (MONZA)" : (trackVar == 1 ? "PHASE 1: INDUCTION (SILVERSTONE)" : "PHASE 1: INDUCTION (INTERLAGOS)")) :
+                           ((phase == 2) ? "PHASE 2: CONSOLIDATION (3 F1 CIRCUITS)" :
+                           "PHASE 3: PROCEDURAL GENERALIZATION");
     Color phaseColor = (phase == 1) ? YELLOW : (phase == 2) ? SKYBLUE : GREEN;
     DrawText(phaseStr, Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 32, 11, phaseColor);
 
@@ -992,15 +992,30 @@ Simulation::TrainingTrack Simulation::GenerateProceduralTrainingTrack(int fixedA
     return tt;
 }
 
+int Simulation::GetCurriculumPhase(int gen) const {
+    if (gen < Config::CURRICULUM_PHASE_1_END) return 1;
+    if (gen < Config::CURRICULUM_PHASE_2_END) return 2;
+    return 3;
+}
+
 void Simulation::SetupCurriculumForGeneration(int gen) {
     trainingTracks.clear();
-    int phase = (globalLapsCompleted < 3) ? 1 :
-                (globalLapsCompleted < 12) ? 2 : 3;
+    int phase = GetCurriculumPhase(gen);
 
     if (phase == 1) {
-        // Phase 1 Induction: Monza benchmark (fast, open sweepers to master dynamics & cornering)
-        trainingTracks.push_back(baseTrackFacil);
-        std::cout << "[Curriculum Gen " << gen << "] Phase 1 (Induction): 1 Benchmark Track (Monza Cathedral)" << std::endl;
+        // Phase 1 Induction: single benchmark track rotating every PHASE_1_TRACK_CHANGE_GENS
+        // to prevent getting stuck if one layout is too difficult
+        int trackVariant = (gen / Config::PHASE_1_TRACK_CHANGE_GENS) % 3;
+        if (trackVariant == 0) {
+            trainingTracks.push_back(baseTrackFacil);
+            std::cout << "[Curriculum Gen " << gen << "] Phase 1 (Induction): Benchmark Track (Monza Cathedral)" << std::endl;
+        } else if (trackVariant == 1) {
+            trainingTracks.push_back(baseTrackMedio);
+            std::cout << "[Curriculum Gen " << gen << "] Phase 1 (Induction): Benchmark Track (Silverstone / Spa)" << std::endl;
+        } else {
+            trainingTracks.push_back(baseTrackDificil);
+            std::cout << "[Curriculum Gen " << gen << "] Phase 1 (Induction): Benchmark Track (Interlagos)" << std::endl;
+        }
     } else if (phase == 2) {
         // Phase 2 Consolidation: 3 fixed authentic F1 benchmark circuits (Monza, Silverstone, Interlagos)
         trainingTracks.push_back(baseTrackFacil);

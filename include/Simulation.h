@@ -68,6 +68,7 @@ private:
     void BuildSpatialGrid();
     void InitTrainingTracks();
     void SetupCurriculumForGeneration(int gen);
+    int GetCurriculumPhase(int gen) const;
     void SetTrainingTrack(int trackIndex);
 
     struct TrainingTrack {

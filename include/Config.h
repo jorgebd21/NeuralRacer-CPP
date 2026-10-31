@@ -39,8 +39,9 @@ namespace Config {
 
     constexpr int MAX_GENERATION_TIME = 2000;
     constexpr int TRACKS_PER_GENERATION = 6; // Maximum procedural multi-circuit evaluation limit
-    constexpr int CURRICULUM_PHASE_1_END = 40;  // Phase 1 Induction: single benchmark track
-    constexpr int CURRICULUM_PHASE_2_END = 100; // Phase 2 Consolidation: 3 benchmark circuits
+    constexpr int CURRICULUM_PHASE_1_END = 40;   // Phase 1 Induction: single benchmark track (Gens 0-39)
+    constexpr int CURRICULUM_PHASE_2_END = 100;  // Phase 2 Consolidation: 3 benchmark circuits (Gens 40-99)
+    constexpr int PHASE_1_TRACK_CHANGE_GENS = 10; // In Phase 1, rotate induction track every N generations
     constexpr float SENSOR_ANGLES[5] = {-75.0f, -20.0f, 0.0f, 20.0f, 75.0f};
 
     constexpr float CAR_TURN_SPEED = 3.5f;

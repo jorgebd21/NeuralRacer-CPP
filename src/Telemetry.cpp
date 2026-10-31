@@ -38,7 +38,8 @@ void Telemetry::Init() {
                 if (std::getline(ss, token, ',')) m.avgLifeTime = std::stof(token);
                 if (std::getline(ss, token, ',')) m.weightVariance = std::stof(token);
                 if (std::getline(ss, token, ',')) m.curriculumPhase = std::stoi(token);
-                else m.curriculumPhase = (m.generation < 15) ? 1 : (m.generation < 50) ? 2 : 3;
+                else m.curriculumPhase = (m.generation < Config::CURRICULUM_PHASE_1_END) ? 1 : 
+                                         (m.generation < Config::CURRICULUM_PHASE_2_END) ? 2 : 3;
                 if (std::getline(ss, token, ',')) m.benchmarkFitness = std::stof(token);
                 else m.benchmarkFitness = m.maxFitness;
                 if (std::getline(ss, token, ',')) m.proceduralFitness = std::stof(token);
