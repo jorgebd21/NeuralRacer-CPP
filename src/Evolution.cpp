@@ -304,30 +304,77 @@ static void CrossAndMutateOffspring(Car& child, const Car& parentA, const Car& p
 }
 
 /**
- * @brief Applies two-parent crossover and Gaussian mutation to all non-elite individuals.
+ * @brief Applies species-aware crossover and Gaussian mutation with niche preservation.
  *
- * Utilizes direct 100% elitist selection on the top NUM_BEST (10) performing genomes,
- * preserving top elites and breeding strictly from successful trajectories.
+ * Preserves top global elites, then breeds the remaining population according to
+ * fitness-sharing allotments calculated across active species.
  *
- * @param population The full population. Indices 0..NUM_BEST-1 are treated as elite
- *                   (read-only parents). Indices NUM_BEST..POPULATION_SIZE-1 are overwritten.
+ * @param population The full population. Indices 0..numElites-1 are preserved as elite.
+ * @param speciesList Active species list with computed fitness sharing sums.
  */
-static void CrossoverAndMutate(std::vector<Car>& population) {
+static void CrossoverAndMutate(std::vector<Car>& population, const std::vector<Species>& speciesList = {}) {
     thread_local static std::random_device rd;
     thread_local static std::mt19937 generator(rd());
-    std::uniform_int_distribution<int> distBest(0, Config::NUM_BEST - 1);
 
+    int totalPop = static_cast<int>(population.size());
+    if (totalPop <= 1) return;
+
+    int numElites = std::min(Config::NUM_BEST, totalPop);
     std::vector<Car> oldPopulation = population;
 
-    for (int n = Config::NUM_BEST; n < Config::POPULATION_SIZE && n < static_cast<int>(population.size()); ++n) {
-        int father = distBest(generator);
-        int mother;
-        do {
-            mother = distBest(generator);
-        } while (mother == father && Config::NUM_BEST > 1);
+    int slotsToFill = totalPop - numElites;
+    if (slotsToFill <= 0) return;
 
-        CrossAndMutateOffspring(population[n], oldPopulation[father], oldPopulation[mother]);
-        population[n].brain.useRecurrent = false; // Pure feedforward control for stable, non-oscillating trajectory
+    if (!speciesList.empty()) {
+        std::vector<int> allotments = ComputeSpeciesAllotments(speciesList, slotsToFill);
+        int nextChild = numElites;
+
+        for (size_t s = 0; s < speciesList.size() && nextChild < totalPop; ++s) {
+            int quota = allotments[s];
+            if (quota <= 0 || speciesList[s].memberIndices.empty()) continue;
+
+            // Sort species members by raw fitness descending
+            std::vector<int> members = speciesList[s].memberIndices;
+            std::sort(members.begin(), members.end(), [&](int a, int b) {
+                return oldPopulation[a].fitness > oldPopulation[b].fitness;
+            });
+
+            // Restrict breeding parents to top 50% of species members for intra-niche selection pressure
+            int poolSize = std::max(1, static_cast<int>(members.size()) / 2);
+            std::uniform_int_distribution<int> distParent(0, poolSize - 1);
+
+            for (int q = 0; q < quota && nextChild < totalPop; ++q) {
+                int fatherIdx = members[distParent(generator)];
+                int motherIdx = members[distParent(generator)];
+                if (poolSize > 1) {
+                    while (motherIdx == fatherIdx) {
+                        motherIdx = members[distParent(generator)];
+                    }
+                }
+                CrossAndMutateOffspring(population[nextChild], oldPopulation[fatherIdx], oldPopulation[motherIdx]);
+                nextChild++;
+            }
+        }
+
+        // Fill any remaining slots (rounding artifacts) from top global elites
+        std::uniform_int_distribution<int> distElite(0, std::max(0, numElites - 1));
+        while (nextChild < totalPop) {
+            int father = distElite(generator);
+            int mother = distElite(generator);
+            CrossAndMutateOffspring(population[nextChild], oldPopulation[father], oldPopulation[mother]);
+            nextChild++;
+        }
+    } else {
+        // Fallback (initialization before speciation): breed from top elites
+        std::uniform_int_distribution<int> distBest(0, numElites - 1);
+        for (int n = numElites; n < totalPop; ++n) {
+            int father = distBest(generator);
+            int mother;
+            do {
+                mother = distBest(generator);
+            } while (mother == father && numElites > 1);
+            CrossAndMutateOffspring(population[n], oldPopulation[father], oldPopulation[mother]);
+        }
     }
 }
 
@@ -422,8 +469,8 @@ bool LoadBestBrains(std::vector<Car>& population, int& generation, const std::st
                 population[n].brain.biases_output[i] = data["elite"][n]["biases_output"][i];
         }
 
-        // Enforce deterministic feedforward control for stability
-        population[n].brain.useRecurrent = false;
+        // Restore recurrent network topology if preserved in serialized genome
+        population[n].brain.useRecurrent = data["elite"][n].value("useRecurrent", false);
 
         if (data["elite"][n].contains("W_f")) {
             for (int i = 0; i < RECURRENT_NODES; ++i) {
@@ -512,8 +559,8 @@ void EvolvePopulation(std::vector<Car>& population, Vector2 startPosition, float
 
     SaveBestBrains(population, genCount);
 
-    // Breed the next generation using crossover and mutation on the elite pool.
-    CrossoverAndMutate(population);
+    // Breed the next generation using species-aware crossover and mutation.
+    CrossoverAndMutate(population, activeSpecies);
 
     for (auto& car : population) {
         car.Reset(startPosition.x, startPosition.y, startRotation);
