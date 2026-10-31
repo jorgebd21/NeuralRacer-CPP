@@ -18,12 +18,12 @@
 static volatile sig_atomic_t stopRequested = 0;
 static void signalHandler(int) { stopRequested = 1; }
 
-Simulation::Simulation(bool isHeadless) : 
+Simulation::Simulation(bool isHeadless, bool startInTraining) : 
     isHeadless(isHeadless),
     showCheckpoints(false),
     showTelemetry(false),
     showGhostVehicle(false),
-    currentState(MENU),
+    currentState(startInTraining ? TRAINING : MENU),
     currentMapIndex(0),
     startPosition{Config::SIM_START_POS_X, Config::SIM_START_POS_Y},
     startRotation(0.0f),
@@ -51,6 +51,7 @@ constexpr float PROCEDURAL_TRACK_WIDTH = 35.0f;
 void Simulation::Init() {
     if(!isHeadless){
         InitWindow(Config::SCREEN_WIDTH, Config::SCREEN_HEIGHT, "Genetic Simulator - Autonomous AI");
+        SetExitKey(KEY_NULL);
         SetTargetFPS(SIM_TARGET_FPS);
         worldCamera.offset = { (Config::SCREEN_WIDTH - 250.0f) * 0.5f, Config::SCREEN_HEIGHT * 0.5f };
         worldCamera.target = startPosition;
@@ -100,7 +101,12 @@ void Simulation::Init() {
     }
     Evolution::LoadBestBrains(population, generationCount);
     SetupCurriculumForGeneration(generationCount);
-    SetTrainingTrack(0);
+    if (currentState == TRAINING || isHeadless) {
+        SetTrainingTrack(0);
+    }
+    for (auto& car : population) {
+        car.Reset(startPosition.x, startPosition.y, startRotation);
+    }
     
     playerCar = Car(startPosition.x, startPosition.y, startRotation);
     aiCar = population.empty() ? Car(startPosition.x, startPosition.y, startRotation) : population[0];
@@ -1002,6 +1008,7 @@ void Simulation::SetTrainingTrack(int trackIndex) {
         trackDenseLine = trainingTracks[trackIndex].denseLine;
         startPosition = trainingTracks[trackIndex].startPos;
         startRotation = trainingTracks[trackIndex].startRot;
+        worldCamera.target = startPosition;
         BuildSpatialGrid();
         Telemetry::ResetHeatmap();
         Telemetry::ClearFastestLap();

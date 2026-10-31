@@ -16,25 +16,27 @@ int main(int argc, char* argv[]) {
     }
 
     bool isHeadless = false;
+    bool startTraining = false;
 
     if (argc > 1) {
         for(int i = 1; i < argc; i++) {
             string arg = argv[i];
             if(arg == "--headless"){
-                    isHeadless = true;
-                    break;
+                isHeadless = true;
+            }else if(arg == "--training" || arg == "--train"){
+                startTraining = true;
             }else if(arg == "--help"){
-                    cout << "Usage: ./app [--headless]" << endl;
-                    return 0;
+                cout << "Usage: ./app [--headless] [--training]" << endl;
+                return 0;
             }else{
-                    cout << "Unknown argument: " << argv[i] << endl;
-                    cout << "Usage: ./app [--help] to show arguments" << endl;
-                    return 1;
+                cout << "Unknown argument: " << argv[i] << endl;
+                cout << "Usage: ./app [--help] to show arguments" << endl;
+                return 1;
             }
         }
     }
 
-    Simulation sim(isHeadless); 
+    Simulation sim(isHeadless, startTraining); 
     sim.Run();
 
     return 0;

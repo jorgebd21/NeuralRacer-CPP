@@ -25,7 +25,7 @@ public:
     /**
      * @brief Constructor for the Simulation class.
      */
-    Simulation(bool isHeadless = false);
+    Simulation(bool isHeadless = false, bool startInTraining = false);
 
     /**
      * @brief Starts and maintains the main lifecycle of the simulation.

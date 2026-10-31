@@ -422,12 +422,8 @@ bool LoadBestBrains(std::vector<Car>& population, int& generation, const std::st
                 population[n].brain.biases_output[i] = data["elite"][n]["biases_output"][i];
         }
 
-        // Deserialize recurrent MGU matrices if present
-        if (data["elite"][n].contains("useRecurrent")) {
-            population[n].brain.useRecurrent = data["elite"][n]["useRecurrent"].get<bool>();
-        } else {
-            population[n].brain.useRecurrent = false;
-        }
+        // Enforce deterministic feedforward control for stability
+        population[n].brain.useRecurrent = false;
 
         if (data["elite"][n].contains("W_f")) {
             for (int i = 0; i < RECURRENT_NODES; ++i) {
