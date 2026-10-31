@@ -1,31 +1,118 @@
-# NeuralRacer-CPP
+<div align="center">
 
-A High-Performance 2D Autonomous Driving Simulation and Neuroevolution Engine in Modern C++17.
+<img src="docs/hero_banner.png" alt="NeuralRacer-CPP Hero Banner" width="100%" />
 
-[![Engine Version](https://img.shields.io/badge/Version-2.6.0-brightgreen.svg?style=flat-square)](https://github.com/jorgebd21/NeuralRacer-CPP/releases/tag/v2.6.0)
-[![C++ Version](https://img.shields.io/badge/C%2B%2B-17-blue.svg?style=flat-square&logo=c%2B%2B)](https://en.cppreference.com/w/cpp/17)
-[![SIMD Acceleration](https://img.shields.io/badge/SIMD-AVX2%20%2F%20FMA-purple.svg?style=flat-square)](https://en.wikipedia.org/wiki/Advanced_Vector_Extensions)
-[![Graphics Library](https://img.shields.io/badge/Graphics-Raylib-red.svg?style=flat-square)](https://www.raylib.com/)
-[![Build System](https://img.shields.io/badge/Build-CMake-orange.svg?style=flat-square&logo=cmake)](https://cmake.org/)
-[![Concurrency](https://img.shields.io/badge/Concurrency-OpenMP%20%2F%20Intel%20TBB-yellow.svg?style=flat-square)](https://www.openmp.org/)
-[![License](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](LICENSE)
-[![Contributions](https://img.shields.io/badge/Contributions-Welcome-blue.svg?style=flat-square)](CONTRIBUTING.md)
+# 🏎️ NeuralRacer-CPP
+
+**A High-Performance 2D Autonomous Driving Simulation & Neuroevolution Engine in Modern C++17**
+
+*Zero-Allocation Hot Path • AVX2 / FMA Vectorization • Recurrent MGU Neurons • Lumped Tire Thermals • Formula 1 Dynamics*
+
+<p align="center">
+  <a href="https://github.com/jorgebd21/NeuralRacer-CPP/releases/tag/v2.6.0"><img src="https://img.shields.io/badge/Version-2.6.0-2ea44f.svg?style=for-the-badge&logo=github" alt="Engine Version" /></a>
+  <a href="https://en.cppreference.com/w/cpp/17"><img src="https://img.shields.io/badge/C%2B%2B-17-00599C.svg?style=for-the-badge&logo=c%2B%2B&logoColor=white" alt="C++ Standard" /></a>
+  <a href="https://en.wikipedia.org/wiki/Advanced_Vector_Extensions"><img src="https://img.shields.io/badge/SIMD-AVX2%20%2F%20FMA-6f42c1.svg?style=for-the-badge" alt="SIMD Acceleration" /></a>
+  <a href="https://www.openmp.org/"><img src="https://img.shields.io/badge/Concurrency-OpenMP%20%2F%20TBB-d29922.svg?style=for-the-badge&logo=intel" alt="Concurrency" /></a>
+  <a href="https://www.raylib.com/"><img src="https://img.shields.io/badge/Render-Raylib-e36209.svg?style=for-the-badge" alt="Raylib" /></a>
+  <a href="#-build-installation--cli-reference"><img src="https://img.shields.io/badge/CTest-13%2F13%20Passing-3fb950.svg?style=for-the-badge&logo=cmake" alt="CTest Passing" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge" alt="MIT License" /></a>
+  <a href="CONTRIBUTING.md"><img src="https://img.shields.io/badge/Contributions-Welcome-brightgreen.svg?style=for-the-badge" alt="Contributions Welcome" /></a>
+</p>
+
+<p align="center">
+  <a href="#-quick-start-in-60-seconds">⚡ Quick Start</a> •
+  <a href="#-table-of-contents">📑 Table of Contents</a> •
+  <a href="#-core-pillars--technical-highlights">🔬 Deep Tech</a> •
+  <a href="#-operational-simulation-modes">🎮 Modes & Replay</a> •
+  <a href="#-system-architecture--execution-lifecycle">🏗️ Architecture</a> •
+  <a href="#-keyboard-controls--runtime-hud-interactions">💻 Controls</a>
+</p>
 
 ---
 
-## Autonomous Training in Action
+</div>
+
+## ⚡ Quick Start (in 60 Seconds)
+
+Get **NeuralRacer-CPP** compiled and running locally on Ubuntu / Debian with four simple commands:
+
+```bash
+# 1. Install dependencies
+sudo apt update && sudo apt install -y build-essential cmake libraylib-dev libomp-dev libtbb-dev
+
+# 2. Clone the repository
+git clone https://github.com/jorgebd21/NeuralRacer-CPP.git && cd NeuralRacer-CPP
+
+# 3. Build with CMake (-j2 recommended to prevent RAM starvation)
+mkdir -p build && cd build && cmake .. && cmake --build . -j2
+
+# 4. Launch interactive simulation (Raylib hardware-accelerated 2D UI)
+./bin/app
+```
+
+### Simulated Startup Output:
+```text
+[NeuralRacer Engine] Initializing Modern C++17 Core...
+[CPU Hardware] AVX2/FMA vector registers detected and engaged.
+[Concurrency] OpenMP initialized across 12 logical worker threads.
+[TrackManager] Synthesizing SE(2) Grand Prix Circuit (Silverstone Archetype)...
+[SpatialGrid] 2400x1600 canvas partitioned into 100px cells. Segment pool arena: 0 heap allocations.
+[Population] 100 autonomous agents instantiated. MGU recurrent memory online.
+[Display] Raylib 2D hardware-accelerated viewport opened at 1280x800 @ 60 FPS.
+>> Press [ T ] to train | [ E ] for human vs AI race | [ R ] for telemetry replay <<
+```
+
+---
+
+## 📑 Table of Contents
+
+- [⚡ Quick Start (in 60 Seconds)](#-quick-start-in-60-seconds)
+- [✨ Autonomous Training in Action](#-autonomous-training-in-action)
+- [🔬 Core Pillars & Technical Highlights](#-core-pillars--technical-highlights)
+- [🎮 Operational Simulation Modes](#-operational-simulation-modes)
+- [🏗️ System Architecture & Execution Lifecycle](#-system-architecture--execution-lifecycle)
+- [⚡ Real-Time Zero-Allocation Hot Path](#-real-time-zero-allocation-hot-path)
+- [🏎️ Deep Dive: Formula 1 Powertrain & Kinematics](#-deep-dive-formula-1-powertrain--kinematics)
+- [🏁 Discrete SE(2) Procedural Track Generator](#-discrete-se2-procedural-track-generator)
+- [📊 Longitudinal & High-Frequency Telemetry Suite](#-longitudinal--high-frequency-telemetry-suite)
+- [💻 Keyboard Controls & Runtime HUD Interactions](#-keyboard-controls--runtime-hud-interactions)
+- [🛠️ Build, Installation & CLI Reference](#-build-installation--cli-reference)
+- [📐 Mathematical Formulations Reference](#-mathematical-formulations-reference)
+- [📦 Directory Structure](#-directory-structure)
+- [📜 Versioning & Releases](#-versioning--releases)
+- [🤝 Contributing & Community](#-contributing--community)
+- [⚖️ License](#-license)
+
+---
+
+## ✨ Autonomous Training in Action
+
+<div align="center">
 
 ![NeuralRacer Continuous Evolutionary Training Loop](docs/Training.gif)
 
 *Autonomous agents learning to navigate procedural racetracks using raw proximity raycasts and velocity vectors. The telemetry dashboard on the bottom left monitors fitness curves, while the neural topology map on the bottom right visualizes active synaptic weights in real time.*
 
+</div>
+
 ---
 
-## Technical Highlights
+## 🔬 Core Pillars & Technical Highlights
 
-NeuralRacer-CPP is a high-performance simulation engine designed to explore autonomous driving behaviors through neuroevolutionary algorithms. The core objective of the project is to simulate realistic physical vehicle dynamics and train autonomous agents to navigate complex, procedurally generated race tracks. 
+NeuralRacer-CPP is a high-performance simulation engine designed to explore autonomous driving behaviors through neuroevolutionary algorithms. The core objective of the project is to simulate realistic physical vehicle dynamics and train autonomous agents to navigate complex, procedurally generated race tracks.
 
 To achieve maximum computational efficiency and real-time responsiveness, the entire system is built **completely from scratch** in Modern C++17 without relying on high-level machine learning frameworks or pre-existing physics engines.
+
+### Architectural Value Matrix:
+
+| Capability | Naive 2D Simulators | NeuralRacer-CPP Engine | Engineering Benefit |
+| :--- | :--- | :--- | :--- |
+| **Hot Path Memory** | Dynamic `std::vector::push_back` | **`FixedRingBuffer` & 1D Arena** | **0 heap allocations** per frame; zero garbage collection pauses. |
+| **Forward Inference** | Nested `for` loops in scalar math | **AVX2 / FMA + Padé [3/3] $\tanh$** | 8-wide float SIMD vectorization; sub-microsecond latency. |
+| **Chassis Dynamics** | Simplified Arcade Point-Mass | **Kamm Friction Ellipse & Thermals** | Realistic tire grip limits, weight transfer, and scrub drag. |
+| **Circuit Topology** | Static Hardcoded Paths | **$SE(2)$ Tile Coupling & Macro-Graphs** | 6 Grand Prix archetypes with infinite zero-shot procedural variety. |
+| **Perception Memory** | Stateless Feedforward FNN | **8-Cell Minimal Gated Unit (MGU)** | Agents anticipate turn sequences with recurrent temporal memory. |
+| **Analytical Insights** | Opaque scalar fitness score | **MoTeC-Grade 60Hz XAI Telemetry** | Exact input Jacobians ($\partial\text{Steer}/\partial\text{Lidar}$) and heatmaps. |
 
 *   **Zero-Allocation HPC Pipeline & 1D Flat Spatial Grid:** Eliminates runtime dynamic heap allocations (`0 malloc/new` calls in hot path) using preallocated contiguous `FixedRingBuffer` per vehicle and a cache-friendly 1D row-major `FlatSpatialGrid` backed by a centralized segment pool arena.
 *   **SIMD AVX2 / FMA Acceleration:** Fully vectorizes neural network matrix-vector operations ($\mathbf{W}\mathbf{x} + \mathbf{b}$) and employs a high-precision [3/3] rational Padé polynomial approximation of $\tanh(x)$ for ultra-low latency forward inference.
@@ -39,259 +126,410 @@ To achieve maximum computational efficiency and real-time responsiveness, the en
 
 ---
 
-## Operational Simulation Modes
+## 🎮 Operational Simulation Modes
 
-The engine provides three distinct simulation configurations to analyze agent behaviors and allow interactive testing:
+The engine provides four distinct simulation configurations to analyze agent behaviors, compete head-to-head, and interactively scrub telemetry:
 
 | **1. Training Mode** | **2. Exhibition Mode** | **3. Test AI Mode** | **4. Replay Mode** |
 | :---: | :---: | :---: | :---: |
-| ![Training Mode](docs/Training.png) | ![Exhibition Mode](docs/Exhibition.png) | ![Test AI Mode](docs/TestAI.png) | `[ R ] Key` |
+| [![Training Mode](docs/Training.png)](docs/Training.png) | [![Exhibition Mode](docs/Exhibition.png)](docs/Exhibition.png) | [![Test AI Mode](docs/TestAI.png)](docs/TestAI.png) | `[ R ] Key` |
 | *Neural network undergoing continuous training with live dashboard metrics and weight visualizations.* | *Manual player driving (blue car) competing head-to-head against the elite neural network brain (red car).* | *Observing the standalone driving strategy of the saved elite network navigate challenging curves.* | *Interactive 60Hz telemetry scrubber with ghost car projection, speed heatmaps, and cockpit Jacobians.* |
 
 ---
 
-## System Architecture
+## 🏗️ System Architecture & Execution Lifecycle
 
 The following diagram illustrates the execution lifecycle, data pipelines, and concurrency models utilized by the simulator:
 
 ```mermaid
 flowchart TD
-    subgraph Initialization ["Initialization"]
-        A["Pure Procedural Generator: 6 Dynamic F1 Circuits"] --> B["Generate Spatial Hashing Grid"]
-        B --> C["Initialize Population (100 Agents)"]
+    subgraph Initialization ["1. Initialization & World Setup"]
+        A["SE(2) Procedural Synthesis: 6 Dynamic F1 Circuits"] --> B["Generate 1D FlatSpatialGrid (Segment Pool Arena)"]
+        B --> C["Initialize Population (100 Autonomous Agents)"]
     end
 
-    subgraph ParallelLoop ["Multi-threaded Physics & Inference (OpenMP)"]
-        C --> D["Compute Sensor Raycasts & Delay Buffer"]
-        D --> E["Evaluate Neural Network (9-10-2 Topology)"]
-        E --> F["Apply Vehicle Dynamics (Drift, Inertia & Load Transfer)"]
-        F --> G{"Collision or Timeout Detected?"}
-        G -- Yes --> H["Register Single Impact & Update Telemetry"]
-        G -- No --> I["Accumulate Continuous Fitness & Cross Checkpoints"]
+    subgraph ParallelLoop ["2. Multi-threaded Simulation Hot Loop (OpenMP Parallel)"]
+        C --> D["Compute 5-Ray Lookahead LIDAR & TTC Delays"]
+        D --> E["Forward Neural Pass: AVX2 SIMD + 8-Cell MGU Memory"]
+        E --> F["Solve Dynamic Kinematics: Load Transfer & Kamm Friction"]
+        F --> G{"Collision or Sector Timeout Detected?"}
+        G -- Yes --> H["Record Terminal Impact & Freeze Agent"]
+        G -- No --> I["Accumulate Dynamic Checkpoint Fitness & Lap Pacing"]
     end
 
-    subgraph EvolutionaryPipeline ["Generational Evaluation (Multi-Track Curriculum)"]
-        H --> J["Sort Population by Accumulated Fitness"]
+    subgraph EvolutionaryPipeline ["3. Evolutionary Reproduction (Species-Allotted)"]
+        H --> J["Rank Agents by Accumulated Multi-Track Fitness"]
         I --> J
         J --> K["Elitism: Preserve Top 10% Intact"]
-        J --> L["Two-Parent Crossover & Gaussian Mutation"]
-        K --> M["Reset Agents to Starting Grid"]
+        J --> L["Species-Allotted Two-Parent Crossover & Mutation"]
+        K --> M["Reset Population to Starting Grid"]
         L --> M
         M --> C
     end
 
-    subgraph AsyncSubsystems ["Asynchronous Subsystems"]
-        F --> N["Render Weight Visualization & Telemetry HUD"]
+    subgraph AsyncSubsystems ["4. Asynchronous Diagnostics & Logging"]
+        F --> N["Render Real-Time Weight Visualizer & HUD Dashboard"]
         H --> O["Update Spatial Collision Heatmap"]
-        J --> P["Non-blocking Disk Export (std::future)"]
+        J --> P["Non-blocking Disk Checkpoint (std::async / std::future)"]
     end
 ```
 
 ---
 
-## Core Technical Features & Code Highlights
+## ⚡ Real-Time Zero-Allocation Hot Path
 
-### 1. High-Concurrency Physics and Inference Loop
-To simulate 100 agents concurrently under tight real-time constraints, the engine leverages multi-core processing through **OpenMP** dynamic work distribution. Inferences and kinematics are updated in parallel using a thread-safe implementation, with crash event telemetry isolated to single-trigger occurrences:
+To guarantee rock-solid 60 FPS pacing without garbage collection latency, every frame's calculations stream through a deterministic, zero-allocation dataflow pipeline:
 
-```cpp
-// From src/Simulation.cpp
-// Fully parallelized evaluation of the active population across all CPU threads
-#pragma omp parallel for schedule(static)
-for (int i = 0; i < (int)population.size(); i++) {
-    Car& car = population[i];
-    if (!car.isCrashed) {
-        carsAlive++;
-        
-        // 1. Evaluate the custom neural network with 9-dimensional state space
-        float inputAccelerate = 0.0f, inputTurn = 0.0f;
-        car.Think(inputAccelerate, inputTurn);
-        
-        // 2. Perform narrow-phase physics and collision routines
-        car.UpdatePhysics(inputAccelerate, inputTurn, spatialGrid, generationTimer, trackCheckpoints);
-    }
-}
+```mermaid
+flowchart LR
+    subgraph Sensors ["1. Perception Horizon"]
+        S1["Lookahead LIDAR<br/>(±75°, ±20°, 0°)"]
+        S2["Dynamic TTC<br/>Closing Delta"]
+        S3["Competitor OBB<br/>Spatial Queries"]
+    end
 
-// Single-trigger telemetry logging on the exact frame of impact
-for (auto& car : population) {
-    if (car.justCrashed) {
-        Telemetry::RecordCrash(car.position);
-        car.justCrashed = false;
-    }
-}
+    subgraph NeuralCore ["2. SIMD & Recurrent Core"]
+        N1["AVX2 Matrix Kernel<br/>(W·x + b)"]
+        N2["Padé [3/3] Rational<br/>(Ultra-Fast tanh)"]
+        N3["8-Cell MGU Memory<br/>(Temporal Retention)"]
+    end
+
+    subgraph ChassisPhysics ["3. Formula 1 Dynamics"]
+        P1["F1 Powertrain<br/>(68N Thrust / 210N Brake)"]
+        P2["Kamm Adhesion<br/>(Friction Ellipse)"]
+        P3["Tire Thermals<br/>(85°C–100°C Window)"]
+    end
+
+    subgraph CollisionEngine ["4. Zero-Alloc Narrow Phase"]
+        C1["1D FlatSpatialGrid<br/>(Segment Pool Arena)"]
+        C2["FixedRingBuffer<br/>(0 Malloc Telemetry)"]
+    end
+
+    Sensors --> NeuralCore
+    NeuralCore --> ChassisPhysics
+    ChassisPhysics --> CollisionEngine
 ```
 
-### 2. Spatial Grid Partitioning (Collision Optimization)
-Instead of executing naive $O(N)$ collision tests against all boundary segments, the track is divided into a static $100\times100\text{px}$ spatial hashing grid. Narrow-phase OBB vehicle checks are restricted to an immediate $3\times3$ cell neighborhood, and sensor raycasts query only the specific axis-aligned grid bounding boxes of each ray:
+---
 
-```cpp
-// From src/Car.cpp
-// 1. Immediate 3x3 OBB Narrow-Phase Check
-int myCellX = (int)std::floor(position.x / TrackManager::GRID_CELL_SIZE);
-int myCellY = (int)std::floor(position.y / TrackManager::GRID_CELL_SIZE);
+## 🏎️ Deep Dive: Formula 1 Powertrain & Kinematics
 
-for (int gx = myCellX - 1; gx <= myCellX + 1 && !isCrashed; gx++) {
-    for (int gy = myCellY - 1; gy <= myCellY + 1 && !isCrashed; gy++) {
-        uint64_t key = TrackManager::GetGridKey(gx, gy);
-        auto it = spatialGrid.find(key);
-        if (it != spatialGrid.end()) {
-            for (const auto& wallLine : it->second) {
-                if (CheckSegmentIntersection(carCorners, wallLine)) {
-                    isCrashed = true;
-                    justCrashed = true;
-                    break;
-                }
-            }
-        }
-    }
-}
-
-// 2. Localized Raycasting along the ray's bounding box
-for (int i = 0; i < 5; i++) {
-    int rMinX = (int)std::floor(std::min(position.x, rayEnd[i].x) / TrackManager::GRID_CELL_SIZE);
-    int rMaxX = (int)std::floor(std::max(position.x, rayEnd[i].x) / TrackManager::GRID_CELL_SIZE);
-    int rMinY = (int)std::floor(std::min(position.y, rayEnd[i].y) / TrackManager::GRID_CELL_SIZE);
-    int rMaxY = (int)std::floor(std::max(position.y, rayEnd[i].y) / TrackManager::GRID_CELL_SIZE);
-    // Scan only bounding grid cells
-}
-```
-
-### 3. Custom Neural Network & Dynamic Neuroevolution
-The behavioral engine models decision-making processes from first principles:
-*   **9-10-2 FNN Topology:** Integrates 5 directional proximity inputs, 1 Time-to-Collision front delta (from an 8-tick circular delay line), longitudinal velocity, lateral slip velocity, and angular yaw rate. Processed through a 10-node hidden layer with hyperbolic tangent ($\tanh$) activation to yield symmetrical continuous controls.
-*   **Two-Stage Decremental Mutation Schedule with Horizon Milestones:** Implements an adaptive genetic algorithm controlling both gene mutation probability and Gaussian perturbation step size across a calibrated multi-horizon schedule:
-    *   *Stage 1 (Generations 0–200, Macro-Exploration & Procedural Plasticity):* Decays smoothly from $50\%$ down to $25\%$ (`Config::STAGE1_MUTATION_MIN = 25`), with $\sigma$ transitioning from $0.12$ to $0.08$. This guarantees ample synaptic plasticity during Curriculum Induction, Consolidation, and early Procedural generalization, touching exactly $25\%$ at generation 200 to prevent procedural paralysis.
-    *   *Stage 2 (Generations 200–400, Fine Exploitation & Load Reduction):* Decays gently from $25\%$ down to an ultra-fine floor of $3\%$ (`Config::STAGE2_MUTATION_MIN = 3`), with $\sigma$ transitioning from $0.08$ to $0.035$. This progressively eliminates deleterious mutation load on competent reflex controllers (raising fleet survival rate beyond $90\%$) while maintaining subtle micro-tuning capabilities.
-    *   *Stage 3 (Generations 400+, Sustained Micro-Exploitation Floor):* Parameters remain fixed indefinitely at $3\%$ rate and $\sigma = 0.035$.
-
-$$
-\text{Stage 1 } (g \lt 200):\quad \text{decay}_1(g) = \max\left(0, \frac{\frac{1.0}{1.0 + k_1 \cdot g} - \frac{1.0}{1.0 + k_1 \cdot 200}}{1.0 - \frac{1.0}{1.0 + k_1 \cdot 200}}\right),\quad \text{Rate} = 25 + \text{round}(25 \cdot \text{decay}_1)
-$$
-
-$$
-\text{Stage 2 } (200 \le g \lt 400):\quad \text{decay}_2(g) = \max\left(0, \frac{\frac{1.0}{1.0 + k_2 \cdot (g - 200)}}{1.0 - \frac{1.0}{1.0 + k_2 \cdot 200}}\right),\quad \text{Rate} = 3 + \text{round}(22 \cdot \text{decay}_2)
-$$
-*   **Generation-Driven Multi-Phase Curriculum Learning & Archetype Rotation:** Decouples curriculum pacing from fragile heuristic thresholds, driving progression strictly by generation counts across 6 canonical Formula 1 Grand Prix archetypes:
-    *   *Phase 1: Sensory-Motor Induction ($0 \le g < 40$):* Population trains on a single benchmark track with a deterministic 10-generation circuit rotation across Grand Prix archetypes (Silverstone $\to$ Interlagos $\to$ Suzuka $\to$ Montreal). This establishes core reflex primitives (corridor centering, high-speed straight tracking, and heavy threshold braking) without catastrophic procedural shock.
-    *   *Phase 2: Multi-Archetype Generalization ($40 \le g < 100$):* Population is simultaneously evaluated across 3 diverse benchmark circuits per generation, forcing the neural controllers to generalize across high-speed chicanes, technical esses, and heavy-braking hairpins.
-    *   *Phase 3: Stochastic Procedural Synthesis ($g \ge 100$):* Population confronts 6 dynamically synthesized procedural tracks per generation via $SE(2)$ modular tile coupling, guaranteeing zero memorization and absolute zero-shot generalization.
-    *   *Systematic Topological Coverage:* Circuits systematically sample the core F1 macro-skeletons (Monza high-speed corridor, Silverstone tri-sector flow, Interlagos amphitheater horseshoe, Suzuka rhythm S-curves, Montreal power straights, and Baku 90-degree threshold braking).
-    *   *Optimal Computation-Generalization Pareto Frontier:* Delivers high variance reduction and zero-shot transfer capabilities without the exponential computational cost of 64–128 tracks, completing a full multi-track generational evaluation in $\sim 1\text{ second}$ in headless OpenMP mode.
-
-### 4. Mathematical Formula 1 Grand Prix Procedural Architecture
-Includes an enterprise-grade procedural generation framework producing authentic, flowing race circuits based on real-world Grand Prix layout archetypes:
-*   **Six Grand Prix Archetypes:** Dynamically synthesizes circuits using 6 core morphological paradigms:
-    *   *Archetype 0 (Out-and-Back Corridor):* Parallel DRS straights with dual terminal hairpins and chicane complexes (inspired by Monza, Gilles-Villeneuve, and Red Bull Ring).
-    *   *Archetype 1 (Infield Loop Complex):* High-speed outer perimeter connected to a deep, technical internal hairpin loop (inspired by Bahrain/Sakhir, Shanghai, and Silverstone).
-    *   *Archetype 2 (Triangular & Diagonal):* Massive diagonal acceleration run, peak chicane, descending sweeping esses, and return chicane (inspired by Spa-Francorchamps, Paul Ricard, and Jeddah).
-    *   *Archetype 3 (Asymmetric L-Shape):* Orthogonal dual straights, technical mid-sector esses, and descending carousel (inspired by Suzuka, Catalunya, and Zandvoort).
-    *   *Archetype 4 (Dual-Lobe Horseshoe & Omega Waist):* Upper and lower bowl complexes connected through a technical narrowing waist and climbing sweepers (inspired by Interlagos, Hungaroring, and Lusail).
-    *   *Archetype 5 (Urban Street Grid):* High-speed urban boulevard leading to sharp 90-degree threshold-braking complexes, harbor chicanes, and stadium sections (inspired by Singapore Marina Bay, Baku, and Albert Park).
-*   **FIA Proportional Scale Overhaul:** Re-calibrated track width to $35\text{ px}$ and vehicle dimensions to $17 \times 8\text{ px}$ (preserving the realistic $23\%$ car-to-track width ratio). This scale unlocks $3\times$ greater relative spatial canvas, enabling multi-lane overtakes, deep infield loops, and authentic racing lines without artificial boundary collisions.
-*   **Curvature & Viewport Bounds:** Generates smooth Catmull-Rom centerlines with guaranteed non-intersecting geometries, counter-clockwise winding (Gauss Shoelace validation), and strict $80\text{ px}$ viewport margins with sub-millisecond generation speed ($<0.5\text{ ms}$).
-
-### 5. Advanced Kinematics & Race Physics
 The vehicle kinematics engine bypasses simplified movement models in favor of real-world Formula 1 race physics:
-*   **Formula 1 Powertrain & High-Deceleration Envelope:** Implements authentic Grand Prix propulsion and braking dynamics:
-    *   *Engine Propulsion ($F_{\text{drive}} = 68.0\text{ N}$):* Delivers $+70\%$ higher longitudinal thrust ($a_{\text{launch}} \approx 3.24\text{ m/s}^2$ / $0.56\text{ px/t}^2$), pushing terminal straightaway velocity to $v_{\max} = \sqrt{F_{\text{drive}} / K_{\text{drag}}} \approx 12.43\text{ px/t}$ ($\approx 257\text{ km/h}$), reaching $\approx 15.6\text{ px/t}$ ($\approx 322\text{ km/h}$) inside aerodynamic drafting wakes.
-    *   *Carbon-Ceramic Braking Authority ($F_{\text{brake}} = 210.0\text{ N}$):* Establishes a $3.1:1$ brake-to-engine ratio, generating up to $-10.0\text{ m/s}^2$ ($-1.75\text{ px/t}^2$) of high-G kinetic dissipation for realistic threshold braking into tight hairpins.
-    *   *High-Downforce Aerodynamics ($K_{\text{drag}} = 0.44$):* Quadratic aerodynamic resistance provides realistic high-speed coasting deceleration and aerodynamic stabilization.
-    *   *High-G Cornering Envelope ($\mu_{\text{tire}} = 0.62$):* Delivers $+12.7\%$ greater lateral grip capacity ($a_{y,\max} \approx 6.08\text{ m/s}^2$), allowing apex cornering speeds above $4.0\text{ px/t}$.
-    *   *Long-Range Forward Sensor ($d_{\text{front}} = 500.0\text{ px}$):* Extends forward sightline to detect braking markers and apexes over $70\text{ meters}$ ahead at high velocity.
+
+| Parameter | Value | Engineering Function | Physical Consequence |
+| :--- | :---: | :--- | :--- |
+| **`ENGINE_POWER`** | `68.0 N` | Forward longitudinal propulsion ($a_{\text{launch}} \approx 3.24\text{ m/s}^2$) | Accelerates from 0 to 100 km/h in $< 2.1\text{ s}$; top speed $\approx 257\text{ km/h}$. |
+| **`BRAKING_POWER`** | `210.0 N` | High-G carbon-ceramic dissipation ($-10.0\text{ m/s}^2$) | Establishes a 3.1:1 brake-to-engine ratio for authentic threshold braking into hairpins. |
+| **`DRAG_MULTIPLIER`** | `0.44` | Quadratic air resistance ($F_{\text{drag}} = -C_d v |v|$) | Enforces aerodynamic stabilization and realistic coasting deceleration at high speeds. |
+| **`TIRE_GRIP_LIMIT`** | `0.62` | Lateral adhesion coefficient ($a_{y,\max} \approx 6.08\text{ m/s}^2$) | Unlocks high apex cornering speeds above $4.0\text{ px/t}$ without understeer slide. |
+| **`FRONT_SENSOR_DIST`** | `500.0 px` | Long-range forward sightline ($> 70\text{ meters}$) | Enables decisive high-speed corner anticipation and brake point timing. |
+
 *   **Speed-Dependent Ackermann Steering & Angular Yaw Inertia:** Yaw rate is kinematically scaled to forward speed with low-pass angular inertia filtering ($\omega_t = 0.65\,\omega_{t-1} + 0.35\,\omega_{\text{target}}$). This physically grounds steering response, prevents zero-speed spinning, and completely eliminates unphysical 1-tick bang-bang steering oscillation exploits.
 *   **Friction Circle & Kamm Traction Budgeting:** Evaluates restoring cornering grip against a physical adhesion limit ($F_{\text{max\_grip}} = \mu_{\text{tire}} \cdot M$) and couples lateral grip demand to longitudinal engine traction ($F_{x,\max} = \sqrt{\max(0, F_{\text{grip}}^2 - F_y^2)}$). Applying high lateral cornering demand restricts available forward acceleration.
 *   **Realistic Induced Scrub Drag & Coulomb Rolling Resistance:** Implements constant rolling friction ($F_{\text{roll}} = -\mu_{\text{roll}} \cdot \text{sgn}(v)$) and amplified lateral scrub resistance ($K_{\text{scrub}} = 55.0$) plus steering deflection drag ($K_{\text{steer}} = 0.08$). Any lateral weaving or zig-zagging on straightaways incurs an immediate $\approx 28\%$ speed penalty, making straight-line driving strictly optimal.
 *   **Dynamic Weight Transfer:** Acceleration shifts normal forces rearward, reducing steering capacity (understeer); braking transfers load forward, sharpening steering response.
-*   **Aerodynamics:** Applies quadratic drag force and speed-scaled downforce to stabilize tire cornering capabilities.
-
-### 6. Directional Checkpoints & Anti-Exploit Pipeline
-To eradicate circular reward-hacking and endless idling loops:
-*   **Dense Sequential Checkpoint Mesh:** Generates 16 to 32 evenly spaced checkpoints (~100-150 px apart) along the track centerline, eliminating long blind zones.
-*   **Directional Vector Validation:** Verifies that both the vehicle's heading and velocity vector align positively with the track's tangent ($\vec{v} \cdot \vec{\tau}_{\text{track}} > 0$ and $\vec{h} \cdot \vec{\tau}_{\text{track}} > 0.2$), strictly rejecting backwards passes, spin-outs, or donut maneuvers.
-*   **Strict Sector Timeout:** Calibrates the maximum allowed time between consecutive checkpoints (`Config::CAR_MAX_TIME_WITHOUT_CHECKPOINT = 180` ticks / ~3.0s at 60 FPS) to account for genuine F1 Grand Prix track dimensions and ~140 px checkpoint spacing, eliminating false-positive timeout culling while strictly extinguishing idle drifting, backwards driving, and donut-spinning exploitation.
-*   **Continuous Multi-Lap Evaluation & High-Speed Fitness Incentives:** Agents run continuous sequential laps across the circuit for the full generational duration (`Config::MAX_GENERATION_TIME = 2000` ticks). To reward racing line optimization, aggressive cruising momentum, and fastest lap execution rather than meandering raw distance accumulation:
-    *   *Base Milestone:* Grants $+1500$ points upon completing each lap.
-    *   *Cruising Velocity Bonus:* Direct velocity reward scaled to $+1.5 \times \text{speed}$ per tick, actively rewarding full-throttle high-speed cruising and punishing over-braking.
-    *   *Normalized Time-to-Complete Delta:* Dynamically benchmarks lap duration against track complexity ($T_{\text{budget}} = N_{\text{cp}} \times 32\text{ ticks}$), awarding $+8.0$ points per tick saved ($\Delta T = \max(0, T_{\text{budget}} - T_{\text{lap}})$).
-    *   *Purple Sector Personal Best:* Awards an extra $+500$ milestone bonus whenever an agent sets or breaks its personal best lap time.
-    *   *Balanced Distance Scaling:* Distance traveled coefficient modulated to $0.5$ to eliminate lateral wandering incentives while preserving smooth early learning gradients.
-
-### 7. Longitudinal Telemetry & Scientific Dataset Pipeline (F1 / MoTeC Grade)
-To support empirical machine learning research and automotive control analysis, the telemetry subsystem implements a dual-tier telemetry pipeline:
-
-#### A. Generational Convergence Dataset (`data/telemetry_log.csv`)
-Records a comprehensive 20-parameter dataset across generations:
-*   **Macro Convergence Metrics:** `Generation`, `MaxFitness`, `MinFitness`, `AvgFitness`.
-*   **Viability & Diversity Metrics:** `SurvivalRate`, `AvgLifeTime`, `WeightVariance` (synaptic diversity metric), `ActiveMutationRate`.
-*   **Curriculum & Generalization Analytics:** `CurriculumPhase` (1, 2, or 3), `BenchmarkFitness` (fixed control track score), `ProceduralFitness` (zero-shot transfer performance on procedural circuits).
-*   **Kinematic & Lap Quality:** `TotalLapsCompleted`, `TopSpeedAvg` (cruising speed in px/tick), `SteeringSmoothness` (control stability factor $[0.0 - 1.0]$), `BestLapTime` (fastest recorded lap in seconds).
-*   **Advanced Vehicle Dynamics & XAI:** `KammUtilAvg` (friction circle utilization ratio $\eta \in [0.0 - 1.0+]$), `SlipAngleAvg` (chassis slip angle $\alpha$ in degrees), `ControlJerkAvg` (rate of acceleration change / actuation stability), `TrackWidthUtil` (track width exploitation ratio), `NeuralSaturation` (proportion of hidden neurons saturated $> 0.90$).
-
-#### B. High-Frequency Time-Series Dataset (`data/telemetry_best_lap.csv`)
-Records full-rate (60 Hz / tick-by-tick) physical and neurocognitive metrics for the fastest lap set by the population:
-*   **Kinematics & Spatial State:** `tick`, `lap_tick`, `distance`, global coordinates (`x, y`), scalar `speed`.
-*   **Chassis Dynamics & Tire Adhesion:** Longitudinal and lateral velocity (`v_long, v_lat`), yaw rate (`angular_vel`), biaxial accelerations (`long_accel, lat_accel`), Kamm friction circle utilization (`kamm_util`), and dynamic slip angle (`slip_angle`).
-*   **Actuator Ergonomics & Control Smoothness:** Raw driver inputs (`throttle_input, steer_input`), biaxial jerk derivatives (`jerk_long, jerk_lat`).
-*   **Racing Line Analysis:** Normalized track centerline offset (`track_offset`).
-*   **Perception & Explainable Neuroevolution (XAI):** 5 LIDAR distance rays, alongside analytical Jacobian sensitivities computed via the backpropagation chain rule:
-    *   $\frac{\partial \text{Steer}}{\partial \text{Lidar}_{\text{Front}}}$ (`sens_steer_front`)
-    *   $\frac{\partial \text{Steer}}{\partial (\text{Lidar}_{\text{Left}} - \text{Lidar}_{\text{Right}})}$ (`sens_steer_lat`)
-
-### 8. High-Entropy Procedural Track Synthesis Engine (Stochastic Macro-Graph)
-To prevent neural networks from overfitting to fixed track layouts, the procedural generator uses a high-entropy macro-graph pipeline that generates dense, topologically rich circuits:
-*   **Multi-Centric Macro-Graphs & 6 Canonical Archetypes:** Synthesizes randomized macro-skeletons featuring out-and-back corridors, asymmetric infield loops, triangular diagonals, L-shape carousels, dual-lobe horseshoes, and urban street grids.
-*   **Combinatorial Motif Injection:** Analyzes long straightaways and stochastically injects technical chicanes, esses, or kinks with dynamic lateral displacement.
-*   **Unconstrained 360° Affine Transformation:** Implements arbitrary planar rotation ($\phi \in [0, 2\pi)$), asymmetric scaling, and dynamic margin fitting, ensuring start straights and apexes can emerge at any angle.
-*   **Clearance & Self-Intersection Watchdog:** Validates candidates by verifying zero self-intersections and enforcing a minimum $45\text{ px}$ clearance between non-adjacent centerline sections, eliminating bottlenecks while maintaining high variance ($CV_L \approx 19\%$, $CV_{W/H} \approx 23\%$).
-
-### 9. Discrete Modular Track Synthesis Engine ($SE(2)$ Tile Coupling) & F1 Macro-Skeletons
-In addition to continuous spline-based macro-graphs, the engine implements a discrete modular track builder inspired by modular slot-car and tile coupling architectures:
-*   **Expanded Functional Tile Catalog (17 Distinct Primitives):** Assembles tracks from discrete pre-validated geometric primitives with analytic curvature bounds:
-    *   *Straights:* Micro connector (`STR_50`), medium (`STR_90`), standard (`STR_150`), extended DRS straightaway (`STR_240`), and F1 Grand Prix blast straights (`STR_350`, `STR_500`).
-    *   *High-Speed Sweepers & Kinks (30°):* Flat-out fast bends (`CRV_30_R260`) and mega sweepers ($R=350\text{ px}$) (`CRV_30_R350`).
-    *   *High-Downforce Arcs (45°):* Fast sweeps ($R=160\text{ px}$) (`CRV_45_R160`).
-    *   *Open V-Corners (60°):* Technical apex corners ($R=150\text{ px}$) (`CRV_60_R150`).
-    *   *Standard Corners (90°):* Medium speed turns ($R=130\text{ px}$) (`CRV_90_R130`).
-    *   *Progressive Double-Apex Carousels & Pouhon Sweeps:* Decreasing radius arcs (`CRV_DBL_APEX`) and Spa-Francorchamps style high-g double apexes ($R_1=240\text{ px} \to R_2=150\text{ px}$) (`CRV_POUHON_DBL`).
-    *   *Heavy Hairpins (180°):* Hard-braking loops ($R=120\text{ px}$) (`HRP_180_R120`).
-    *   *Chicanes:* Fluid lateral offsets (`CHK_S_L40`) and violent Bus-Stop chicanes (`CHK_BUS_STOP`).
-    *   *Technical & Flowing Esses:* Double sinusoidal complexes (`ESS_SNAKE`) and Silverstone-style high-speed Maggotts-Becketts-Chapel complexes (`ESS_MAGGOTTS`).
-*   **5 Authentic Formula 1 Macro-Skeletons across $2400 \times 1600\text{ px}$ Canvas:**
-    1.  *Monza Cathedral of Speed:* High-speed elongated corridor (3.2:1 aspect ratio), Variante del Rettifilo, Curva Grande, Lesmo double apex, back straight DRS, Variante Ascari, and the sweeping Parabolica.
-    2.  *Silverstone / Spa Ardennes Sector Flow:* Tri-sector undulating course balancing full-throttle sweeps with technical infield S-curves and heavy braking hairpins.
-    3.  *Interlagos / Spielberg Horseshoe:* Technical amphitheater horseshoe with downhill Senna-S transitions, sweeping lakeside straights, and uphill Junção climbs.
-    4.  *Suzuka / COTA Rhythm Flow:* Rhythm first sector featuring 4 linked flowing esses, Dunlop curve, 130R high-speed sweep, and Casio chicane.
-    5.  *Albert Park / Montreal Island Hybrid:* Park-street hybrid with rapid curb transitions, long perimeter power straights, and final braking chicane.
-*   **Calibrated Curvature Floor ($R_{\min} \ge 30\text{ px}$):** Validates post-scale curvature via numerical 3-point circumradius checks, preventing unphysical kinks while fully accommodating authentic F1 chicane complexes and 180° hairpins without false-positive geometric rejection.
-*   **Archetype-Preserving Geometric Fallbacks:** Replaced the legacy single circular loop with dedicated macro-skeleton fallbacks for each archetype (Monza corridor, Silverstone infield loop, Interlagos amphitheater, Suzuka rhythm S-curves, and Montreal power straights), ensuring guaranteed geometric diversity across all runs.
-*   **$C^1$ Hermite Elastic Bridge & SAT Clearance:** Solves periodic loop closure ($\sum \Delta\vec{r} = \vec{0}$) with adaptive heading deviation tolerance ($\pm 50.4^\circ$) and a head/tail-aware spatial clearance filter, achieving robust procedural closure across all 5 Grand Prix archetypes.
 
 ---
 
-## System Performance & Design Patterns
+## 🏁 Discrete SE(2) Procedural Track Generator
 
-The engineering challenges resolved in the codebase are mapped below to show the specific design patterns and systems paradigms utilized:
+To prevent neural controllers from memorizing fixed geometric lines, the procedural generator synthesizes authentic, flowing racing circuits assembled from **17 pre-validated geometric primitives** across **6 canonical Grand Prix archetypes**:
 
-| Engineering Challenge | Architectural Solution | System Outcome |
-| :--- | :--- | :--- |
-| **Low Latency Updates** | Minimizing heap allocations on runtime hot paths, adopting cache-friendly static structures, and strict RAII usage. | Eliminates garbage collection spikes, ensuring consistent frame pacing under heavy computational loads. |
-| **Parallel CPU Execution** | OpenMP dynamic loop multi-threading and zero-allocation stack evaluation. | Maximizes multi-core occupancy, scaling raycasts and physical updates seamlessly across available CPU cores. |
-| **Geometric Complexity** | Procedural F1 convex-hull synthesis, sector motifs, Catmull-Rom splines, oriented bounding boxes (OBB), and localized vector intersections. | Delivers robust spatial generation and pixel-perfect collision checks. |
-| **Storage Bottlenecks** | Isolating persistent disk writing operations (JSON and CSV) to asynchronous `std::async` worker threads. | Prevents main-thread rendering hiccups when saving elite brains or generational logs. |
+```
+Archetype 0: Monza Corridor       ─── Parallel DRS Straights, Variante Ascari, Parabolica
+Archetype 1: Silverstone Flow    ─── Maggotts-Becketts Esses, Infield Loops, Stowe Corner
+Archetype 2: Spa-Ardennes        ─── Kemmel Blast Straight, Pouhon Sweeper, Bus-Stop Chicane
+Archetype 3: Suzuka Technical    ─── First-Sector Linked S-Curves, 130R Arc, Casio Triangle
+Archetype 4: Interlagos Bowl     ─── Senna-S Deceleration, Amphitheater Horseshoe, Junção
+Archetype 5: Baku Street Complex ─── High-Speed Boulevards & 90-Degree Threshold Braking
+```
 
----
-
-## Tech Stack & Dependencies
-
-*   **Language Standard:** Modern C++ (C++17)
-*   **Graphics & Input Polling:** [raylib](https://www.raylib.com/) (Used strictly for windowing, hardware-accelerated 2D rendering, and keyboard input polling)
-*   **Task Concurrency & Parallelism:** OpenMP multi-threading and [Intel OneTBB (Threading Building Blocks)](https://oneapi-src.github.io/oneTBB/)
-*   **Build Automation:** CMake 3.10+
-*   **Data Serialization:** [nlohmann/json](https://github.com/nlohmann/json) (Header-only serialization for agents and tracks)
+*   **FIA Proportional Scale:** Calibrated track width to $35\text{ px}$ and vehicle dimensions to $17 \times 8\text{ px}$ (preserving the authentic $23\%$ car-to-track ratio) unlocking multi-lane racing lines and dynamic overtaking maneuvers.
+*   **$C^1$ Hermite Elastic Bridge & SAT Clearance:** Solves periodic loop closure with adaptive heading tolerance ($\pm 50.4^\circ$) and spatial clearance filtering, achieving guaranteed non-intersecting geometries in sub-millisecond execution ($<0.5\text{ ms}$).
 
 ---
 
-## Directory Structure
+## 📊 Longitudinal & High-Frequency Telemetry Suite
+
+To support empirical machine learning research and automotive control analysis, the engine implements a dual-tier MoTeC i2-grade telemetry pipeline:
+
+### A. Generational Convergence Analytics (`data/telemetry_log.csv`)
+Records 20 synchronized macro metrics every generation:
+* **Convergence & Diversity:** `Generation`, `MaxFitness`, `AvgFitness`, `SurvivalRate`, `WeightVariance`, `ActiveMutationRate`.
+* **Generalization Metrics:** `CurriculumPhase` (1, 2, or 3), `BenchmarkFitness` (fixed control track score), `ProceduralFitness` (zero-shot transfer performance).
+* **Kinematics & Dynamics:** `TopSpeedAvg`, `BestLapTime`, `KammUtilAvg`, `SlipAngleAvg`, `ControlJerkAvg`, `TrackWidthUtil`.
+
+### B. High-Frequency Time-Series Dataset (`data/telemetry_best_lap.csv`)
+Records full-rate (60 Hz / tick-by-tick) physical and neurocognitive metrics for the fastest lap:
+* **Kinematics:** `tick`, `lap_tick`, `distance`, `x`, `y`, `speed`, `v_long`, `v_lat`, `angular_vel`.
+* **Vehicle Dynamics:** `long_accel`, `lat_accel`, `kamm_util`, `slip_angle`, `jerk_long`, `jerk_lat`.
+* **Actuation & Explainable AI (XAI):** `throttle_input`, `steer_input`, alongside analytical Jacobian sensitivities:
+  * $\partial \text{Steer} / \partial \text{Lidar}_{\text{Front}}$ (`sens_steer_front`)
+  * $\partial \text{Steer} / \partial (\text{Lidar}_{\text{Left}} - \text{Lidar}_{\text{Right}})$ (`sens_steer_lat`)
+
+<details>
+<summary><b>🔍 Click to view 45-Parameter Exhaustive Telemetry Specification (`ExhaustiveTelemetry`)</b></summary>
+
+The exhaustive telemetry subsystem logs 45 synchronized fields every tick:
+1. `tick`, `lap_number`, `sector_index`, `track_progress_ratio`
+2. `pos_x`, `pos_y`, `heading_angle`, `linear_speed`
+3. `v_long`, `v_lat`, `accel_long`, `accel_lat`, `yaw_rate`
+4. `throttle_input`, `steer_input`, `brake_input`, `steer_slew_rate`
+5. `kamm_utilization`, `tire_bulk_temp`, `tire_surface_temp`, `thermal_grip_factor`
+6. `surface_type`, `surface_friction_mu`, `normal_force_front`, `normal_force_rear`
+7. `lidar_0` through `lidar_4` (5-ray lookahead array), `front_ttc_delta`
+8. `competitor_dist_min`, `competitor_rel_v`, `slipstream_wake_factor`
+9. `sens_steer_front`, `sens_steer_lateral`, `mgu_gate_activation`
+10. `coherence_steer_flag`, `coherence_throttle_flag`, `coherence_grip_flag`
+
+</details>
+
+---
+
+## 💻 Keyboard Controls & Runtime HUD Interactions
+
+### Main Execution Modes:
+| Mode | Key | Functionality |
+| :--- | :---: | :--- |
+| **Training Mode** | `[ T ]` | Spawns 100 agents to undergo continuous evolutionary training with real-time HUD metrics. |
+| **Exhibition Mode** | `[ E ]` | Manual player driving (WASD/Arrows) competing head-to-head against the elite saved AI brain. |
+| **Test AI Mode** | `[ A ]` | Renders the uninterrupted standalone driving strategy of the saved elite network (`data/best.json`). |
+| **Replay Mode** | `[ R ]` | Interactive 60Hz replay timeline scrubber with variable playback and real-time XAI Jacobian vectors. |
+| **Generate Track**| `[ P ]` | Instantly generates a unique closed racing circuit using the discrete modular tile engine. |
+| **Save Track**    | `[ G ]` | Exports the active procedural track from the menu state to a JSON file in `data/tracks/`. |
+
+### Runtime Visualizer & Camera Shortcuts:
+*   `[ SPACE ]`: In Training mode: toggles execution speed between **Normal (1x)** and **Accelerated (50x)**. In Replay mode: toggles playback **Pause / Resume**.
+*   `[ G ]`: Toggles the semi-transparent **Ghost Vehicle** projection representing the recorded fastest lap.
+*   `[ H ]`: Toggles the **Telemetry Dashboard**, Collision Heatmap, and GPU-accelerated **Racing Line Heatmap** (Green: traction/speed, Amber: trail braking, Red: scrub/slip).
+*   `[ V ]`: Toggles camera view mode between dynamic leader-follow mode (`CAM_FOLLOW_LEADER`) and full-circuit overview mode (`CAM_OVERVIEW`).
+*   `[ 1 ] / [ 2 ] / [ 3 ]`: In Replay mode: selects playback rate between **0.25x (Slow-Motion)**, **1.0x (Real-Time)**, and **4.0x (High-Speed Scrubbing)**.
+*   `[ LEFT ] / [ RIGHT ]`: In Replay mode: step backward or forward frame-by-frame.
+*   `Mouse Timeline Dragging`: Click and drag the golden timeline scrubber thumb at the bottom HUD to seek anywhere across the recorded lap.
+*   `Live XAI Jacobian Sensitivity HUD`: Rendered directly over the vehicle cockpit:
+    *   **Magenta Arrow:** Steering gradient with respect to front obstacle proximity ($\partial \text{Steer} / \partial \text{Front}$).
+    *   **Orange Arrow:** Steering gradient with respect to lateral differential balance ($\partial \text{Steer} / \partial \text{Left} - \partial \text{Steer} / \partial \text{Right}$).
+*   `Mouse Wheel`: Adjusts camera zoom smoothly between $0.20\times$ (macro circuit view) and $2.50\times$ (tight vehicle cockpit chase).
+*   `Right-Click / Middle-Click Drag`: Engages manual panning across the $2400 \times 1600\text{ px}$ canvas (`CAM_MANUAL`).
+*   `Tactical F1 Minimap HUD`: Rendered in the bottom-left corner with real-time car positions (gold leader, blue podium contenders, red field) and a yellow frustum outline showing the active camera viewport.
+*   `[ C ]`: Toggles the rendering of checkpoints.
+*   `[ M ]`: Terminates the current mode and returns to the Main Menu.
+
+---
+
+## 🛠️ Build, Installation & CLI Reference
+
+### System Prerequisites
+Ensure a C++17 compatible compiler (GCC 8+, Clang 7+, or MSVC 2019+) is installed alongside CMake, Raylib development libraries, OpenMP, and Intel TBB headers.
+
+<details open>
+<summary><b>📦 Installation by Operating System</b></summary>
+
+#### Ubuntu / Debian:
+```bash
+sudo apt update
+sudo apt install -y build-essential cmake libraylib-dev libomp-dev libtbb-dev
+```
+
+#### Fedora / RHEL:
+```bash
+sudo dnf install -y gcc-c++ cmake raylib-devel libomp-devel tbb-devel
+```
+
+#### Arch Linux:
+```bash
+sudo pacman -S --needed base-devel cmake raylib openmp intel-tbb
+```
+
+#### macOS (Homebrew):
+```bash
+brew install cmake raylib libomp tbb
+```
+
+</details>
+
+### Compilation & Test Suite Execution
+```bash
+# 1. Setup build directory
+mkdir -p build && cd build
+
+# 2. Configure project target
+cmake .. -DCMAKE_BUILD_TYPE=Release
+
+# 3. Compile binary target (-j2 recommended)
+cmake --build . -j2
+
+# 4. Run automated CTest test suite (13 unit & regression tests)
+ctest --output-on-failure
+```
+
+> [!TIP]
+> Use `-j2` during compilation on systems with less than 16 GB RAM to prevent heavy template instantiation in SIMD and JSON headers from exhausting system memory.
+
+> [!NOTE]
+> All unit and regression tests are integrated with CMake CTest. Running `ctest --output-on-failure` validates zero-allocation compliance, MGU neural forward passes, and spatial grid bounds across 13 automated test suites.
+
+### Command-Line Interface (CLI) Reference
+
+The compiled executable supports versatile launch arguments for headless cluster training and automated testing:
+
+```bash
+# Launch interactive graphical simulation (Default Raylib UI)
+./bin/app
+
+# Launch ultra-fast headless training (no window rendering, maximal OpenMP throughput)
+./bin/app --headless
+
+# Launch headless training with generation limit
+./bin/app --headless --generations 25
+
+# Launch clean training from scratch (ignores data/best.json to initialize Gen 0)
+./bin/app --headless --fresh --generations 50
+
+# Run standalone 60 Hz exhaustive telemetry and behavioral coherence auditor
+./bin/test_exhaustive_telemetry --brain data/best.json --track 0 --ticks 2000
+./bin/test_exhaustive_telemetry --brain data/best.json --track 1 --ticks 2000
+```
+
+---
+
+## 📐 Mathematical Formulations Reference
+
+<details>
+<summary><b>🔬 Click to view full mathematical formulations and equations</b></summary>
+
+### 1. Neural Forward Pass
+For hidden layer node $i$, activation $h_i$ is computed from 9 normalized inputs $x_j$, synaptic weights $W_{ij}$, and node bias $b_i$:
+
+$$
+h_i = \tanh\left( \sum_{j=1}^{9} (x_j \cdot W_{ij}) + b_i \right) \quad \text{for } i \in [1, 10]
+$$
+
+Continuous output controls (throttle/steering) are subsequently computed as:
+
+$$
+\text{Output}_k = \tanh\left( \sum_{i=1}^{10} (h_i \cdot W'_{ki}) + b'_k \right) \quad \text{for } k \in [1, 2]
+$$
+
+### 2. Inertial Slip Angle & Velocity Decomposition
+When the vehicle changes its heading to $\theta_{t} = \theta_{t-1} + \Delta\theta$, its conserved world velocity $\vec{v} = (v_x, v_y)$ is decomposed into the new chassis coordinate frame, naturally producing the lateral slip velocity:
+
+$$
+v_{\text{long}} = v_x \cos(\theta_t) + v_y \sin(\theta_t)
+$$
+
+$$
+v_{\text{lat}} = -v_x \sin(\theta_t) + v_y \cos(\theta_t)
+$$
+
+### 3. Tire Cornering Scrub Drag & Aerodynamics
+In addition to quadratic aerodynamic drag, turning the wheels or sliding sideways creates induced tire scrub resistance that decelerates forward speed:
+
+$$
+F_{\text{drag}} = -v_{\text{long}} \cdot |v_{\text{long}}| \cdot C_d
+$$
+
+$$
+F_{\text{scrub}} = -v_{\text{long}} \cdot |v_{\text{lat}}| \cdot K_{\text{scrub}}
+$$
+
+$$
+F_{\text{total\_long}} = F_{\text{engine}} + F_{\text{drag}} + F_{\text{scrub}}
+$$
+
+### 4. Dynamic Tire Grip Saturation & Restoring Force
+Cornering grip scales dynamically with weight transfer. When the required lateral force exceeds the tire adhesion limit $F_{\text{max\_grip}}$, the tire breaks traction and enters dynamic drift:
+
+$$
+F_{\text{max\_grip}} = \mu_{\text{tire}} \cdot M \cdot \left( 1.0 + a_{\text{long}} \cdot k_{\text{weight}} \right)
+$$
+
+$$
+F_{\text{lateral}} = \begin{cases} \text{sgn}(-v_{\text{lat}}) \cdot F_{\text{max\_grip}} & \text{if } |v_{\text{lat}} \cdot C_{\alpha}| \gt F_{\text{max\_grip}} \text{ (Drift)} \\ -v_{\text{lat}} \cdot C_{\alpha} \cdot \text{tractionMultiplier} & \text{otherwise (Adhesion)} \end{cases}
+$$
+
+### 5. Kinematic World Velocity Projection
+Following force integration, updated local chassis velocities are projected back to global space:
+
+$$
+v_x = v_{\text{long}} \cos(\theta_t) - v_{\text{lat}} \sin(\theta_t)
+$$
+
+$$
+v_y = v_{\text{long}} \sin(\theta_t) + v_{\text{lat}} \cos(\theta_t)
+$$
+
+### 6. SIMD Rational Padé Polynomial Approximation for $\tanh(x)$
+In performance-critical AVX2 forward passes, $\tanh(x)$ is evaluated via a [3/3] rational Padé approximant across 8-wide float vectors:
+
+$$
+\tanh(x) \approx x \cdot \frac{105.0 + 10.0 x^2}{105.0 + 45.0 x^2 + x^4} \quad \text{clamped to } [-1.0, 1.0]
+$$
+
+### 7. Lumped-Parameter Tire Thermal Degradation
+Dynamic tire temperatures evolve according to heat generation from lateral/longitudinal slip and carcass deflection against convective ambient cooling:
+
+$$
+T_{t} = T_{t-1} + \left( Q_{\text{slip}} + Q_{\text{deflection}} - Q_{\text{cooling}} \right) \cdot \Delta t
+$$
+
+$$
+Q_{\text{slip}} = K_{\text{slip}} \cdot |v_{\text{lat}}| \cdot |F_{\text{lateral}}|, \quad Q_{\text{cooling}} = H_{\text{conv}} \cdot (1.0 + \alpha_{\text{speed}} \|\vec{v}\|) \cdot (T_{t-1} - T_{\text{ambient}})
+$$
+
+Effective cornering grip peaks within the optimal thermal window ($85^\circ\text{C}\text{--}100^\circ\text{C}$):
+
+$$
+\mu_{\text{effective}} = \mu_{\text{surface}} \cdot \eta_{\text{thermal}}(T)
+$$
+
+### 8. Aerodynamic Slipstream & Drafting Wake
+Vehicles trailing directly inside an opponent's aerodynamic wake cone experience reduced frontal drag and downforce:
+
+$$
+C_{d,\text{eff}} = C_d \cdot \left(1.0 - 0.40 \cdot \exp\left(-\frac{\Delta x^2}{2\sigma_{\text{wake}}^2}\right)\right)
+$$
+
+### 9. Minimal Gated Unit (MGU) Recurrent Dynamics
+Temporal state retention is computed using an 8-dimensional hidden recurrent vector $\mathbf{h}_t$:
+
+$$
+\mathbf{f}_t = \sigma\left(\mathbf{W}_f \mathbf{x}_t + \mathbf{U}_f \mathbf{h}_{t-1} + \mathbf{b}_f\right)
+$$
+
+$$
+\tilde{\mathbf{h}}_t = \tanh\left(\mathbf{W}_h \mathbf{x}_t + \mathbf{U}_h (\mathbf{f}_t \odot \mathbf{h}_{t-1}) + \mathbf{b}_h\right)
+$$
+
+$$
+\mathbf{h}_t = (1 - \mathbf{f}_t) \odot \mathbf{h}_{t-1} + \mathbf{f}_t \odot \tilde{\mathbf{h}}_t
+$$
+
+### 10. Genomic Compatibility Distance & Speciation
+Species clustering prevents premature convergence by partitioning genomes based on excess genes ($E$), disjoint genes ($D$), and average synaptic weight divergence ($\bar{W}_{\text{diff}}$):
+
+$$
+\delta = \frac{c_1 E}{N} + \frac{c_2 D}{N} + c_3 \cdot \bar{W}_{\text{diff}}
+$$
+
+$$
+f'_i = \frac{f_i}{\sum_{j \in S} \text{sh}(\delta(i, j))}
+$$
+
+### 11. Dynamic Stopping Safety Corridor & Barrier Deceleration
+Deceleration requirements are calculated adaptively via:
+
+$$
+d_{\text{stop\_margin}} = \max\left(95.0\text{ px}, 1.25 \cdot \frac{v_{\text{long}}^2}{2 \cdot a_{\text{brake}}}\right)
+$$
+
+Vehicles approaching a wall closer than $d_{\text{stop\_margin}}$ are strictly prohibited from full-throttle inputs, preventing late-braking corner overshoot.
+
+</details>
+
+---
+
+## 📦 Directory Structure
 
 ```plaintext
 NeuralRacer-CPP/
@@ -308,6 +546,7 @@ NeuralRacer-CPP/
 │   │   └── feature_request.md
 │   └── PULL_REQUEST_TEMPLATE.md
 ├── docs/                  # Media and instructional documentation
+│   ├── hero_banner.png    # Widescreen high-tech GitHub hero banner
 │   ├── INSTRUCTIONS.md    # Guide on capturing images/GIFs for the simulator
 │   ├── Training.gif       # Principal animated training loop capture
 │   ├── Training.png       # Training mode screenshot
@@ -357,192 +596,7 @@ NeuralRacer-CPP/
 
 ---
 
-## Installation & Build Instructions
-
-### Prerequisites
-
-Ensure a C++17 compatible compiler (GCC 8+, Clang 7+, or MSVC 2019+) is installed alongside CMake, raylib development libraries, OpenMP, and Intel TBB headers.
-
-#### Ubuntu / Debian Installation:
-```bash
-sudo apt update
-sudo apt install build-essential cmake libraylib-dev libomp-dev libtbb-dev
-```
-
-### Compilation
-
-```bash
-# 1. Clone the repository
-git clone https://github.com/jorgebd21/NeuralRacer-CPP.git
-cd NeuralRacer-CPP
-
-# 2. Setup build directory
-mkdir build && cd build
-
-# 3. Configure build environment
-cmake ..
-
-# 4. Compile binary target (-j2 recommended to prevent memory starvation)
-cmake --build . -j2
-
-# 5. Run automated test suite
-ctest --output-on-failure
-```
-
-> [!TIP]
-> Use `-j2` during compilation on systems with less than 16 GB RAM to prevent heavy template instantiation in SIMD and JSON headers from exhausting system memory.
-
-> [!NOTE]
-> All unit and regression tests are integrated with CMake CTest. Running `ctest --output-on-failure` validates zero-allocation compliance, MGU neural forward passes, and spatial grid bounds across 13 automated test suites.
-
-### Command-Line Interface (CLI) Options
-
-The compiled executable supports multiple launch modes and training configurations:
-
-```bash
-# Launch interactive graphical simulation (Default Raylib UI)
-./bin/app
-
-# Launch ultra-fast headless training (no window rendering, maximal OpenMP throughput)
-./bin/app --headless
-
-# Launch headless training with generation limit
-./bin/app --headless --generations 25
-
-# Launch clean training from scratch (ignores data/best.json to initialize Gen 0)
-./bin/app --headless --fresh --generations 50
-
-# Run standalone 60 Hz exhaustive telemetry and behavioral coherence auditor
-./bin/test_exhaustive_telemetry --brain data/best.json --track monza --ticks 2000
-./bin/test_exhaustive_telemetry --brain data/best.json --track silverstone --ticks 2000
-./bin/test_exhaustive_telemetry --brain data/best.json --track interlagos --ticks 2000
-```
-
----
-
-## Execution Modes & Control Bindings
-
-| Mode | Input Key | Functionality |
-| :--- | :---: | :--- |
-| **Training Mode** | `[ T ]` | Spawns a population of 100 agents to undergo continuous evolutionary training. Supports telemetry overlays and speed multipliers. |
-| **Exhibition Mode** | `[ E ]` | Places the user in manual control of a vehicle (Arrows/WASD) to race directly against the best saved AI agent loaded from `data/best.json`. |
-| **Test AI Mode** | `[ A ]` | Loads the top-performing brain from disk and renders its continuous, uninterrupted driving behavior. |
-| **Replay Mode** | `[ R ]` | Interactive 60Hz replay timeline scrubber with variable playback rate ($0.25\times, 1.0\times, 4.0\times$), timeline dragging, and live XAI Jacobian vectors. |
-| **Generate Track** | `[ P ]` | Instantly generates a unique closed racing circuit using the 12-family discrete modular tile engine. |
-| **Save Track** | `[ G ]` | Exports the active procedural track from the menu state to a JSON file in `data/tracks/`. |
-
-### Runtime Camera, Visualizer & Replay Interactions:
-
-*   `[ SPACE ]`: In Training mode: toggles execution speed between **Normal (1x)** and **Accelerated (50x)**. In Replay mode: toggles playback **Pause / Resume**.
-*   `[ G ]`: Toggles the semi-transparent **Ghost Vehicle** projection representing the recorded fastest lap.
-*   `[ H ]`: Toggles the **Telemetry Dashboard**, Collision Heatmap, and GPU-accelerated **Racing Line Heatmap** (Green: traction/speed, Amber: trail braking, Red: scrub/slip).
-*   `[ V ]`: Toggles camera view mode between dynamic leader-follow mode (`CAM_FOLLOW_LEADER`) and full-circuit overview mode (`CAM_OVERVIEW`).
-*   `[ 1 ] / [ 2 ] / [ 3 ]`: In Replay mode: selects playback rate between **0.25x (Slow-Motion)**, **1.0x (Real-Time)**, and **4.0x (High-Speed Scrubbing)**.
-*   `[ LEFT ] / [ RIGHT ]`: In Replay mode: step backward or forward frame-by-frame.
-*   `Mouse Timeline Dragging`: Click and drag the golden timeline scrubber thumb at the bottom HUD to seek anywhere across the recorded lap.
-*   `Live XAI Jacobian Sensitivity HUD`: Rendered directly over the vehicle cockpit:
-    *   **Magenta Arrow:** Steering gradient with respect to front obstacle proximity ($\partial \text{Steer} / \partial \text{Front}$).
-    *   **Orange Arrow:** Steering gradient with respect to lateral differential balance ($\partial \text{Steer} / \partial \text{Left} - \partial \text{Steer} / \partial \text{Right}$).
-*   `Mouse Wheel`: Adjusts camera zoom smoothly between $0.20\times$ (macro circuit view) and $2.50\times$ (tight vehicle cockpit chase).
-*   `Right-Click / Middle-Click Drag`: Engages manual panning across the $2400 \times 1600\text{ px}$ canvas (`CAM_MANUAL`).
-*   `Tactical F1 Minimap HUD`: Rendered in the bottom-left corner with real-time car positions (gold leader, blue podium contenders, red field) and a yellow frustum outline showing the active camera viewport.
-*   `[ C ]`: Toggles the rendering of checkpoints.
-*   `[ M ]`: Terminates the current mode and returns to the Main Menu.
-
----
-
-## Mathematical Formulations
-
-### 1. Neural Forward Pass
-For hidden layer node $i$, activation $h_i$ is computed from 9 normalized inputs $x_j$, synaptic weights $W_{ij}$, and node bias $b_i$:
-$$h_i = \tanh\left( \sum_{j=1}^{9} (x_j \cdot W_{ij}) + b_i \right) \quad \text{for } i \in [1, 10]$$
-
-Continuous output controls (throttle/steering) are subsequently computed as:
-$$\text{Output}_k = \tanh\left( \sum_{i=1}^{10} (h_i \cdot W'_{ki}) + b'_k \right) \quad \text{for } k \in [1, 2]$$
-
-### 2. Inertial Slip Angle & Velocity Decomposition
-When the vehicle changes its heading to $\theta_{t} = \theta_{t-1} + \Delta\theta$, its conserved world velocity $\vec{v} = (v_x, v_y)$ is decomposed into the new chassis coordinate frame, naturally producing the lateral slip velocity:
-$$v_{\text{long}} = v_x \cos(\theta_t) + v_y \sin(\theta_t)$$
-$$v_{\text{lat}} = -v_x \sin(\theta_t) + v_y \cos(\theta_t)$$
-
-### 3. Tire Cornering Scrub Drag & Aerodynamics
-In addition to quadratic aerodynamic drag, turning the wheels or sliding sideways creates induced tire scrub resistance that decelerates forward speed:
-$$F_{\text{drag}} = -v_{\text{long}} \cdot |v_{\text{long}}| \cdot C_d$$
-$$F_{\text{scrub}} = -v_{\text{long}} \cdot |v_{\text{lat}}| \cdot K_{\text{scrub}}$$
-$$F_{\text{total\_long}} = F_{\text{engine}} + F_{\text{drag}} + F_{\text{scrub}}$$
-
-### 4. Dynamic Tire Grip Saturation & Restoring Force
-Cornering grip scales dynamically with weight transfer. When the required lateral force exceeds the tire adhesion limit $F_{\text{max\_grip}}$, the tire breaks traction and enters dynamic drift:
-
-$$
-F_{\text{max\_grip}} = \mu_{\text{tire}} \cdot M \cdot \left( 1.0 + a_{\text{long}} \cdot k_{\text{weight}} \right)
-$$
-
-$$
-F_{\text{lateral}} = \begin{cases} \text{sgn}(-v_{\text{lat}}) \cdot F_{\text{max\_grip}} & \text{if } |v_{\text{lat}} \cdot C_{\alpha}| \gt F_{\text{max\_grip}} \text{ (Drift)} \\ -v_{\text{lat}} \cdot C_{\alpha} \cdot \text{tractionMultiplier} & \text{otherwise (Adhesion)} \end{cases}
-$$
-
-### 5. Kinematic World Velocity Projection
-Following force integration, updated local chassis velocities are projected back to global space:
-$$v_x = v_{\text{long}} \cos(\theta_t) - v_{\text{lat}} \sin(\theta_t)$$
-$$v_y = v_{\text{long}} \sin(\theta_t) + v_{\text{lat}} \cos(\theta_t)$$
-
-### 6. SIMD Rational Padé Polynomial Approximation for $\tanh(x)$
-In performance-critical AVX2 forward passes, $\tanh(x)$ is evaluated via a [3/3] rational Padé approximant across 8-wide float vectors:
-$$\tanh(x) \approx x \cdot \frac{105.0 + 10.0 x^2}{105.0 + 45.0 x^2 + x^4} \quad \text{clamped to } [-1.0, 1.0]$$
-
-### 7. Lumped-Parameter Tire Thermal Degradation
-Dynamic tire temperatures evolve according to heat generation from lateral/longitudinal slip and carcass deflection against convective ambient cooling:
-$$T_{t} = T_{t-1} + \left( Q_{\text{slip}} + Q_{\text{deflection}} - Q_{\text{cooling}} \right) \cdot \Delta t$$
-$$Q_{\text{slip}} = K_{\text{slip}} \cdot |v_{\text{lat}}| \cdot |F_{\text{lateral}}|, \quad Q_{\text{cooling}} = H_{\text{conv}} \cdot (1.0 + \alpha_{\text{speed}} \|\vec{v}\|) \cdot (T_{t-1} - T_{\text{ambient}})$$
-Effective cornering grip peaks within the optimal thermal window ($85^\circ\text{C}\text{--}100^\circ\text{C}$):
-$$\mu_{\text{effective}} = \mu_{\text{surface}} \cdot \eta_{\text{thermal}}(T)$$
-
-### 8. Aerodynamic Slipstream & Drafting Wake
-Vehicles trailing directly inside an opponent's aerodynamic wake cone experience reduced frontal drag and downforce:
-$$C_{d,\text{eff}} = C_d \cdot \left(1.0 - 0.40 \cdot \exp\left(-\frac{\Delta x^2}{2\sigma_{\text{wake}}^2}\right)\right)$$
-
-### 9. Minimal Gated Unit (MGU) Recurrent Dynamics
-Temporal state retention is computed using an 8-dimensional hidden recurrent vector $\mathbf{h}_t$:
-$$\mathbf{f}_t = \sigma\left(\mathbf{W}_f \mathbf{x}_t + \mathbf{U}_f \mathbf{h}_{t-1} + \mathbf{b}_f\right)$$
-$$\tilde{\mathbf{h}}_t = \tanh\left(\mathbf{W}_h \mathbf{x}_t + \mathbf{U}_h (\mathbf{f}_t \odot \mathbf{h}_{t-1}) + \mathbf{b}_h\right)$$
-$$\mathbf{h}_t = (1 - \mathbf{f}_t) \odot \mathbf{h}_{t-1} + \mathbf{f}_t \odot \tilde{\mathbf{h}}_t$$
-
-### 10. Genomic Compatibility Distance & Speciation
-Species clustering prevents premature convergence by partitioning genomes based on excess genes ($E$), disjoint genes ($D$), and average synaptic weight divergence ($\bar{W}_{\text{diff}}$):
-$$\delta = \frac{c_1 E}{N} + \frac{c_2 D}{N} + c_3 \cdot \bar{W}_{\text{diff}}$$
-$$f'_i = \frac{f_i}{\sum_{j \in S} \text{sh}(\delta(i, j))}$$
-
-### 11. Behavioral Coherence, Proactive Trail-Braking & Impact Scaling
-To eliminate evolutionary cheating (suicide checkpoint diving and flat-out cornering), the fitness potential field accumulates dynamic behavioral metrics:
-$$\mathcal{F} = \mathcal{F}_{\text{accum}} + \mathcal{F}_{\text{cp\_pacing}} + \text{LapBonus} + 0.35 \cdot d_{\text{traveled}} + \mathcal{F}_{\text{kinetic}} + B_{\text{brake}} - \mathcal{P}_{\text{behavior}}$$
-$$\mathcal{P}_{\text{impact}} = 300.0 + 50.0 \cdot v_{\text{long}} \quad \text{on terminal wall impact}$$
-$$\mathcal{P}_{\text{behavior}} += \mathcal{P}_{\text{cruising}} + \mathcal{P}_{\text{reckless\_entry}} + \mathcal{P}_{\text{chatter}} + \mathcal{P}_{\text{slip}}$$
-
-### 12. Lookahead Sensor Geometry, Physical Steering Rate Limits & Speciation Breeding
-To guarantee robust corner entry across high-speed circuits, the perception and evolutionary breeding pipelines incorporate three foundational enhancements:
-*   **Adaptive Lookahead LIDAR Array ($\pm 75^\circ, \pm 20^\circ, 0^\circ$):** Eliminates corridor blind spots on $35\text{ px}$ tracks. Wide lateral rays ($\pm 75^\circ$, normalized to $80\text{ px}$) provide immediate wall centering, while narrow lookahead rays ($\pm 20^\circ$, normalized to $350\text{ px}$) detect approaching corners over $250\text{ px}$ ahead, preventing late corner-entry blindness.
-*   **Actuator Slew Rate Limiter & Steering Chatter Damping:** Implements physical steering rack dynamics ($\Delta \text{steer}_{\max} = 0.20/\text{tick}$) and penalizes erratic steering oscillations ($0.35 \cdot |\Delta \text{steer}|$), extinguishing bang-bang oscillation exploits and promoting butter-smooth steering inputs.
-*   **True Species-Allotted Breeding:** Connects genomic speciation (`ComputeSpeciesAllotments`) directly into crossover reproduction. Rather than breeding exclusively from global straight-line speed records, breeding quotas are partitioned across genomic niches, safeguarding technical cornering phenotypes from premature extinction.
-*   **Normalized Dynamic State Space:** Scales inputs to physical bounds ($v_{\text{long}} / 4.0\text{ px/t}$, $v_{\text{lat}} / 1.5\text{ px/t}$, $\text{TTC} / 25.0$), ensuring symmetric weight activation throughout the neural network.
-
-### 13. Dynamic Sector-Delta Pacing & High-G Threshold Braking
-To break the conservative "cruise-control" local optimum and incentivize aggressive, race-pace driving:
-*   **Sector-Delta Checkpoint Rewards:** Checkpoint bonuses dynamically scale inversely with sector traversal time ($B_{\text{sector}} = 160.0 + \text{clamp}(120.0 \cdot T_{\text{budget}} / \Delta t_{\text{sector}}, 0, 320)$). Completing sectors at high speed earns up to $480\text{ pts}$ per checkpoint.
-*   **Straightaway Throttle Mandate & Quadratic Kinetic Energy:** When the path ahead is clear ($S_2 > 240\text{ px}$), agents are penalized for passive cruising ($5.0 \cdot (0.85 - u_a)$ if $u_a < 0.85$) and awarded quadratic kinetic energy bonuses ($3.0 \cdot (v_{\text{long}}/4.0)^2$) for pinning the throttle to 100%.
-*   **High-G Threshold Braking Zone:** When approaching an impending corner ($S_2 < 220\text{ px}$ and $v_{\text{long}} > 2.0\text{ px/t}$), applying active deceleration ($u_a < -0.05$) awards massive kinetic dissipation bonuses ($15.0 \cdot |u_a| \cdot v_{\text{long}}$ per tick, amplified by $1.5\times$ when $v_{\text{long}} > 4.5\text{ px/t}$), while carrying reckless throttle into apex entries is severely penalized ($10.0 \cdot u_a \cdot v_{\text{long}}$).
-
-### 14. Formula 1 Powertrain Dynamics, Power-Understeer Suppression & Dynamic Stopping Corridors
-To faithfully emulate the dynamic envelope of modern Formula 1 single-seaters:
-*   **Powertrain & High-G Deceleration Ratio (3.1:1):** Upgrades forward thrust to $F_{\text{drive}} = 68.0\text{ N}$ (+70%) and carbon-ceramic braking authority to $F_{\text{brake}} = 210.0\text{ N}$ (+75%). The theoretical top speed reaches $v_{\max} = \sqrt{F_{\text{drive}} / K_{\text{drag}}} = \sqrt{68 / 0.44} \approx 12.43\text{ px/t}$ ($\approx 257\text{ km/h}$), expanding to $\approx 15.6\text{ px/t}$ ($\approx 322\text{ km/h}$) inside aerodynamic slipstream drafting wakes.
-*   **Dynamic Corner Safety Corridor:** Deceleration requirements are calculated adaptively via:
-    $$d_{\text{stop\_margin}} = \max\left(95.0\text{ px}, 1.25 \cdot \frac{v_{\text{long}}^2}{2 \cdot a_{\text{brake}}}\right)$$
-    Vehicles approaching a wall closer than $d_{\text{stop\_margin}}$ are strictly prohibited from full-throttle inputs, preventing late-braking corner overshoot.
-*   **Power-Understeer Suppression & Turn-in Lift-Off:** Accelerating hard while experiencing excessive lateral tire scrub ($|v_{\text{lat}}| > 0.35\text{ px/t}$) triggers power-understeer penalties ($5.0 \cdot u_a \cdot (|v_{\text{lat}}| - 0.35)$). Conversely, lifting off the throttle on corner entry ($u_a \le 0.10$ with active steering) earns trail-braking transition rewards.
-
----
-
-## Versioning & Release Milestones
+## 📜 Versioning & Releases
 
 | Version | Milestone Theme | Key Capabilities |
 | :--- | :--- | :--- |
@@ -560,7 +614,19 @@ To faithfully emulate the dynamic envelope of modern Formula 1 single-seaters:
 
 ---
 
-## License
+## 🤝 Contributing & Community
 
-This software is licensed under the MIT License.
-Raylib and nlohmann/json libraries are properties of their respective maintainers under the Zlib/libpng and MIT licenses, respectively.
+Contributions are welcomed! Whether you are interested in enhancing vehicle kinematics, implementing new recurrent neural topologies, optimizing SIMD kernels, or contributing procedural circuit motifs:
+
+1. Read our [Contribution Guidelines](CONTRIBUTING.md) and [Code of Conduct](CODE_OF_CONDUCT.md).
+2. Check existing [Issues](https://github.com/jorgebd21/NeuralRacer-CPP/issues) or open a new [Feature Request](.github/ISSUE_TEMPLATE/feature_request.md).
+3. Ensure all tests pass (`ctest --output-on-failure` and `./bin/bench_zero_alloc`).
+4. Submit a Pull Request adhering to the [PR Template](.github/PULL_REQUEST_TEMPLATE.md).
+
+---
+
+## ⚖️ License
+
+Distributed under the **MIT License**. See [`LICENSE`](LICENSE) for complete details.
+
+*Raylib and nlohmann/json libraries are properties of their respective maintainers under the Zlib/libpng and MIT licenses, respectively.*
