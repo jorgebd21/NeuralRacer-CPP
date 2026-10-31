@@ -315,8 +315,8 @@ struct Brain {
         }
         // Dynamic front sensor delta (rate of wall closure) normalized to [-1.0, 1.0] across typical 8-tick delta window
         input[5] = std::clamp(frontSensorDelta / 25.0f, -1.0f, 1.0f);
-        input[6] = std::clamp(vLong / 20.0f, -1.0f, 1.0f);
-        input[7] = std::clamp(vLat / 10.0f, -1.0f, 1.0f);
+        input[6] = std::clamp(vLong / 4.0f, -1.0f, 1.0f);
+        input[7] = std::clamp(vLat / 1.5f, -1.0f, 1.0f);
         input[8] = std::clamp(angularVelocity / Config::CAR_TURN_SPEED, -1.0f, 1.0f);
         // Multi-Agent competitor relative closing velocities
         input[9] = std::clamp(competitorClosingVel[2] / 10.0f, -1.0f, 1.0f);  // Front closing velocity
