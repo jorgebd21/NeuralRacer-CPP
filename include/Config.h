@@ -54,8 +54,8 @@ namespace Config {
     constexpr int CAR_MAX_TIME_WITHOUT_CHECKPOINT = 320; // Calibrated for 2400x1600 F1 track checkpoint pacing
 
     constexpr float CAR_MASS = 1200.0f;
-    constexpr float ENGINE_POWER = 35.0f;
-    constexpr float BRAKING_POWER = 45.0f;
+    constexpr float ENGINE_POWER = 40.0f;   // Responsive race engine propulsion
+    constexpr float BRAKING_POWER = 120.0f; // High-authority motorsport threshold braking (3:1 brake-to-engine power ratio)
     constexpr float DRAG_MULTIPLIER = 0.35f;
     constexpr float CORNERING_STIFFNESS = 1000.0f;
     constexpr float WEIGHT_TRANSFER_FACTOR = 0.05f;
