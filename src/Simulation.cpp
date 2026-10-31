@@ -18,9 +18,10 @@
 static volatile sig_atomic_t stopRequested = 0;
 static void signalHandler(int) { stopRequested = 1; }
 
-Simulation::Simulation(bool isHeadless, bool startInTraining, int maxGenerations) : 
+Simulation::Simulation(bool isHeadless, bool startInTraining, int maxGenerations, bool startFresh) : 
     isHeadless(isHeadless),
     maxGenerations(maxGenerations),
+    startFresh(startFresh),
     showCheckpoints(false),
     showTelemetry(false),
     showGhostVehicle(false),
@@ -100,7 +101,12 @@ void Simulation::Init() {
     for (int i = 0; i < Config::POPULATION_SIZE; i++) {
         population.push_back(Car(startPosition.x, startPosition.y, startRotation));
     }
-    Evolution::LoadBestBrains(population, generationCount);
+    if (!startFresh) {
+        Evolution::LoadBestBrains(population, generationCount);
+    } else {
+        generationCount = 0;
+        std::cout << "[INIT] Initializing fresh population from scratch (Gen 0)..." << std::endl;
+    }
     SetupCurriculumForGeneration(generationCount);
     if (currentState == TRAINING || isHeadless) {
         SetTrainingTrack(0);

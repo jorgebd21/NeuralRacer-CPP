@@ -18,6 +18,7 @@ int main(int argc, char* argv[]) {
     bool isHeadless = false;
     bool startTraining = false;
     int maxGenerations = -1;
+    bool startFresh = false;
 
     if (argc > 1) {
         for(int i = 1; i < argc; i++) {
@@ -26,10 +27,12 @@ int main(int argc, char* argv[]) {
                 isHeadless = true;
             }else if(arg == "--training" || arg == "--train"){
                 startTraining = true;
+            }else if(arg == "--fresh" || arg == "--new"){
+                startFresh = true;
             }else if((arg == "--generations" || arg == "-g") && i + 1 < argc){
                 maxGenerations = std::stoi(argv[++i]);
             }else if(arg == "--help"){
-                cout << "Usage: ./app [--headless] [--training] [--generations <N>]" << endl;
+                cout << "Usage: ./app [--headless] [--training] [--fresh] [--generations <N>]" << endl;
                 return 0;
             }else{
                 cout << "Unknown argument: " << argv[i] << endl;
@@ -39,7 +42,7 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    Simulation sim(isHeadless, startTraining, maxGenerations); 
+    Simulation sim(isHeadless, startTraining, maxGenerations, startFresh); 
     sim.Run();
 
     return 0;

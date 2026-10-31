@@ -102,11 +102,17 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const FlatSpatia
     float longAccelEst = (engineForceEst + dragForceEst) / Config::CAR_MASS;
     float turnWeightMultiplier = std::clamp(1.0f - (longAccelEst * Config::WEIGHT_TRANSFER_FACTOR), 0.5f, 1.5f);
 
+    // Realistic steering actuator slew rate: max steering rate of 0.20 per tick (~0.33s lock-to-lock)
+    constexpr float MAX_STEER_RATE = 0.20f;
+    float steerDelta = std::abs(inputTurn - prevSteerInput);
+    float appliedTurn = prevSteerInput + std::clamp(inputTurn - prevSteerInput, -MAX_STEER_RATE, MAX_STEER_RATE);
+    prevSteerInput = appliedTurn;
+
     // Realistic steering authority: Full turning authority at cornering speeds (1.0 - 3.5 px/tick)
     // with aerodynamic stability damping above 3.5 px/tick and rolling engagement from rest.
     float speedDamping = 1.0f / (1.0f + 0.15f * std::max(0.0f, std::abs(longitudinalVelocity) - 3.5f));
     float rollingEngagement = std::clamp(std::abs(longitudinalVelocity) / 0.3f, 0.0f, 1.0f);
-    float targetYawRate = inputTurn * turnWeightMultiplier * Config::CAR_TURN_SPEED * speedDamping * rollingEngagement;
+    float targetYawRate = appliedTurn * turnWeightMultiplier * Config::CAR_TURN_SPEED * speedDamping * rollingEngagement;
 
     // Angular inertia / low-pass filter (eliminates unphysical 1-tick bang-bang steering oscillation exploit)
     angularVelocity = (angularVelocity * 0.65f) + (targetYawRate * 0.35f);
@@ -578,9 +584,7 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const FlatSpatia
     }
 
     // Anti-chatter & smooth steering penalty: penalize abrupt bang-bang steering oscillations
-    float steerDelta = std::abs(inputTurn - prevSteerInput);
-    float chatterPenalty = steerDelta * 0.02f;
-    prevSteerInput = inputTurn;
+    float chatterPenalty = steerDelta * 0.35f;
 
     // Tire grip conservation: penalize severe lateral slip angles beyond optimal racing limits (> 10 deg)
     float excessSlip = std::max(0.0f, std::abs(slipAngle) - 10.0f);

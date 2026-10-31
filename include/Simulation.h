@@ -25,7 +25,7 @@ public:
     /**
      * @brief Constructor for the Simulation class.
      */
-    Simulation(bool isHeadless = false, bool startInTraining = false, int maxGenerations = -1);
+    Simulation(bool isHeadless = false, bool startInTraining = false, int maxGenerations = -1, bool startFresh = false);
 
     /**
      * @brief Starts and maintains the main lifecycle of the simulation.
@@ -88,6 +88,7 @@ private:
 
     bool isHeadless;
     int maxGenerations{-1};
+    bool startFresh{false};
     bool showCheckpoints;
     bool showTelemetry;
     bool showGhostVehicle;
