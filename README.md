@@ -14,25 +14,25 @@
   <a href="https://en.wikipedia.org/wiki/Advanced_Vector_Extensions"><img src="https://img.shields.io/badge/SIMD-AVX2%20%2F%20FMA-6f42c1.svg?style=for-the-badge" alt="SIMD Acceleration" /></a>
   <a href="https://www.openmp.org/"><img src="https://img.shields.io/badge/Concurrency-OpenMP%20%2F%20TBB-d29922.svg?style=for-the-badge&logo=intel" alt="Concurrency" /></a>
   <a href="https://www.raylib.com/"><img src="https://img.shields.io/badge/Render-Raylib-e36209.svg?style=for-the-badge" alt="Raylib" /></a>
-  <a href="#-build-installation--cli-reference"><img src="https://img.shields.io/badge/CTest-13%2F13%20Passing-3fb950.svg?style=for-the-badge&logo=cmake" alt="CTest Passing" /></a>
+  <a href="#build-and-installation"><img src="https://img.shields.io/badge/CTest-13%2F13%20Passing-3fb950.svg?style=for-the-badge&logo=cmake" alt="CTest Passing" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge" alt="MIT License" /></a>
   <a href="CONTRIBUTING.md"><img src="https://img.shields.io/badge/Contributions-Welcome-brightgreen.svg?style=for-the-badge" alt="Contributions Welcome" /></a>
 </p>
 
 <p align="center">
-  <a href="#-quick-start-in-60-seconds">⚡ Quick Start</a> •
-  <a href="#-table-of-contents">📑 Table of Contents</a> •
-  <a href="#-core-pillars--technical-highlights">🔬 Deep Tech</a> •
-  <a href="#-operational-simulation-modes">🎮 Modes & Replay</a> •
-  <a href="#-system-architecture--execution-lifecycle">🏗️ Architecture</a> •
-  <a href="#-keyboard-controls--runtime-hud-interactions">💻 Controls</a>
+  <a href="#quick-start">⚡ Quick Start</a> •
+  <a href="#table-of-contents">📑 Table of Contents</a> •
+  <a href="#technical-highlights">🔬 Deep Tech</a> •
+  <a href="#simulation-modes">🎮 Modes & Replay</a> •
+  <a href="#system-architecture">🏗️ Architecture</a> •
+  <a href="#keyboard-controls">💻 Controls</a>
 </p>
 
 ---
 
 </div>
 
-## ⚡ Quick Start (in 60 Seconds)
+## <a id="quick-start"></a>⚡ Quick Start (in 60 Seconds)
 
 Get **NeuralRacer-CPP** compiled and running locally on Ubuntu / Debian with four simple commands:
 
@@ -64,28 +64,28 @@ mkdir -p build && cd build && cmake .. && cmake --build . -j2
 
 ---
 
-## 📑 Table of Contents
+## <a id="table-of-contents"></a>📑 Table of Contents
 
-- [⚡ Quick Start (in 60 Seconds)](#-quick-start-in-60-seconds)
-- [✨ Autonomous Training in Action](#-autonomous-training-in-action)
-- [🔬 Core Pillars & Technical Highlights](#-core-pillars--technical-highlights)
-- [🎮 Operational Simulation Modes](#-operational-simulation-modes)
-- [🏗️ System Architecture & Execution Lifecycle](#-system-architecture--execution-lifecycle)
-- [⚡ Real-Time Zero-Allocation Hot Path](#-real-time-zero-allocation-hot-path)
-- [🏎️ Deep Dive: Formula 1 Powertrain & Kinematics](#-deep-dive-formula-1-powertrain--kinematics)
-- [🏁 Discrete SE(2) Procedural Track Generator](#-discrete-se2-procedural-track-generator)
-- [📊 Longitudinal & High-Frequency Telemetry Suite](#-longitudinal--high-frequency-telemetry-suite)
-- [💻 Keyboard Controls & Runtime HUD Interactions](#-keyboard-controls--runtime-hud-interactions)
-- [🛠️ Build, Installation & CLI Reference](#-build-installation--cli-reference)
-- [📐 Mathematical Formulations Reference](#-mathematical-formulations-reference)
-- [📦 Directory Structure](#-directory-structure)
-- [📜 Versioning & Releases](#-versioning--releases)
-- [🤝 Contributing & Community](#-contributing--community)
-- [⚖️ License](#-license)
+- [⚡ Quick Start (in 60 Seconds)](#quick-start)
+- [✨ Autonomous Training in Action](#training-action)
+- [🔬 Core Pillars & Technical Highlights](#technical-highlights)
+- [🎮 Operational Simulation Modes](#simulation-modes)
+- [🏗️ System Architecture & Execution Lifecycle](#system-architecture)
+- [⚡ Real-Time Zero-Allocation Hot Path](#zero-alloc-hot-path)
+- [🏎️ Deep Dive: Formula 1 Powertrain & Kinematics](#f1-powertrain-kinematics)
+- [🏁 Discrete SE(2) Procedural Track Generator](#procedural-track-generator)
+- [📊 Longitudinal & High-Frequency Telemetry Suite](#telemetry-suite)
+- [💻 Keyboard Controls & Runtime HUD Interactions](#keyboard-controls)
+- [🛠️ Build, Installation & CLI Reference](#build-and-installation)
+- [📐 Mathematical Formulations Reference](#mathematical-formulations)
+- [📦 Directory Structure](#directory-structure)
+- [📜 Versioning & Releases](#versioning-and-releases)
+- [🤝 Contributing & Community](#contributing)
+- [⚖️ License](#license)
 
 ---
 
-## ✨ Autonomous Training in Action
+## <a id="training-action"></a>✨ Autonomous Training in Action
 
 <div align="center">
 
@@ -97,7 +97,7 @@ mkdir -p build && cd build && cmake .. && cmake --build . -j2
 
 ---
 
-## 🔬 Core Pillars & Technical Highlights
+## <a id="technical-highlights"></a>🔬 Core Pillars & Technical Highlights
 
 NeuralRacer-CPP is a high-performance simulation engine designed to explore autonomous driving behaviors through neuroevolutionary algorithms. The core objective of the project is to simulate realistic physical vehicle dynamics and train autonomous agents to navigate complex, procedurally generated race tracks.
 
@@ -126,7 +126,7 @@ To achieve maximum computational efficiency and real-time responsiveness, the en
 
 ---
 
-## 🎮 Operational Simulation Modes
+## <a id="simulation-modes"></a>🎮 Operational Simulation Modes
 
 The engine provides four distinct simulation configurations to analyze agent behaviors, compete head-to-head, and interactively scrub telemetry:
 
@@ -137,7 +137,7 @@ The engine provides four distinct simulation configurations to analyze agent beh
 
 ---
 
-## 🏗️ System Architecture & Execution Lifecycle
+## <a id="system-architecture"></a>🏗️ System Architecture & Execution Lifecycle
 
 The following diagram illustrates the execution lifecycle, data pipelines, and concurrency models utilized by the simulator:
 
@@ -176,7 +176,7 @@ flowchart TD
 
 ---
 
-## ⚡ Real-Time Zero-Allocation Hot Path
+## <a id="zero-alloc-hot-path"></a>⚡ Real-Time Zero-Allocation Hot Path
 
 To guarantee rock-solid 60 FPS pacing without garbage collection latency, every frame's calculations stream through a deterministic, zero-allocation dataflow pipeline:
 
@@ -212,7 +212,7 @@ flowchart LR
 
 ---
 
-## 🏎️ Deep Dive: Formula 1 Powertrain & Kinematics
+## <a id="f1-powertrain-kinematics"></a>🏎️ Deep Dive: Formula 1 Powertrain & Kinematics
 
 The vehicle kinematics engine bypasses simplified movement models in favor of real-world Formula 1 race physics:
 
@@ -231,7 +231,7 @@ The vehicle kinematics engine bypasses simplified movement models in favor of re
 
 ---
 
-## 🏁 Discrete SE(2) Procedural Track Generator
+## <a id="procedural-track-generator"></a>🏁 Discrete SE(2) Procedural Track Generator
 
 To prevent neural controllers from memorizing fixed geometric lines, the procedural generator synthesizes authentic, flowing racing circuits assembled from **17 pre-validated geometric primitives** across **6 canonical Grand Prix archetypes**:
 
@@ -249,7 +249,7 @@ Archetype 5: Baku Street Complex ─── High-Speed Boulevards & 90-Degree Thr
 
 ---
 
-## 📊 Longitudinal & High-Frequency Telemetry Suite
+## <a id="telemetry-suite"></a>📊 Longitudinal & High-Frequency Telemetry Suite
 
 To support empirical machine learning research and automotive control analysis, the engine implements a dual-tier MoTeC i2-grade telemetry pipeline:
 
@@ -286,7 +286,7 @@ The exhaustive telemetry subsystem logs 45 synchronized fields every tick:
 
 ---
 
-## 💻 Keyboard Controls & Runtime HUD Interactions
+## <a id="keyboard-controls"></a>💻 Keyboard Controls & Runtime HUD Interactions
 
 ### Main Execution Modes:
 | Mode | Key | Functionality |
@@ -317,7 +317,7 @@ The exhaustive telemetry subsystem logs 45 synchronized fields every tick:
 
 ---
 
-## 🛠️ Build, Installation & CLI Reference
+## <a id="build-and-installation"></a>🛠️ Build, Installation & CLI Reference
 
 ### System Prerequisites
 Ensure a C++17 compatible compiler (GCC 8+, Clang 7+, or MSVC 2019+) is installed alongside CMake, Raylib development libraries, OpenMP, and Intel TBB headers.
@@ -393,7 +393,7 @@ The compiled executable supports versatile launch arguments for headless cluster
 
 ---
 
-## 📐 Mathematical Formulations Reference
+## <a id="mathematical-formulations"></a>📐 Mathematical Formulations Reference
 
 <details>
 <summary><b>🔬 Click to view full mathematical formulations and equations</b></summary>
@@ -529,7 +529,7 @@ Vehicles approaching a wall closer than $d_{\text{stop\_margin}}$ are strictly p
 
 ---
 
-## 📦 Directory Structure
+## <a id="directory-structure"></a>📦 Directory Structure
 
 ```plaintext
 NeuralRacer-CPP/
@@ -596,7 +596,7 @@ NeuralRacer-CPP/
 
 ---
 
-## 📜 Versioning & Releases
+## <a id="versioning-and-releases"></a>📜 Versioning & Releases
 
 | Version | Milestone Theme | Key Capabilities |
 | :--- | :--- | :--- |
@@ -614,7 +614,7 @@ NeuralRacer-CPP/
 
 ---
 
-## 🤝 Contributing & Community
+## <a id="contributing"></a>🤝 Contributing & Community
 
 Contributions are welcomed! Whether you are interested in enhancing vehicle kinematics, implementing new recurrent neural topologies, optimizing SIMD kernels, or contributing procedural circuit motifs:
 
@@ -625,7 +625,7 @@ Contributions are welcomed! Whether you are interested in enhancing vehicle kine
 
 ---
 
-## ⚖️ License
+## <a id="license"></a>⚖️ License
 
 Distributed under the **MIT License**. See [`LICENSE`](LICENSE) for complete details.
 
