@@ -607,6 +607,18 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const FlatSpatia
         }
     }
 
+    // Power understeer suppression: penalize flooring throttle when steering is heavily locked near corner barriers
+    bool powerUndersteerRisk = (sensorDistances[2] < 75.0f && longitudinalVelocity > 3.2f && std::abs(inputTurn) > 0.60f);
+    if (powerUndersteerRisk) {
+        if (inputAccelerate > 0.35f) {
+            // Penalize accelerating into saturated steering lock (induces push/understeer straight into barrier)
+            cumulativeBehaviorPenalty += (inputAccelerate - 0.20f) * longitudinalVelocity * 6.0f;
+        } else if (inputAccelerate <= 0.15f) {
+            // Lift-off turn-in reward: promotes transferring load to the front axle to rotate the car into the apex
+            cumulativeKineticBonus += 2.0f;
+        }
+    }
+
     // Behavioral incoherence penalties:
     // 1. Blind throttle into impending barrier without steering:
     if (sensorDistances[2] < 50.0f && longitudinalVelocity > 2.0f && inputAccelerate > 0.4f && std::abs(inputTurn) < 0.20f) {
