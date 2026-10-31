@@ -15,6 +15,7 @@
 int main(int argc, char* argv[]) {
     std::string brainPath = "data/best.json";
     std::string trackType = "monza";
+    std::string outPrefix = "data/exhaustive_telemetry";
     int maxTicks = 2000;
 
     for (int i = 1; i < argc; ++i) {
@@ -22,6 +23,7 @@ int main(int argc, char* argv[]) {
         if (arg == "--brain" && i + 1 < argc) brainPath = argv[++i];
         else if (arg == "--track" && i + 1 < argc) trackType = argv[++i];
         else if (arg == "--ticks" && i + 1 < argc) maxTicks = std::stoi(argv[++i]);
+        else if (arg == "--out" && i + 1 < argc) outPrefix = argv[++i];
     }
 
     std::cout << "===============================================================\n";
@@ -30,6 +32,7 @@ int main(int argc, char* argv[]) {
     std::cout << " Brain Path:   " << brainPath << "\n";
     std::cout << " Track:        " << trackType << "\n";
     std::cout << " Max Ticks:    " << maxTicks << "\n";
+    std::cout << " Out Prefix:   " << outPrefix << "\n";
 
     std::vector<Segment> walls;
     std::vector<Vector2> checkpoints;
@@ -38,9 +41,14 @@ int main(int argc, char* argv[]) {
     float startRot = 0.0f;
     float trackWidth = 35.0f;
 
-    if (trackType == "monza" || trackType == "0") {
-        std::vector<Vector2> pts = ModularTrackGenerator::GenerateProceduralCenterPoints(0);
-        if (pts.size() < 12) pts = ModularTrackGenerator::GenerateArchetypeFallback(0);
+    int arch = -1;
+    if (trackType == "monza" || trackType == "0") arch = 0;
+    else if (trackType == "silverstone" || trackType == "1") arch = 1;
+    else if (trackType == "interlagos" || trackType == "2") arch = 2;
+
+    if (arch >= 0) {
+        std::vector<Vector2> pts = ModularTrackGenerator::GenerateProceduralCenterPoints(arch);
+        if (pts.size() < 12) pts = ModularTrackGenerator::GenerateArchetypeFallback(arch);
         constexpr int PROCEDURAL_SPLINE_SEGMENTS = 24;
         denseLine = TrackManager::GenerateSplinePoints(pts, PROCEDURAL_SPLINE_SEGMENTS);
         TrackManager::CalculateStartGrid(pts, startPos, startRot);
@@ -61,7 +69,11 @@ int main(int argc, char* argv[]) {
         TrackManager::GenerateBordersFromCenterLine(denseLine, trackWidth, walls, checkpoints, startPos);
     } else {
         // Load from JSON file path
-        std::string path = (trackType == "pista_dificil") ? "data/tracks/pista_dificil.json" : trackType;
+        std::string path = trackType;
+        if (trackType == "pista_dificil") path = "data/tracks/pista_dificil.json";
+        else if (trackType == "pista_medio") path = "data/tracks/pista_medio.json";
+        else if (trackType == "pista_facil") path = "data/tracks/pista_facil.json";
+        
         TrackManager::LoadTrackFromFile(path, walls, startPos, startRot, checkpoints);
         denseLine = checkpoints;
         trackWidth = 50.0f;
@@ -117,11 +129,11 @@ int main(int argc, char* argv[]) {
     recorder.PrintSummaryTable(std::cout);
     recorder.PrintAnomalyTimeline(std::cout, 30);
 
-    recorder.ExportCSV("data/exhaustive_telemetry.csv");
-    recorder.ExportJSON("data/exhaustive_telemetry.json");
+    recorder.ExportCSV(outPrefix + ".csv");
+    recorder.ExportJSON(outPrefix + ".json");
 
-    std::cout << "\n[SUCCESS] Exhaustive time-series saved to 'data/exhaustive_telemetry.csv'\n";
-    std::cout << "[SUCCESS] JSON Summary saved to 'data/exhaustive_telemetry.json'\n";
+    std::cout << "\n[SUCCESS] Exhaustive time-series saved to '" << (outPrefix + ".csv") << "'\n";
+    std::cout << "[SUCCESS] JSON Summary saved to '" << (outPrefix + ".json") << "'\n";
 
     return 0;
 }

@@ -313,7 +313,8 @@ struct Brain {
             float maxDist = (i == 2) ? Config::CAR_FRONT_SENSOR_DIST : Config::CAR_MAX_SENSOR_DIST;
             input[i] = std::clamp(sensorDistances[i] / maxDist, 0.0f, 1.0f);
         }
-        input[5] = std::clamp(frontSensorDelta / 200.0f, -1.0f, 1.0f);
+        // Dynamic front sensor delta (rate of wall closure) normalized to [-1.0, 1.0] across typical 8-tick delta window
+        input[5] = std::clamp(frontSensorDelta / 25.0f, -1.0f, 1.0f);
         input[6] = std::clamp(vLong / 20.0f, -1.0f, 1.0f);
         input[7] = std::clamp(vLat / 10.0f, -1.0f, 1.0f);
         input[8] = std::clamp(angularVelocity / Config::CAR_TURN_SPEED, -1.0f, 1.0f);

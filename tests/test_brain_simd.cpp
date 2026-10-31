@@ -53,6 +53,7 @@ int main() {
     assert(turn >= -1.0f && turn <= 1.0f);
     assert(!std::isnan(accel));
     assert(!std::isnan(turn));
+    assert(std::abs(brain.last_input[5] - std::clamp(frontDelta / 25.0f, -1.0f, 1.0f)) < 1e-5f);
     assert(brain.last_input[9] == std::clamp(compVel[2] / 10.0f, -1.0f, 1.0f));
     assert(brain.last_input[10] == std::clamp(compVel[1] / 10.0f, -1.0f, 1.0f));
     assert(brain.last_input[11] == std::clamp(compVel[3] / 10.0f, -1.0f, 1.0f));
