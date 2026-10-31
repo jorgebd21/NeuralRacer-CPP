@@ -35,6 +35,9 @@ void Car::Reset(float startX, float startY, float startRot, bool fullReset) {
     }
     timeAlive = 0;
     timeSinceLastCheckpoint = 0;
+    currentSectorTicks = 0;
+    accumulatedCheckpointBonus = 0.0f;
+    cumulativeKineticBonus = 0.0f;
     distanceTraveled = 0.0f;
     cumulativeBrakeBonus = 0.0f;
     cumulativeBehaviorPenalty = 0.0f;
@@ -95,6 +98,7 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const FlatSpatia
     timeAlive++;
     timeSinceLastCheckpoint++;
     currentLapTicks++;
+    currentSectorTicks++;
 
     // 1. Steering dynamics: speed-dependent Ackermann kinematic scaling with angular yaw inertia
     float engineForceEst = (inputAccelerate > 0.0f) ? (inputAccelerate * Config::ENGINE_POWER) : (inputAccelerate * Config::BRAKING_POWER);
@@ -327,6 +331,16 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const FlatSpatia
                 timeSinceLastCheckpoint = 0;
                 lastApexDistance = std::sqrt(distSq);
                 lastApexSpeed = GetSpeed();
+
+                // Dynamic Sector-Delta Pacing Bonus (Option 1):
+                // Reward is inversely proportional to time taken to cross the sector
+                float distCp = trackLen;
+                float targetSectorTicks = std::max(15.0f, distCp / 2.8f);
+                float pacingRatio = targetSectorTicks / std::max(1.0f, static_cast<float>(currentSectorTicks));
+                float sectorReward = 160.0f + std::clamp(pacingRatio * 120.0f, 0.0f, 320.0f);
+                accumulatedCheckpointBonus += sectorReward;
+                currentSectorTicks = 0;
+
                 nextCheckPointIndex = (nextCheckPointIndex + 1) % numCp;
 
                 // Normalized Lap Time Bonus with Fastest Lap (Purple Sector) Milestone
@@ -560,13 +574,30 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const FlatSpatia
     frontSensorHistory[frontSensorHistoryIdx] = sensorDistances[2];
     frontSensorHistoryIdx = (frontSensorHistoryIdx + 1) % FRONT_HISTORY_SIZE;
 
-    // Proactive trail-braking guidance: reward controlled deceleration when approaching a tight apex/wall at speed
-    bool approachingCorner = (sensorDistances[2] < 160.0f && longitudinalVelocity > 1.5f);
+    // 1. Mandate full throttle on clear straights and reward kinetic energy (Option 1)
+    bool clearStraight = (sensorDistances[2] > 240.0f && sensorDistances[0] > 20.0f && sensorDistances[4] > 20.0f);
+    if (clearStraight) {
+        if (inputAccelerate < 0.85f) {
+            // Penalize passive cruising when the track ahead is wide open
+            float cruisingPenalty = (0.85f - inputAccelerate) * 5.0f;
+            cumulativeBehaviorPenalty += cruisingPenalty;
+        } else {
+            // Forward kinetic energy reward: scales quadratically with speed on straights
+            float normSpeed = std::max(0.0f, longitudinalVelocity) / 4.0f;
+            cumulativeKineticBonus += normSpeed * normSpeed * 3.0f;
+        }
+    }
+
+    // 2. High-G threshold braking guidance: reward decisive deceleration before corner entry
+    bool approachingCorner = (sensorDistances[2] < 220.0f && longitudinalVelocity > 2.0f);
     if (approachingCorner) {
-        if (inputAccelerate < 0.0f) {
-            cumulativeBrakeBonus += std::abs(inputAccelerate) * 2.0f;
-        } else if (inputAccelerate < 0.2f) {
-            cumulativeBrakeBonus += 0.5f;
+        if (inputAccelerate < -0.05f) {
+            // Reward proportional to brake input and dissipated kinetic energy
+            float brakeStrength = std::abs(inputAccelerate);
+            cumulativeBrakeBonus += brakeStrength * longitudinalVelocity * 15.0f;
+        } else if (inputAccelerate > 0.1f) {
+            // Strong penalty for pushing throttle into corner entry (power-understeer into wall)
+            cumulativeBehaviorPenalty += inputAccelerate * longitudinalVelocity * 10.0f;
         }
     }
 
@@ -592,22 +623,24 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const FlatSpatia
 
     cumulativeBehaviorPenalty += (chatterPenalty + slipPenalty);
 
-    // Fitness breakdown:
-    //  - Continuous Checkpoints (280 each + continuous segment progress): dominant forward potential field
+    // Fitness breakdown (Option 1: Sector-Delta Pacing & Aggressive Braking):
+    //  - Dynamic Sector Checkpoints: accumulated pacing rewards (160 - 480 pts based on time to reach CP)
+    //  - Segment Progress: continuous potential field towards next checkpoint (up to 160.0f)
     //  - Total Lap Bonus: normalized time-to-complete + fastest lap milestones
-    //  - Distance * 0.40: forward exploration gradient (strictly forward momentum along track)
-    //  - Forward Speed * 1.5: cruising speed incentive to prevent ultra-slow crawling
-    //  - Cumulative Trail-Brake Bonus: incentives active braking before high-speed corner entries
-    //  - Cumulative Behavioral Penalties: penalizes full throttle into walls, steering into walls, chatter & slip
+    //  - Distance * 0.35: forward exploration gradient
+    //  - Forward Kinetic Bonus: quadratic speed scaling on straights (Option 1)
+    //  - Cumulative Trail-Brake Bonus: incentives active high-G braking before corner entries
+    //  - Cumulative Behavioral Penalties: penalizes cruising on straights, reckless corner entry, chatter & slip
     if (longitudinalVelocity > 0.15f) {
         distanceTraveled += longitudinalVelocity;
     }
-    float continuousProgress = static_cast<float>(totalCheckPointsCrossed) + segmentProgress;
+    float currentSegmentPotential = segmentProgress * 160.0f;
     fitness = accumulatedFitness
-            + (continuousProgress * 280.0f)
+            + accumulatedCheckpointBonus
+            + currentSegmentPotential
             + totalLapBonus
-            + (distanceTraveled * 0.40f)
-            + (std::max(0.0f, longitudinalVelocity) * 1.5f)
+            + (distanceTraveled * 0.35f)
+            + cumulativeKineticBonus
             + cumulativeBrakeBonus
             - cumulativeBehaviorPenalty;
     if (fitness < 0.0f) fitness = 0.0f;

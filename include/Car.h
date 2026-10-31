@@ -48,6 +48,9 @@ struct Car {
     float totalLapBonus;
     float cumulativeBrakeBonus;
     float cumulativeBehaviorPenalty;
+    int currentSectorTicks;
+    float accumulatedCheckpointBonus;
+    float cumulativeKineticBonus;
     int currentLapTicks;
     int bestLapTicks;
     int lapsCompleted;

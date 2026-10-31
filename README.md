@@ -482,10 +482,9 @@ $$f'_i = \frac{f_i}{\sum_{j \in S} \text{sh}(\delta(i, j))}$$
 
 ### 11. Behavioral Coherence, Proactive Trail-Braking & Impact Scaling
 To eliminate evolutionary cheating (suicide checkpoint diving and flat-out cornering), the fitness potential field accumulates dynamic behavioral metrics:
-$$\mathcal{F} = \mathcal{F}_{\text{accum}} + 280 \cdot P_{\text{track}} + \text{LapBonus} + 0.40 \cdot d_{\text{traveled}} + B_{\text{brake}} - \mathcal{P}_{\text{behavior}}$$
-$$B_{\text{brake}} += 2.0 \cdot |u_a| \quad \text{when approaching apexes } (S_2 < 160\text{ px}, v_{\text{long}} > 1.5\text{ px/t}, u_a < 0)$$
+$$\mathcal{F} = \mathcal{F}_{\text{accum}} + \mathcal{F}_{\text{cp\_pacing}} + \text{LapBonus} + 0.35 \cdot d_{\text{traveled}} + \mathcal{F}_{\text{kinetic}} + B_{\text{brake}} - \mathcal{P}_{\text{behavior}}$$
 $$\mathcal{P}_{\text{impact}} = 300.0 + 50.0 \cdot v_{\text{long}} \quad \text{on terminal wall impact}$$
-$$\mathcal{P}_{\text{behavior}} += 2.5 \cdot u_a \cdot \mathbb{I}_{\text{full\_throttle\_into\_wall}} + 2.0 \cdot |u_s| \cdot \mathbb{I}_{\text{steer\_into\_wall}} + \mathcal{P}_{\text{chatter}} + \mathcal{P}_{\text{slip}}$$
+$$\mathcal{P}_{\text{behavior}} += \mathcal{P}_{\text{cruising}} + \mathcal{P}_{\text{reckless\_entry}} + \mathcal{P}_{\text{chatter}} + \mathcal{P}_{\text{slip}}$$
 
 ### 12. Lookahead Sensor Geometry, Physical Steering Rate Limits & Speciation Breeding
 To guarantee robust corner entry across high-speed circuits, the perception and evolutionary breeding pipelines incorporate three foundational enhancements:
@@ -493,6 +492,12 @@ To guarantee robust corner entry across high-speed circuits, the perception and 
 *   **Actuator Slew Rate Limiter & Steering Chatter Damping:** Implements physical steering rack dynamics ($\Delta \text{steer}_{\max} = 0.20/\text{tick}$) and penalizes erratic steering oscillations ($0.35 \cdot |\Delta \text{steer}|$), extinguishing bang-bang oscillation exploits and promoting butter-smooth steering inputs.
 *   **True Species-Allotted Breeding:** Connects genomic speciation (`ComputeSpeciesAllotments`) directly into crossover reproduction. Rather than breeding exclusively from global straight-line speed records, breeding quotas are partitioned across genomic niches, safeguarding technical cornering phenotypes from premature extinction.
 *   **Normalized Dynamic State Space:** Scales inputs to physical bounds ($v_{\text{long}} / 4.0\text{ px/t}$, $v_{\text{lat}} / 1.5\text{ px/t}$, $\text{TTC} / 25.0$), ensuring symmetric weight activation throughout the neural network.
+
+### 13. Dynamic Sector-Delta Pacing & High-G Threshold Braking
+To break the conservative "cruise-control" local optimum and incentivize aggressive, race-pace driving:
+*   **Sector-Delta Checkpoint Rewards:** Checkpoint bonuses dynamically scale inversely with sector traversal time ($B_{\text{sector}} = 160.0 + \text{clamp}(120.0 \cdot T_{\text{budget}} / \Delta t_{\text{sector}}, 0, 320)$). Completing sectors at high speed earns up to $480\text{ pts}$ per checkpoint.
+*   **Straightaway Throttle Mandate & Quadratic Kinetic Energy:** When the path ahead is clear ($S_2 > 240\text{ px}$), agents are penalized for passive cruising ($5.0 \cdot (0.85 - u_a)$ if $u_a < 0.85$) and awarded quadratic kinetic energy bonuses ($3.0 \cdot (v_{\text{long}}/4.0)^2$) for pinning the throttle to 100%.
+*   **High-G Threshold Braking Zone:** When approaching an impending corner ($S_2 < 220\text{ px}$ and $v_{\text{long}} > 2.0\text{ px/t}$), applying active deceleration ($u_a < -0.05$) awards massive kinetic dissipation bonuses ($15.0 \cdot |u_a| \cdot v_{\text{long}}$ per tick), while carrying reckless throttle into apex entries is severely penalized ($10.0 \cdot u_a \cdot v_{\text{long}}$).
 
 ---
 
