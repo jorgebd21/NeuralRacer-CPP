@@ -333,11 +333,11 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const FlatSpatia
                 lastApexSpeed = GetSpeed();
 
                 // Dynamic Sector-Delta Pacing Bonus (Option 1):
-                // Reward is inversely proportional to time taken to cross the sector
+                // Reward is heavily dominated by high-speed sector pacing
                 float distCp = trackLen;
-                float targetSectorTicks = std::max(10.0f, distCp / 3.6f);
+                float targetSectorTicks = std::max(8.0f, distCp / 4.5f);
                 float pacingRatio = targetSectorTicks / std::max(1.0f, static_cast<float>(currentSectorTicks));
-                float sectorReward = 160.0f + std::clamp(pacingRatio * 140.0f, 0.0f, 350.0f);
+                float sectorReward = 80.0f + std::clamp(pacingRatio * 250.0f, 0.0f, 600.0f);
                 accumulatedCheckpointBonus += sectorReward;
                 currentSectorTicks = 0;
 
@@ -574,47 +574,49 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const FlatSpatia
     frontSensorHistory[frontSensorHistoryIdx] = sensorDistances[2];
     frontSensorHistoryIdx = (frontSensorHistoryIdx + 1) % FRONT_HISTORY_SIZE;
 
-    // 1. Mandate full throttle on clear straights and reward kinetic energy (Option 1)
-    bool clearStraight = (sensorDistances[2] > 140.0f && sensorDistances[0] > 15.0f && sensorDistances[4] > 15.0f);
+    // 1. Mandate full throttle on clear straights and reward kinetic energy
+    // Track width is ~35px. A clear straight is identified when front lidar > 120px and lateral clearance is adequate.
+    bool clearStraight = (sensorDistances[2] > 120.0f && (sensorDistances[0] + sensorDistances[4] > 20.0f));
     if (clearStraight) {
-        if (inputAccelerate < 0.75f) {
+        if (inputAccelerate < 0.80f) {
             // Penalize passive cruising when the track ahead is wide open
-            float cruisingPenalty = (0.75f - inputAccelerate) * 4.0f;
+            float cruisingPenalty = (0.80f - inputAccelerate) * 5.0f;
             cumulativeBehaviorPenalty += cruisingPenalty;
         } else {
             // Forward kinetic energy reward: scales quadratically with speed on straights
-            float normSpeed = std::max(0.0f, longitudinalVelocity) / 4.0f;
-            cumulativeKineticBonus += normSpeed * normSpeed * 3.5f;
+            // Gives substantial reward (+25 to +50 pts/tick) for high velocity, defeating slow crawling
+            float normSpeed = std::max(0.0f, longitudinalVelocity);
+            cumulativeKineticBonus += (normSpeed * normSpeed) * 1.5f;
         }
     }
 
     // 2. High-G threshold braking guidance: reward decisive deceleration before corner entry
     // Stopping distance under maximum braking power
     float stoppingDistance = (longitudinalVelocity * longitudinalVelocity) / (2.0f * (Config::BRAKING_POWER / Config::CAR_MASS));
-    bool approachingCorner = (longitudinalVelocity > 1.4f && (sensorDistances[2] < std::max(130.0f, stoppingDistance * 1.8f)));
+    bool approachingCorner = (longitudinalVelocity > 2.0f && (sensorDistances[2] < std::max(110.0f, stoppingDistance * 1.5f)));
     if (approachingCorner) {
         if (inputAccelerate < 0.0f) {
             // Quadratic reward for decisive, heavy brake stomps into corner entry
             float brakeStomp = std::abs(inputAccelerate);
             // Straight-line threshold braking bonus: real drivers brake hard while traveling straight before turning in
             float straightLineFactor = 1.0f - std::clamp(std::abs(inputTurn) * 1.5f, 0.0f, 0.75f);
-            cumulativeBrakeBonus += (brakeStomp * brakeStomp) * longitudinalVelocity * 25.0f * straightLineFactor;
-        } else if (inputAccelerate > 0.15f && sensorDistances[2] < 120.0f) {
-            // Strong penalty for pushing throttle into imminent barrier impact
-            cumulativeBehaviorPenalty += inputAccelerate * longitudinalVelocity * 10.0f;
+            cumulativeBrakeBonus += (brakeStomp * brakeStomp) * longitudinalVelocity * 30.0f * straightLineFactor;
+        } else if (inputAccelerate > 0.30f && sensorDistances[2] < 65.0f && std::abs(inputTurn) < 0.25f) {
+            // Penalize ONLY head-on barrier impact: flooring throttle straight into an imminent wall without steering
+            cumulativeBehaviorPenalty += inputAccelerate * longitudinalVelocity * 8.0f;
         }
     }
 
     // Behavioral incoherence penalties:
-    // 1. Full throttle into wall penalty:
-    if (sensorDistances[2] < 120.0f && longitudinalVelocity > 1.8f && inputAccelerate > 0.5f) {
-        cumulativeBehaviorPenalty += inputAccelerate * 2.5f;
+    // 1. Blind throttle into impending barrier without steering:
+    if (sensorDistances[2] < 50.0f && longitudinalVelocity > 2.0f && inputAccelerate > 0.4f && std::abs(inputTurn) < 0.20f) {
+        cumulativeBehaviorPenalty += inputAccelerate * 3.0f;
     }
 
-    // 2. Steering into adjacent wall penalty:
-    bool nearLeftWall = (sensorDistances[0] < 30.0f || sensorDistances[1] < 40.0f);
-    bool nearRightWall = (sensorDistances[4] < 30.0f || sensorDistances[3] < 40.0f);
-    if ((nearLeftWall && inputTurn < -0.2f) || (nearRightWall && inputTurn > 0.2f)) {
+    // 2. Steering directly into touching adjacent wall (wall-grinding):
+    bool touchingLeftWall = (sensorDistances[0] < 8.0f);
+    bool touchingRightWall = (sensorDistances[4] < 8.0f);
+    if ((touchingLeftWall && inputTurn < -0.3f) || (touchingRightWall && inputTurn > 0.3f)) {
         cumulativeBehaviorPenalty += std::abs(inputTurn) * 2.0f;
     }
 
@@ -628,11 +630,11 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const FlatSpatia
     cumulativeBehaviorPenalty += (chatterPenalty + slipPenalty);
 
     // Fitness breakdown (Option 1: Sector-Delta Pacing & Aggressive Braking):
-    //  - Dynamic Sector Checkpoints: accumulated pacing rewards (160 - 510 pts based on time to reach CP)
+    //  - Dynamic Sector Checkpoints: accumulated pacing rewards (80 - 680 pts based on time to reach CP)
     //  - Segment Progress: continuous potential field towards next checkpoint (up to 160.0f)
     //  - Total Lap Bonus: normalized time-to-complete + fastest lap milestones
     //  - Distance * 0.35: forward exploration gradient
-    //  - Cruising Speed * 1.5: continuous forward momentum reward preventing slow crawl exploits
+    //  - Cruising Speed * 6.0: continuous forward momentum reward preventing slow crawl exploits
     //  - Forward Kinetic Bonus: quadratic speed scaling on straights (Option 1)
     //  - Cumulative Trail-Brake Bonus: quadratic threshold braking incentive before corner entries
     //  - Cumulative Behavioral Penalties: penalizes cruising on straights, reckless corner entry, chatter & slip
@@ -640,7 +642,7 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const FlatSpatia
         distanceTraveled += longitudinalVelocity;
     }
     float currentSegmentPotential = segmentProgress * 160.0f;
-    float cruisingSpeedBonus = std::max(0.0f, longitudinalVelocity) * 2.0f;
+    float cruisingSpeedBonus = std::max(0.0f, longitudinalVelocity) * 6.0f;
     fitness = accumulatedFitness
             + accumulatedCheckpointBonus
             + currentSegmentPotential
