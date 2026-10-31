@@ -41,14 +41,18 @@ int main(int argc, char* argv[]) {
     float startRot = 0.0f;
     float trackWidth = 35.0f;
 
-    int arch = -1;
+    int arch = -2;
     if (trackType == "monza" || trackType == "0") arch = 0;
     else if (trackType == "silverstone" || trackType == "1") arch = 1;
     else if (trackType == "interlagos" || trackType == "2") arch = 2;
+    else if (trackType == "suzuka" || trackType == "3") arch = 3;
+    else if (trackType == "montreal" || trackType == "4") arch = 4;
+    else if (trackType == "baku" || trackType == "monaco" || trackType == "5") arch = 5;
+    else if (trackType == "procedural" || trackType == "-1") arch = -1;
 
-    if (arch >= 0) {
+    if (arch >= -1) {
         std::vector<Vector2> pts = ModularTrackGenerator::GenerateProceduralCenterPoints(arch);
-        if (pts.size() < 12) pts = ModularTrackGenerator::GenerateArchetypeFallback(arch);
+        if (pts.size() < 12) pts = ModularTrackGenerator::GenerateArchetypeFallback(arch >= 0 ? arch : 0);
         constexpr int PROCEDURAL_SPLINE_SEGMENTS = 24;
         denseLine = TrackManager::GenerateSplinePoints(pts, PROCEDURAL_SPLINE_SEGMENTS);
         TrackManager::CalculateStartGrid(pts, startPos, startRot);
