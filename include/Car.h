@@ -46,6 +46,8 @@ struct Car {
     
     // Lap time performance & racing line optimization metrics
     float totalLapBonus;
+    float cumulativeBrakeBonus;
+    float cumulativeBehaviorPenalty;
     int currentLapTicks;
     int bestLapTicks;
     int lapsCompleted;

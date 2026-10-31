@@ -36,6 +36,8 @@ void Car::Reset(float startX, float startY, float startRot, bool fullReset) {
     timeAlive = 0;
     timeSinceLastCheckpoint = 0;
     distanceTraveled = 0.0f;
+    cumulativeBrakeBonus = 0.0f;
+    cumulativeBehaviorPenalty = 0.0f;
     angularVelocity = 0.0f;
     longitudinalVelocity = 0.0f;
     lateralVelocity = 0.0f;
@@ -552,10 +554,28 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const FlatSpatia
     frontSensorHistory[frontSensorHistoryIdx] = sensorDistances[2];
     frontSensorHistoryIdx = (frontSensorHistoryIdx + 1) % FRONT_HISTORY_SIZE;
 
-    // Trail-braking guidance: reward controlled deceleration when approaching a tight apex/wall at speed
-    bool approachingCorner = (sensorDistances[2] < 160.0f && longitudinalVelocity > 1.8f);
-    bool brakingIntoCorner = approachingCorner && (inputAccelerate < 0.1f);
-    float trailBrakeBonus = brakingIntoCorner ? 1.5f : 0.0f;
+    // Proactive trail-braking guidance: reward controlled deceleration when approaching a tight apex/wall at speed
+    bool approachingCorner = (sensorDistances[2] < 160.0f && longitudinalVelocity > 1.5f);
+    if (approachingCorner) {
+        if (inputAccelerate < 0.0f) {
+            cumulativeBrakeBonus += std::abs(inputAccelerate) * 2.0f;
+        } else if (inputAccelerate < 0.2f) {
+            cumulativeBrakeBonus += 0.5f;
+        }
+    }
+
+    // Behavioral incoherence penalties:
+    // 1. Full throttle into wall penalty:
+    if (sensorDistances[2] < 120.0f && longitudinalVelocity > 1.8f && inputAccelerate > 0.5f) {
+        cumulativeBehaviorPenalty += inputAccelerate * 2.5f;
+    }
+
+    // 2. Steering into adjacent wall penalty:
+    bool nearLeftWall = (sensorDistances[0] < 30.0f || sensorDistances[1] < 40.0f);
+    bool nearRightWall = (sensorDistances[4] < 30.0f || sensorDistances[3] < 40.0f);
+    if ((nearLeftWall && inputTurn < -0.2f) || (nearRightWall && inputTurn > 0.2f)) {
+        cumulativeBehaviorPenalty += std::abs(inputTurn) * 2.0f;
+    }
 
     // Anti-chatter & smooth steering penalty: penalize abrupt bang-bang steering oscillations
     float steerDelta = std::abs(inputTurn - prevSteerInput);
@@ -566,13 +586,15 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const FlatSpatia
     float excessSlip = std::max(0.0f, std::abs(slipAngle) - 10.0f);
     float slipPenalty = excessSlip * 0.03f;
 
+    cumulativeBehaviorPenalty += (chatterPenalty + slipPenalty);
+
     // Fitness breakdown:
     //  - Continuous Checkpoints (280 each + continuous segment progress): dominant forward potential field
     //  - Total Lap Bonus: normalized time-to-complete + fastest lap milestones
     //  - Distance * 0.40: forward exploration gradient (strictly forward momentum along track)
     //  - Forward Speed * 1.5: cruising speed incentive to prevent ultra-slow crawling
-    //  - Trail-Brake Bonus: incentives active braking before high-speed corner entries
-    //  - Chatter & Slip Penalties: promote fluid, smooth racing lines and prevent tire abuse
+    //  - Cumulative Trail-Brake Bonus: incentives active braking before high-speed corner entries
+    //  - Cumulative Behavioral Penalties: penalizes full throttle into walls, steering into walls, chatter & slip
     if (longitudinalVelocity > 0.15f) {
         distanceTraveled += longitudinalVelocity;
     }
@@ -582,9 +604,9 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const FlatSpatia
             + totalLapBonus
             + (distanceTraveled * 0.40f)
             + (std::max(0.0f, longitudinalVelocity) * 1.5f)
-            + trailBrakeBonus
-            - slipPenalty
-            - chatterPenalty;
+            + cumulativeBrakeBonus
+            - cumulativeBehaviorPenalty;
+    if (fitness < 0.0f) fitness = 0.0f;
 
     // Forward progression filter: must maintain forward velocity (> 0.15 px/tick)
     // Standing still, reversing or oscillating in place accumulates stallTicks
@@ -603,7 +625,8 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const FlatSpatia
 
     // Terminal collision penalty: penalize wall/terminal impacts so clean cornering always outranks crashing
     if (isCrashed && justCrashed) {
-        fitness = std::max(0.0f, fitness - 150.0f);
+        float impactPenalty = 300.0f + (longitudinalVelocity * 50.0f);
+        fitness = std::max(0.0f, fitness - impactPenalty);
     }
 
     // 6. Record high-frequency telemetry sample if car is actively racing
