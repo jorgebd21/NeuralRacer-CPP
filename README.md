@@ -2,7 +2,7 @@
 
 A High-Performance 2D Autonomous Driving Simulation and Neuroevolution Engine in Modern C++17.
 
-[![Engine Version](https://img.shields.io/badge/Version-2.4.0-brightgreen.svg?style=flat-square)](https://github.com/jorgebd21/NeuralRacer-CPP/releases/tag/v2.4.0)
+[![Engine Version](https://img.shields.io/badge/Version-2.5.0-brightgreen.svg?style=flat-square)](https://github.com/jorgebd21/NeuralRacer-CPP/releases/tag/v2.5.0)
 [![C++ Version](https://img.shields.io/badge/C%2B%2B-17-blue.svg?style=flat-square&logo=c%2B%2B)](https://en.cppreference.com/w/cpp/17)
 [![SIMD Acceleration](https://img.shields.io/badge/SIMD-AVX2%20%2F%20FMA-purple.svg?style=flat-square)](https://en.wikipedia.org/wiki/Advanced_Vector_Extensions)
 [![Graphics Library](https://img.shields.io/badge/Graphics-Raylib-red.svg?style=flat-square)](https://www.raylib.com/)
@@ -442,12 +442,20 @@ Species clustering prevents premature convergence by partitioning genomes based 
 $$\delta = \frac{c_1 E}{N} + \frac{c_2 D}{N} + c_3 \cdot \bar{W}_{\text{diff}}$$
 $$f'_i = \frac{f_i}{\sum_{j \in S} \text{sh}(\delta(i, j))}$$
 
+### 11. Behavioral Coherence, Proactive Trail-Braking & Impact Scaling
+To eliminate evolutionary cheating (suicide checkpoint diving and flat-out cornering), the fitness potential field accumulates dynamic behavioral metrics:
+$$\mathcal{F} = \mathcal{F}_{\text{accum}} + 280 \cdot P_{\text{track}} + \text{LapBonus} + 0.40 \cdot d_{\text{traveled}} + B_{\text{brake}} - \mathcal{P}_{\text{behavior}}$$
+$$B_{\text{brake}} += 2.0 \cdot |u_a| \quad \text{when approaching apexes } (S_2 < 160\text{ px}, v_{\text{long}} > 1.5\text{ px/t}, u_a < 0)$$
+$$\mathcal{P}_{\text{impact}} = 300.0 + 50.0 \cdot v_{\text{long}} \quad \text{on terminal wall impact}$$
+$$\mathcal{P}_{\text{behavior}} += 2.5 \cdot u_a \cdot \mathbb{I}_{\text{full\_throttle\_into\_wall}} + 2.0 \cdot |u_s| \cdot \mathbb{I}_{\text{steer\_into\_wall}} + \mathcal{P}_{\text{chatter}} + \mathcal{P}_{\text{slip}}$$
+
 ---
 
 ## Versioning & Release Milestones
 
 | Version | Milestone Theme | Key Capabilities |
 | :--- | :--- | :--- |
+| [**v2.5.0**](https://github.com/jorgebd21/NeuralRacer-CPP/releases/tag/v2.5.0) | **Exhaustive Telemetry & Coherence Engine** | 60Hz 45-parameter exhaustive recorder, real-time behavioral incoherence auditor, normalized TTC wall-closure perception, accumulated trail-braking & impact scaling. |
 | [**v2.4.0**](https://github.com/jorgebd21/NeuralRacer-CPP/releases/tag/v2.4.0) | **Advanced Telemetry Visualizer & Replay** | Historical ghost vehicle replay, GPU racing line heatmap, 60Hz scrubber HUD, real-time XAI Jacobians. |
 | [**v2.3.0**](https://github.com/jorgebd21/NeuralRacer-CPP/releases/tag/v2.3.0) | **Temporal Recurrent Neuroevolution** | Minimal Gated Unit (MGU) recurrent cells, genomic compatibility distance, explicit fitness sharing. |
 | [**v2.2.0**](https://github.com/jorgebd21/NeuralRacer-CPP/releases/tag/v2.2.0) | **Multi-Agent Perception & Racecraft** | Competitor OBB spatial registration, 5-ray dynamic LIDAR sweep, slipstream drafting, elastic collision impulses. |
