@@ -596,7 +596,9 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const FlatSpatia
         if (inputAccelerate < 0.0f) {
             // Quadratic reward for decisive, heavy brake stomps into corner entry
             float brakeStomp = std::abs(inputAccelerate);
-            cumulativeBrakeBonus += (brakeStomp * brakeStomp) * longitudinalVelocity * 22.0f;
+            // Straight-line threshold braking bonus: real drivers brake hard while traveling straight before turning in
+            float straightLineFactor = 1.0f - std::clamp(std::abs(inputTurn) * 1.5f, 0.0f, 0.75f);
+            cumulativeBrakeBonus += (brakeStomp * brakeStomp) * longitudinalVelocity * 25.0f * straightLineFactor;
         } else if (inputAccelerate > 0.15f && sensorDistances[2] < 120.0f) {
             // Strong penalty for pushing throttle into imminent barrier impact
             cumulativeBehaviorPenalty += inputAccelerate * longitudinalVelocity * 10.0f;

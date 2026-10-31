@@ -124,6 +124,20 @@ namespace ModularTrackGenerator {
         return m;
     }
 
+    inline ModuleDef MakeBrakingChicane(const std::string& id, float length, float lateralOffset, bool initialLeft) {
+        ModuleDef m;
+        m.id = id;
+        m.deltaHeading = 0.0f;
+        m.localExitPos = { length, 0.0f };
+        float sign = initialLeft ? 1.0f : -1.0f;
+        m.localPoints.push_back({ length * 0.20f, 0.0f });
+        m.localPoints.push_back({ length * 0.40f, sign * lateralOffset });
+        m.localPoints.push_back({ length * 0.60f, -sign * lateralOffset });
+        m.localPoints.push_back({ length * 0.80f, 0.0f });
+        m.localPoints.push_back({ length, 0.0f });
+        return m;
+    }
+
     inline std::vector<ModuleDef> BuildCatalog() {
         std::vector<ModuleDef> cat;
         cat.push_back(MakeStraight("STR_50", 50.0f));
@@ -151,12 +165,26 @@ namespace ModularTrackGenerator {
         cat.push_back(MakeArc("CRV_90_R130_L", 130.0f, PI_F / 2.0f, true));
         cat.push_back(MakeArc("CRV_90_R130_R", 130.0f, PI_F / 2.0f, false));
 
+        // TIGHT 90-degree heavy braking turns (Baku / Singapore / Monaco)
+        cat.push_back(MakeArc("CRV_90_R60_L", 60.0f, PI_F / 2.0f, true));
+        cat.push_back(MakeArc("CRV_90_R60_R", 60.0f, PI_F / 2.0f, false));
+        cat.push_back(MakeArc("CRV_90_R85_L", 85.0f, PI_F / 2.0f, true));
+        cat.push_back(MakeArc("CRV_90_R85_R", 85.0f, PI_F / 2.0f, false));
+
+        // TIGHT 120-degree heavy braking turns
+        cat.push_back(MakeArc("CRV_120_R70_L", 70.0f, PI_F * 0.6667f, true));
+        cat.push_back(MakeArc("CRV_120_R70_R", 70.0f, PI_F * 0.6667f, false));
         cat.push_back(MakeArc("CRV_120_R120_L", 120.0f, PI_F * 0.6667f, true));
         cat.push_back(MakeArc("CRV_120_R120_R", 120.0f, PI_F * 0.6667f, false));
 
         cat.push_back(MakeDoubleApex("CRV_DBL_APEX_L", 160.0f, 110.0f, true));
         cat.push_back(MakeDoubleApex("CRV_DBL_APEX_R", 160.0f, 110.0f, false));
 
+        // TIGHT 180-degree Hairpins (Montreal Epingle / Monaco Grand Hotel / Spa La Source)
+        cat.push_back(MakeArc("HRP_180_R55_L", 55.0f, PI_F, true));
+        cat.push_back(MakeArc("HRP_180_R55_R", 55.0f, PI_F, false));
+        cat.push_back(MakeArc("HRP_180_R75_L", 75.0f, PI_F, true));
+        cat.push_back(MakeArc("HRP_180_R75_R", 75.0f, PI_F, false));
         cat.push_back(MakeArc("HRP_180_R120_L", 120.0f, PI_F, true));
         cat.push_back(MakeArc("HRP_180_R120_R", 120.0f, PI_F, false));
 
@@ -164,6 +192,12 @@ namespace ModularTrackGenerator {
         cat.push_back(MakeChicane("CHK_S_R40", 130.0f, -40.0f));
         cat.push_back(MakeChicane("CHK_BUS_STOP_L", 170.0f, 60.0f));
         cat.push_back(MakeChicane("CHK_BUS_STOP_R", 170.0f, -60.0f));
+
+        // High-Deceleration Heavy-Braking Chicanes (Monza Prima Variante / Le Mans Chicanes)
+        cat.push_back(MakeBrakingChicane("CHK_BRAKE_R48", 180.0f, 48.0f, false));
+        cat.push_back(MakeBrakingChicane("CHK_BRAKE_L48", 180.0f, 48.0f, true));
+        cat.push_back(MakeBrakingChicane("CHK_RETTIFILO_R", 220.0f, 55.0f, false));
+        cat.push_back(MakeBrakingChicane("CHK_RETTIFILO_L", 220.0f, 55.0f, true));
 
         cat.push_back(MakeSnakeEsses("ESS_SNAKE_L", 210.0f, 35.0f));
         cat.push_back(MakeSnakeEsses("ESS_SNAKE_R", 210.0f, -35.0f));
@@ -314,17 +348,20 @@ namespace ModularTrackGenerator {
         float sinR = std::sin(rot);
 
         switch (topology) {
-            case 0: { // Monza Cathedral of Speed (Corridor ~3.2:1 aspect ratio)
+            case 0: { // Monza Cathedral of Speed with Variante del Rettifilo chicane
                 float hw = (float)GetRandomValue(850, 980);
-                float hh = (float)GetRandomValue(260, 340);
+                float hh = (float)GetRandomValue(280, 350);
                 rawWp.push_back({ -hw, -hh * 0.85f });
-                rawWp.push_back({ -hw * 0.2f, -hh * 0.90f });
-                rawWp.push_back({ hw * 0.3f, -hh });
-                rawWp.push_back({ hw * 0.9f, -hh * 0.4f });
-                rawWp.push_back({ hw, 0.0f });
-                rawWp.push_back({ hw * 0.7f, hh * 0.7f });
-                rawWp.push_back({ 0.0f, hh });
-                rawWp.push_back({ -hw * 0.7f, hh * 0.8f });
+                // Long power straight into heavy braking chicane (Variante del Rettifilo)
+                rawWp.push_back({ -hw * 0.45f, -hh * 0.85f });
+                rawWp.push_back({ -hw * 0.25f, -hh * 0.60f }); // Chicane right apex
+                rawWp.push_back({ -hw * 0.10f, -hh * 0.95f }); // Chicane left snap
+                rawWp.push_back({ hw * 0.3f, -hh });            // Curva Grande
+                rawWp.push_back({ hw * 0.9f, -hh * 0.4f });     // Variante della Roggia
+                rawWp.push_back({ hw, 0.0f });                  // Lesmo
+                rawWp.push_back({ hw * 0.7f, hh * 0.7f });      // Variante Ascari
+                rawWp.push_back({ 0.0f, hh });                  // Back straight
+                rawWp.push_back({ -hw * 0.7f, hh * 0.8f });     // Parabolica
                 rawWp.push_back({ -hw, 0.0f });
                 break;
             }
@@ -369,7 +406,7 @@ namespace ModularTrackGenerator {
                 rawWp.push_back({ -hw * 0.85f, hh * 0.75f });
                 break;
             }
-            case 4: default: { // Albert Park / Montreal Island Hybrid (High-speed chicanes & power straights)
+            case 4: { // Albert Park / Montreal Island Hybrid (High-speed chicanes & power straights)
                 float hw = (float)GetRandomValue(820, 950);
                 float hh = (float)GetRandomValue(380, 480);
                 rawWp.push_back({ -hw, -hh * 0.7f });
@@ -380,6 +417,21 @@ namespace ModularTrackGenerator {
                 rawWp.push_back({ 0.0f, hh * 0.7f });
                 rawWp.push_back({ -hw * 0.7f, hh * 0.9f });
                 rawWp.push_back({ -hw * 0.95f, hh * 0.1f });
+                break;
+            }
+            case 5: default: { // Baku / Monaco Street Circuit (High speed straight into 90-deg heavy braking & hairpin)
+                float hw = (float)GetRandomValue(820, 940);
+                float hh = (float)GetRandomValue(440, 540);
+                rawWp.push_back({ -hw, -hh * 0.80f });
+                rawWp.push_back({ hw * 0.70f, -hh * 0.80f }); // Full throttle main boulevard (top speed)
+                rawWp.push_back({ hw * 0.95f, -hh * 0.40f }); // 90-degree right turn 1 (heavy braking)
+                rawWp.push_back({ hw * 0.95f, hh * 0.15f });
+                rawWp.push_back({ hw * 0.45f, hh * 0.15f });  // 90-degree left turn
+                rawWp.push_back({ hw * 0.45f, hh * 0.80f });  // 90-degree right turn
+                rawWp.push_back({ -hw * 0.15f, hh * 0.80f });
+                rawWp.push_back({ -hw * 0.65f, hh * 0.35f }); // 180-degree Grand Hotel Hairpin
+                rawWp.push_back({ -hw * 0.95f, hh * 0.35f });
+                rawWp.push_back({ -hw * 0.95f, -hh * 0.20f });
                 break;
             }
         }
@@ -410,7 +462,7 @@ namespace ModularTrackGenerator {
 
     inline std::vector<Vector2> GenerateArchetypeFallback(int topology = 0) {
         float startAngle = 0.0f;
-        int top = (topology >= 0 && topology <= 4) ? topology : GetRandomValue(0, 4);
+        int top = (topology >= 0 && topology <= 5) ? topology : GetRandomValue(0, 5);
         std::vector<Vector2> wp = SeedWaypoints(top, startAngle);
         
         float minX = 1e9, maxX = -1e9, minY = 1e9, maxY = -1e9;
@@ -440,13 +492,13 @@ namespace ModularTrackGenerator {
 
     /**
      * @brief Synthesizes a high-variety modular racing circuit with 360-degree start pose and multi-topology.
-     * @param fixedTopology When in [0, 4], forces specific F1 macro-skeleton (0: Monza, 1: Silverstone, 2: Interlagos, 3: Suzuka, 4: Montreal).
+     * @param fixedTopology When in [0, 5], forces specific F1 macro-skeleton (0: Monza, 1: Silverstone, 2: Interlagos, 3: Suzuka, 4: Montreal, 5: Baku/Monaco).
      */
     inline std::vector<Vector2> GenerateProceduralCenterPoints(int fixedTopology = -1) {
         auto catalog = BuildCatalog();
 
         for (int run = 0; run < 400; run++) {
-            int topology = (fixedTopology >= 0 && fixedTopology <= 4) ? fixedTopology : GetRandomValue(0, 4);
+            int topology = (fixedTopology >= 0 && fixedTopology <= 5) ? fixedTopology : GetRandomValue(0, 5);
             float startHeading = 0.0f;
             std::vector<Vector2> waypoints = SeedWaypoints(topology, startHeading);
             int numWP = (int)waypoints.size();
@@ -516,6 +568,12 @@ namespace ModularTrackGenerator {
                     // Balanced heading penalty (reduced from 115.0f to 45.0f) with diversity incentive for medium/pronounced curves
                     float headingPenalty = headingDiff * 45.0f;
                     float curveBonus = (std::abs(mod.deltaHeading) >= (PI_F / 4.0f)) ? -35.0f : 0.0f;
+                    // Active selection boost for heavy braking technical motifs: chicanes, hairpins, and tight 90-deg bends
+                    if (mod.id.find("CHK") != std::string::npos || mod.id.find("HRP") != std::string::npos || 
+                        mod.id.find("R60") != std::string::npos || mod.id.find("R55") != std::string::npos ||
+                        mod.id.find("R70") != std::string::npos) {
+                        curveBonus -= 30.0f;
+                    }
                     float totalScore = distScore + headingPenalty + curveBonus + (float)GetRandomValue(0, 20);
 
                     scored.push_back({ (int)i, totalScore });
