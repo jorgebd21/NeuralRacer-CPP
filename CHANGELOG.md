@@ -5,6 +5,36 @@ The project adheres strictly to [Semantic Versioning 2.0.0](https://semver.org/)
 
 ---
 
+## [v2.6.0] — 2026-10-31
+### Formula 1 Powertrain Dynamics, High-G Threshold Braking & Generational Curriculum
+
+#### Summary
+Upgrades the vehicle physics to true Formula 1 powertrain dynamics (+70% engine thrust, +75% braking power, increased aerodynamic drag and tire grip), implements heavy straight-line threshold braking and corner-entry lift-off incentives, enforces dynamic understeer safety corridors and universal barrier throttle suppression, decouples evolutionary curriculum learning by generation count across 6 Grand Prix circuit archetypes, and establishes test harness genome integrity.
+
+#### Features & Improvements
+- **Formula 1 Powertrain & Aerodynamic Envelope (`Config.h`):**
+  - Scaled `ENGINE_POWER` from $40.0\text{ N}$ to $68.0\text{ N}$ (+70% longitudinal acceleration) and `BRAKING_POWER` from $120.0\text{ N}$ to $210.0\text{ N}$ (+75% high-G deceleration authority).
+  - Elevated `DRAG_MULTIPLIER` to $0.44$ for realistic high-speed aerodynamic resistance and coasting deceleration.
+  - Upgraded `TIRE_GRIP_LIMIT` from $0.55$ to $0.62$ ($+12.7\%$ lateral cornering grip), raising cornering limit from $\sim 2.7\text{ px/t}$ to $\sim 4.2\text{ px/t}$.
+  - Extended forward perception range (`CAR_FRONT_SENSOR_DIST`) from $450\text{ px}$ to $500\text{ px}$ for long-range corner anticipation at speeds $> 7.5\text{ px/t}$.
+- **High-G Threshold Braking & Deceleration Scale (`Car.cpp`):**
+  - Kinetic dissipation reward ($15.0 \cdot |u_a| \cdot v_{\text{long}}$) enhanced with a $1.5\times$ amplification factor when $v_{\text{long}} > 4.5\text{ px/t}$ into corner entry zones.
+  - Progressive reward for lifting off throttle on corner entry ($u_a \le 0.10$ while turning).
+  - Suppression of power understeer: penalizes full throttle when lateral slip exceeds $0.35\text{ px/t}$.
+- **Dynamic Corner Safety Corridor & Barrier Penalty Hardening (`Car.cpp`):**
+  - Dynamic stopping corridor $d_{\text{stop\_margin}} = \max(95.0\text{ px}, 1.25 \cdot d_{\text{stopping}})$ dynamically calculates deceleration requirements based on current velocity, eliminating corner overshoot.
+  - Universal barrier throttle penalty: removed turning angle threshold loophole, ensuring any vehicle heading into a wall within $95\text{ px}$ is severely penalized for applying positive throttle.
+- **Generation-Driven Curriculum & Circuit Rotation (`Simulation.cpp`, `Telemetry.cpp`):**
+  - Curriculum phases now advance predictably based on generation count: Phase 1 (Single Track Induction) for generations $0 \le g < 40$; Phase 2 (Multi-Archetype Generalization) for $40 \le g < 100$; Phase 3 (Pure Stochastic Procedural Generation) for $g \ge 100$.
+  - Periodic 10-generation circuit rotation during Phase 1 across 6 canonical Grand Prix archetypes (Silverstone, Interlagos, Suzuka, Montreal, Baku, Monza).
+- **Multi-Archetype Exhaustive Telemetry Test Harness (`test_exhaustive_telemetry.cpp`):**
+  - Enhanced CLI support with `--track <0-5>`, `--ticks <N>`, and `--brain <path>` for automated multi-circuit validation.
+  - Automated behavioral coherence auditing across all Formula 1 archetypes.
+- **Test Harness Genome Preservation (`Evolution.h`, `Evolution.cpp`, `test_speciation_diversity.cpp`):**
+  - Added optional `saveDisk = true` parameter to `Evolution::EvolvePopulation` and set `false` in test suites to prevent unit tests from corrupting trained production genomes in `data/best.json`.
+
+---
+
 ## [v2.5.0] — 2026-10-31
 ### Exhaustive Telemetry & Behavioral Coherence Engine
 

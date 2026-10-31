@@ -2,7 +2,7 @@
 
 A High-Performance 2D Autonomous Driving Simulation and Neuroevolution Engine in Modern C++17.
 
-[![Engine Version](https://img.shields.io/badge/Version-2.5.0-brightgreen.svg?style=flat-square)](https://github.com/jorgebd21/NeuralRacer-CPP/releases/tag/v2.5.0)
+[![Engine Version](https://img.shields.io/badge/Version-2.6.0-brightgreen.svg?style=flat-square)](https://github.com/jorgebd21/NeuralRacer-CPP/releases/tag/v2.6.0)
 [![C++ Version](https://img.shields.io/badge/C%2B%2B-17-blue.svg?style=flat-square&logo=c%2B%2B)](https://en.cppreference.com/w/cpp/17)
 [![SIMD Acceleration](https://img.shields.io/badge/SIMD-AVX2%20%2F%20FMA-purple.svg?style=flat-square)](https://en.wikipedia.org/wiki/Advanced_Vector_Extensions)
 [![Graphics Library](https://img.shields.io/badge/Graphics-Raylib-red.svg?style=flat-square)](https://www.raylib.com/)
@@ -165,11 +165,12 @@ The behavioral engine models decision-making processes from first principles:
     *   *Stage 3 (Generations 400+, Sustained Micro-Exploitation Floor):* Parameters remain fixed indefinitely at $3\%$ rate and $\sigma = 0.035$.
     $$\text{Stage 1 }(g < 200):\quad \text{decay}_1(g) = \max\left(0, \frac{\frac{1.0}{1.0 + k_1 \cdot g} - \frac{1.0}{1.0 + k_1 \cdot 200}}{1.0 - \frac{1.0}{1.0 + k_1 \cdot 200}}\right),\quad \text{Rate} = 25 + \text{round}(25 \cdot \text{decay}_1)$$
     $$\text{Stage 2 }(200 \le g < 400):\quad \text{decay}_2(g) = \max\left(0, \frac{\frac{1.0}{1.0 + k_2 \cdot (g - 200)}}{1.0 - \frac{1.0}{1.0 + k_2 \cdot 200}}\right),\quad \text{Rate} = 3 + \text{round}(22 \cdot \text{decay}_2)$$
-*   **Pure Procedural Multi-Circuit Architecture from Generation 0 (6 Grand Prix Circuits per Generation):** Eliminates static track memorization and distribution shift by evaluating the population exclusively on dynamic procedural tracks from the very first generation:
-    *   *6 Consecutive Grand Prix Circuits per Generation:* Every generation dynamically synthesizes 6 unique, closed racetracks via $SE(2)$ modular tile coupling across the expansive $2400 \times 1600\text{ px}$ canvas.
-    *   *Systematic Topological Coverage:* Tracks 0 through 4 systematically sample the 5 core F1 macro-skeletons (Monza high-speed corridor, Silverstone tri-sector flow, Interlagos amphitheater horseshoe, Suzuka rhythm S-curves, and Montreal power straights), while Track 5 is generated with unconstrained stochastic macro-topology.
-    *   *Zero Spatial Overfitting:* Because every circuit is assembled in real-time from the 17-tile catalog with dynamic rotations, cars cannot memorize fixed coordinate waypoints or time-based turn triggers; they must develop generalized sensory-motor primitives (LIDAR ray balancing, TTC threshold braking, and slip angle management).
-    *   *Optimal Computation-Generalization Pareto Frontier:* Delivers high variance reduction and zero-shot transfer capabilities without the exponential computational cost of 64–128 tracks, completing a full 6-track generational evaluation in $\sim 1\text{ second}$ in headless OpenMP mode.
+*   **Generation-Driven Multi-Phase Curriculum Learning & Archetype Rotation:** Decouples curriculum pacing from fragile heuristic thresholds, driving progression strictly by generation counts across 6 canonical Formula 1 Grand Prix archetypes:
+    *   *Phase 1: Sensory-Motor Induction ($0 \le g < 40$):* Population trains on a single benchmark track with a deterministic 10-generation circuit rotation across Grand Prix archetypes (Silverstone $\to$ Interlagos $\to$ Suzuka $\to$ Montreal). This establishes core reflex primitives (corridor centering, high-speed straight tracking, and heavy threshold braking) without catastrophic procedural shock.
+    *   *Phase 2: Multi-Archetype Generalization ($40 \le g < 100$):* Population is simultaneously evaluated across 3 diverse benchmark circuits per generation, forcing the neural controllers to generalize across high-speed chicanes, technical esses, and heavy-braking hairpins.
+    *   *Phase 3: Stochastic Procedural Synthesis ($g \ge 100$):* Population confronts 6 dynamically synthesized procedural tracks per generation via $SE(2)$ modular tile coupling, guaranteeing zero memorization and absolute zero-shot generalization.
+    *   *Systematic Topological Coverage:* Circuits systematically sample the core F1 macro-skeletons (Monza high-speed corridor, Silverstone tri-sector flow, Interlagos amphitheater horseshoe, Suzuka rhythm S-curves, Montreal power straights, and Baku 90-degree threshold braking).
+    *   *Optimal Computation-Generalization Pareto Frontier:* Delivers high variance reduction and zero-shot transfer capabilities without the exponential computational cost of 64–128 tracks, completing a full multi-track generational evaluation in $\sim 1\text{ second}$ in headless OpenMP mode.
 
 ### 4. Mathematical Formula 1 Grand Prix Procedural Architecture
 Includes an enterprise-grade procedural generation framework producing authentic, flowing race circuits based on real-world Grand Prix layout archetypes:
@@ -184,7 +185,13 @@ Includes an enterprise-grade procedural generation framework producing authentic
 *   **Curvature & Viewport Bounds:** Generates smooth Catmull-Rom centerlines with guaranteed non-intersecting geometries, counter-clockwise winding (Gauss Shoelace validation), and strict $80\text{ px}$ viewport margins with sub-millisecond generation speed ($<0.5\text{ ms}$).
 
 ### 5. Advanced Kinematics & Race Physics
-The vehicle kinematics engine bypasses simplified movement models in favor of real-world race physics:
+The vehicle kinematics engine bypasses simplified movement models in favor of real-world Formula 1 race physics:
+*   **Formula 1 Powertrain & High-Deceleration Envelope:** Implements authentic Grand Prix propulsion and braking dynamics:
+    *   *Engine Propulsion ($F_{\text{drive}} = 68.0\text{ N}$):* Delivers $+70\%$ higher longitudinal thrust ($a_{\text{launch}} \approx 3.24\text{ m/s}^2$ / $0.56\text{ px/t}^2$), pushing terminal straightaway velocity to $v_{\max} = \sqrt{F_{\text{drive}} / K_{\text{drag}}} \approx 12.43\text{ px/t}$ ($\approx 257\text{ km/h}$), reaching $\approx 15.6\text{ px/t}$ ($\approx 322\text{ km/h}$) inside aerodynamic drafting wakes.
+    *   *Carbon-Ceramic Braking Authority ($F_{\text{brake}} = 210.0\text{ N}$):* Establishes a $3.1:1$ brake-to-engine ratio, generating up to $-10.0\text{ m/s}^2$ ($-1.75\text{ px/t}^2$) of high-G kinetic dissipation for realistic threshold braking into tight hairpins.
+    *   *High-Downforce Aerodynamics ($K_{\text{drag}} = 0.44$):* Quadratic aerodynamic resistance provides realistic high-speed coasting deceleration and aerodynamic stabilization.
+    *   *High-G Cornering Envelope ($\mu_{\text{tire}} = 0.62$):* Delivers $+12.7\%$ greater lateral grip capacity ($a_{y,\max} \approx 6.08\text{ m/s}^2$), allowing apex cornering speeds above $4.0\text{ px/t}$.
+    *   *Long-Range Forward Sensor ($d_{\text{front}} = 500.0\text{ px}$):* Extends forward sightline to detect braking markers and apexes over $70\text{ meters}$ ahead at high velocity.
 *   **Speed-Dependent Ackermann Steering & Angular Yaw Inertia:** Yaw rate is kinematically scaled to forward speed with low-pass angular inertia filtering ($\omega_t = 0.65\,\omega_{t-1} + 0.35\,\omega_{\text{target}}$). This physically grounds steering response, prevents zero-speed spinning, and completely eliminates unphysical 1-tick bang-bang steering oscillation exploits.
 *   **Friction Circle & Kamm Traction Budgeting:** Evaluates restoring cornering grip against a physical adhesion limit ($F_{\text{max\_grip}} = \mu_{\text{tire}} \cdot M$) and couples lateral grip demand to longitudinal engine traction ($F_{x,\max} = \sqrt{\max(0, F_{\text{grip}}^2 - F_y^2)}$). Applying high lateral cornering demand restricts available forward acceleration.
 *   **Realistic Induced Scrub Drag & Coulomb Rolling Resistance:** Implements constant rolling friction ($F_{\text{roll}} = -\mu_{\text{roll}} \cdot \text{sgn}(v)$) and amplified lateral scrub resistance ($K_{\text{scrub}} = 55.0$) plus steering deflection drag ($K_{\text{steer}} = 0.08$). Any lateral weaving or zig-zagging on straightaways incurs an immediate $\approx 28\%$ speed penalty, making straight-line driving strictly optimal.
@@ -195,7 +202,7 @@ The vehicle kinematics engine bypasses simplified movement models in favor of re
 To eradicate circular reward-hacking and endless idling loops:
 *   **Dense Sequential Checkpoint Mesh:** Generates 16 to 32 evenly spaced checkpoints (~100-150 px apart) along the track centerline, eliminating long blind zones.
 *   **Directional Vector Validation:** Verifies that both the vehicle's heading and velocity vector align positively with the track's tangent ($\vec{v} \cdot \vec{\tau}_{\text{track}} > 0$ and $\vec{h} \cdot \vec{\tau}_{\text{track}} > 0.2$), strictly rejecting backwards passes, spin-outs, or donut maneuvers.
-*   **Strict Sector Timeout:** Calibrates the maximum allowed time between consecutive checkpoints (`Config::CAR_MAX_TIME_WITHOUT_CHECKPOINT = 320` ticks / ~5.3s at 60 FPS) to account for genuine F1 Grand Prix track dimensions and ~140 px checkpoint spacing, eliminating false-positive timeout culling while strictly extinguishing idle drifting, backwards driving, and donut-spinning exploitation.
+*   **Strict Sector Timeout:** Calibrates the maximum allowed time between consecutive checkpoints (`Config::CAR_MAX_TIME_WITHOUT_CHECKPOINT = 180` ticks / ~3.0s at 60 FPS) to account for genuine F1 Grand Prix track dimensions and ~140 px checkpoint spacing, eliminating false-positive timeout culling while strictly extinguishing idle drifting, backwards driving, and donut-spinning exploitation.
 *   **Continuous Multi-Lap Evaluation & High-Speed Fitness Incentives:** Agents run continuous sequential laps across the circuit for the full generational duration (`Config::MAX_GENERATION_TIME = 2000` ticks). To reward racing line optimization, aggressive cruising momentum, and fastest lap execution rather than meandering raw distance accumulation:
     *   *Base Milestone:* Grants $+1500$ points upon completing each lap.
     *   *Cruising Velocity Bonus:* Direct velocity reward scaled to $+1.5 \times \text{speed}$ per tick, actively rewarding full-throttle high-speed cruising and punishing over-braking.
@@ -497,7 +504,15 @@ To guarantee robust corner entry across high-speed circuits, the perception and 
 To break the conservative "cruise-control" local optimum and incentivize aggressive, race-pace driving:
 *   **Sector-Delta Checkpoint Rewards:** Checkpoint bonuses dynamically scale inversely with sector traversal time ($B_{\text{sector}} = 160.0 + \text{clamp}(120.0 \cdot T_{\text{budget}} / \Delta t_{\text{sector}}, 0, 320)$). Completing sectors at high speed earns up to $480\text{ pts}$ per checkpoint.
 *   **Straightaway Throttle Mandate & Quadratic Kinetic Energy:** When the path ahead is clear ($S_2 > 240\text{ px}$), agents are penalized for passive cruising ($5.0 \cdot (0.85 - u_a)$ if $u_a < 0.85$) and awarded quadratic kinetic energy bonuses ($3.0 \cdot (v_{\text{long}}/4.0)^2$) for pinning the throttle to 100%.
-*   **High-G Threshold Braking Zone:** When approaching an impending corner ($S_2 < 220\text{ px}$ and $v_{\text{long}} > 2.0\text{ px/t}$), applying active deceleration ($u_a < -0.05$) awards massive kinetic dissipation bonuses ($15.0 \cdot |u_a| \cdot v_{\text{long}}$ per tick), while carrying reckless throttle into apex entries is severely penalized ($10.0 \cdot u_a \cdot v_{\text{long}}$).
+*   **High-G Threshold Braking Zone:** When approaching an impending corner ($S_2 < 220\text{ px}$ and $v_{\text{long}} > 2.0\text{ px/t}$), applying active deceleration ($u_a < -0.05$) awards massive kinetic dissipation bonuses ($15.0 \cdot |u_a| \cdot v_{\text{long}}$ per tick, amplified by $1.5\times$ when $v_{\text{long}} > 4.5\text{ px/t}$), while carrying reckless throttle into apex entries is severely penalized ($10.0 \cdot u_a \cdot v_{\text{long}}$).
+
+### 14. Formula 1 Powertrain Dynamics, Power-Understeer Suppression & Dynamic Stopping Corridors
+To faithfully emulate the dynamic envelope of modern Formula 1 single-seaters:
+*   **Powertrain & High-G Deceleration Ratio (3.1:1):** Upgrades forward thrust to $F_{\text{drive}} = 68.0\text{ N}$ (+70%) and carbon-ceramic braking authority to $F_{\text{brake}} = 210.0\text{ N}$ (+75%). The theoretical top speed reaches $v_{\max} = \sqrt{F_{\text{drive}} / K_{\text{drag}}} = \sqrt{68 / 0.44} \approx 12.43\text{ px/t}$ ($\approx 257\text{ km/h}$), expanding to $\approx 15.6\text{ px/t}$ ($\approx 322\text{ km/h}$) inside aerodynamic slipstream drafting wakes.
+*   **Dynamic Corner Safety Corridor:** Deceleration requirements are calculated adaptively via:
+    $$d_{\text{stop\_margin}} = \max\left(95.0\text{ px}, 1.25 \cdot \frac{v_{\text{long}}^2}{2 \cdot a_{\text{brake}}}\right)$$
+    Vehicles approaching a wall closer than $d_{\text{stop\_margin}}$ are strictly prohibited from full-throttle inputs, preventing late-braking corner overshoot.
+*   **Power-Understeer Suppression & Turn-in Lift-Off:** Accelerating hard while experiencing excessive lateral tire scrub ($|v_{\text{lat}}| > 0.35\text{ px/t}$) triggers power-understeer penalties ($5.0 \cdot u_a \cdot (|v_{\text{lat}}| - 0.35)$). Conversely, lifting off the throttle on corner entry ($u_a \le 0.10$ with active steering) earns trail-braking transition rewards.
 
 ---
 
@@ -505,6 +520,7 @@ To break the conservative "cruise-control" local optimum and incentivize aggress
 
 | Version | Milestone Theme | Key Capabilities |
 | :--- | :--- | :--- |
+| [**v2.6.0**](https://github.com/jorgebd21/NeuralRacer-CPP/releases/tag/v2.6.0) | **F1 Powertrain & Generational Curriculum** | F1 powertrain (+70% engine, +75% brake), dynamic corner safety corridor, power-understeer suppression, decoupled generational curriculum, test harness genome protection. |
 | [**v2.5.0**](https://github.com/jorgebd21/NeuralRacer-CPP/releases/tag/v2.5.0) | **Exhaustive Telemetry & Coherence Engine** | 60Hz 45-parameter exhaustive recorder, real-time behavioral incoherence auditor, normalized TTC wall-closure perception, accumulated trail-braking & impact scaling. |
 | [**v2.4.0**](https://github.com/jorgebd21/NeuralRacer-CPP/releases/tag/v2.4.0) | **Advanced Telemetry Visualizer & Replay** | Historical ghost vehicle replay, GPU racing line heatmap, 60Hz scrubber HUD, real-time XAI Jacobians. |
 | [**v2.3.0**](https://github.com/jorgebd21/NeuralRacer-CPP/releases/tag/v2.3.0) | **Temporal Recurrent Neuroevolution** | Minimal Gated Unit (MGU) recurrent cells, genomic compatibility distance, explicit fitness sharing. |
