@@ -7,7 +7,7 @@ endif()
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # 1. Ponle un nombre al proyecto
-project(NeuralRacer VERSION 2.5.0 LANGUAGES CXX)
+project(NeuralRacer VERSION 2.6.0 LANGUAGES CXX)
 
 # 2. Configura el estándar de C++ (Pista: fíjate en el CXXFLAGS de tu Makefile)
 set(CMAKE_CXX_STANDARD 17)
