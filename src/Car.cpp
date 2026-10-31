@@ -60,6 +60,7 @@ void Car::Reset(float startX, float startY, float startRot, bool fullReset) {
     prevSteerSign = 0;
     steeringZeroCrossings = 0;
     prevAccelInput = 0.0f;
+    prevSteerInput = 0.0f;
     throttleChatter = 0.0f;
 
     currentTrackOffset = 0.0f;
@@ -551,20 +552,39 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const FlatSpatia
     frontSensorHistory[frontSensorHistoryIdx] = sensorDistances[2];
     frontSensorHistoryIdx = (frontSensorHistoryIdx + 1) % FRONT_HISTORY_SIZE;
 
+    // Trail-braking guidance: reward controlled deceleration when approaching a tight apex/wall at speed
+    bool approachingCorner = (sensorDistances[2] < 150.0f && longitudinalVelocity > 2.5f);
+    bool brakingIntoCorner = approachingCorner && (inputAccelerate < 0.2f);
+    float trailBrakeBonus = brakingIntoCorner ? 1.5f : 0.0f;
+
+    // Anti-chatter & smooth steering penalty: penalize abrupt bang-bang steering oscillations
+    float steerDelta = std::abs(inputTurn - prevSteerInput);
+    float chatterPenalty = steerDelta * 0.02f;
+    prevSteerInput = inputTurn;
+
+    // Tire grip conservation: penalize severe lateral slip angles beyond optimal racing limits (> 10 deg)
+    float excessSlip = std::max(0.0f, std::abs(slipAngle) - 10.0f);
+    float slipPenalty = excessSlip * 0.03f;
+
     // Fitness breakdown:
-    //  - Continuous Checkpoints (250 each + continuous segment progress): continuous forward potential field
+    //  - Continuous Checkpoints (280 each + continuous segment progress): dominant forward potential field
     //  - Total Lap Bonus: normalized time-to-complete + fastest lap milestones
-    //  - Distance * 0.5: forward exploration gradient (strictly forward momentum along track)
+    //  - Distance * 0.40: forward exploration gradient (strictly forward momentum along track)
     //  - Forward Speed * 1.5: cruising speed incentive to prevent ultra-slow crawling
+    //  - Trail-Brake Bonus: incentives active braking before high-speed corner entries
+    //  - Chatter & Slip Penalties: promote fluid, smooth racing lines and prevent tire abuse
     if (longitudinalVelocity > 0.15f) {
         distanceTraveled += longitudinalVelocity;
     }
     float continuousProgress = static_cast<float>(totalCheckPointsCrossed) + segmentProgress;
     fitness = accumulatedFitness
-            + (continuousProgress * 250.0f)
+            + (continuousProgress * 280.0f)
             + totalLapBonus
-            + (distanceTraveled * 0.5f)
-            + (std::max(0.0f, longitudinalVelocity) * 1.5f);
+            + (distanceTraveled * 0.40f)
+            + (std::max(0.0f, longitudinalVelocity) * 1.5f)
+            + trailBrakeBonus
+            - slipPenalty
+            - chatterPenalty;
 
     // Forward progression filter: must maintain forward velocity (> 0.15 px/tick)
     // Standing still, reversing or oscillating in place accumulates stallTicks
@@ -579,6 +599,11 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const FlatSpatia
         stallTicks > Config::CAR_STALL_TIME_THRESHOLD)) {
         isCrashed = true; 
         justCrashed = true;
+    }
+
+    // Terminal collision penalty: penalize wall/terminal impacts so clean cornering always outranks crashing
+    if (isCrashed && justCrashed) {
+        fitness = std::max(0.0f, fitness - 60.0f);
     }
 
     // 6. Record high-frequency telemetry sample if car is actively racing

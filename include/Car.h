@@ -86,6 +86,7 @@ struct Car {
     int prevSteerSign;
     int steeringZeroCrossings;
     float prevAccelInput;
+    float prevSteerInput;
     float throttleChatter;
 
     // Racing line & track utilization
