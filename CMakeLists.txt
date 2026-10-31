@@ -90,3 +90,7 @@ add_executable(test_brain_simd tests/test_brain_simd.cpp)
 add_executable(test_surface_dynamics tests/test_surface_dynamics.cpp)
 add_executable(test_track_surfaces tests/test_track_surfaces.cpp src/TrackManager.cpp)
 target_link_libraries(test_track_surfaces raylib GL m pthread dl rt X11)
+
+# Sistema de Telemetría Exhaustiva y Auditor de Coherencia Comportamental
+add_executable(test_exhaustive_telemetry tests/test_exhaustive_telemetry.cpp src/ExhaustiveTelemetry.cpp src/Car.cpp src/TrackManager.cpp src/Evolution.cpp)
+target_link_libraries(test_exhaustive_telemetry raylib GL m pthread dl rt X11)
