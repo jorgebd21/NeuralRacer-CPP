@@ -9,6 +9,7 @@ A High-Performance 2D Autonomous Driving Simulation and Neuroevolution Engine in
 [![Build System](https://img.shields.io/badge/Build-CMake-orange.svg?style=flat-square&logo=cmake)](https://cmake.org/)
 [![Concurrency](https://img.shields.io/badge/Concurrency-OpenMP%20%2F%20Intel%20TBB-yellow.svg?style=flat-square)](https://www.openmp.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](LICENSE)
+[![Contributions](https://img.shields.io/badge/Contributions-Welcome-blue.svg?style=flat-square)](CONTRIBUTING.md)
 
 ---
 
@@ -55,36 +56,35 @@ The following diagram illustrates the execution lifecycle, data pipelines, and c
 
 ```mermaid
 flowchart TD
-    subgraph Initialization
-        A["Pure Procedural Generator: 6 Dynamic Modular F1 Circuits per Generation from Gen 0"] --> B[Generate Spatial Hashing Grid]
-        B --> C[Initialize Population: 100 Agents]
+    subgraph Initialization ["Initialization"]
+        A["Pure Procedural Generator: 6 Dynamic F1 Circuits"] --> B["Generate Spatial Hashing Grid"]
+        B --> C["Initialize Population (100 Agents)"]
     end
 
-    subgraph ParallelLoop ["Multi-threaded via OpenMP"]
-        C --> D[Compute Sensor Raycasts & Delay Buffer]
-        D --> E[Evaluate Neural Network - 9-10-2]
-        E --> F[Apply Vehicle Dynamics - Drift, Inertia & Weight Transfer]
-        F --> G{Collision or Timeout Detected?}
-        G -- Yes --> H[Register Single Impact & Update Telemetry]
-        G -- No --> I[Accumulate Continuous Fitness & Cross Checkpoints]
+    subgraph ParallelLoop ["Multi-threaded Physics & Inference (OpenMP)"]
+        C --> D["Compute Sensor Raycasts & Delay Buffer"]
+        D --> E["Evaluate Neural Network (9-10-2 Topology)"]
+        E --> F["Apply Vehicle Dynamics (Drift, Inertia & Load Transfer)"]
+        F --> G{"Collision or Timeout Detected?"}
+        G -- Yes --> H["Register Single Impact & Update Telemetry"]
+        G -- No --> I["Accumulate Continuous Fitness & Cross Checkpoints"]
     end
 
-    subgraph EvolutionaryPipeline ["End of Generation Cycle (6-Track Procedural Evaluation)"]
-        H & I --> J[Sort Population by Accumulated Fitness]
-        J --> K[Elitism: Preserve Top 10% Intact Across Deterministic Tracks]
-        J --> L[Two-Parent Crossover & Gaussian Mutation with Minimum Floor]
-        K & L --> M[Reset Agents to Starting Grid of Track 0]
+    subgraph EvolutionaryPipeline ["Generational Evaluation (Multi-Track Curriculum)"]
+        H --> J["Sort Population by Accumulated Fitness"]
+        I --> J
+        J --> K["Elitism: Preserve Top 10% Intact"]
+        J --> L["Two-Parent Crossover & Gaussian Mutation"]
+        K --> M["Reset Agents to Starting Grid"]
+        L --> M
         M --> C
     end
 
     subgraph AsyncSubsystems ["Asynchronous Subsystems"]
-        F --> N[Render Live Weight Visualization & Activation Dashboard]
-        H --> O[Update Spatial Collision Heatmap]
-        J --> P[Non-blocking CSV Data Export - std::future]
+        F --> N["Render Weight Visualization & Telemetry HUD"]
+        H --> O["Update Spatial Collision Heatmap"]
+        J --> P["Non-blocking Disk Export (std::future)"]
     end
-
-    style ParallelLoop fill:#252525,stroke:#444,stroke-width:2px,color:#fff
-    style EvolutionaryPipeline fill:#1a2b3c,stroke:#444,stroke-width:2px,color:#fff
 ```
 
 ---
@@ -163,8 +163,14 @@ The behavioral engine models decision-making processes from first principles:
     *   *Stage 1 (Generations 0–200, Macro-Exploration & Procedural Plasticity):* Decays smoothly from $50\%$ down to $25\%$ (`Config::STAGE1_MUTATION_MIN = 25`), with $\sigma$ transitioning from $0.12$ to $0.08$. This guarantees ample synaptic plasticity during Curriculum Induction, Consolidation, and early Procedural generalization, touching exactly $25\%$ at generation 200 to prevent procedural paralysis.
     *   *Stage 2 (Generations 200–400, Fine Exploitation & Load Reduction):* Decays gently from $25\%$ down to an ultra-fine floor of $3\%$ (`Config::STAGE2_MUTATION_MIN = 3`), with $\sigma$ transitioning from $0.08$ to $0.035$. This progressively eliminates deleterious mutation load on competent reflex controllers (raising fleet survival rate beyond $90\%$) while maintaining subtle micro-tuning capabilities.
     *   *Stage 3 (Generations 400+, Sustained Micro-Exploitation Floor):* Parameters remain fixed indefinitely at $3\%$ rate and $\sigma = 0.035$.
-    $$\text{Stage 1 }(g < 200):\quad \text{decay}_1(g) = \max\left(0, \frac{\frac{1.0}{1.0 + k_1 \cdot g} - \frac{1.0}{1.0 + k_1 \cdot 200}}{1.0 - \frac{1.0}{1.0 + k_1 \cdot 200}}\right),\quad \text{Rate} = 25 + \text{round}(25 \cdot \text{decay}_1)$$
-    $$\text{Stage 2 }(200 \le g < 400):\quad \text{decay}_2(g) = \max\left(0, \frac{\frac{1.0}{1.0 + k_2 \cdot (g - 200)}}{1.0 - \frac{1.0}{1.0 + k_2 \cdot 200}}\right),\quad \text{Rate} = 3 + \text{round}(22 \cdot \text{decay}_2)$$
+
+$$
+\text{Stage 1 } (g \lt 200):\quad \text{decay}_1(g) = \max\left(0, \frac{\frac{1.0}{1.0 + k_1 \cdot g} - \frac{1.0}{1.0 + k_1 \cdot 200}}{1.0 - \frac{1.0}{1.0 + k_1 \cdot 200}}\right),\quad \text{Rate} = 25 + \text{round}(25 \cdot \text{decay}_1)
+$$
+
+$$
+\text{Stage 2 } (200 \le g \lt 400):\quad \text{decay}_2(g) = \max\left(0, \frac{\frac{1.0}{1.0 + k_2 \cdot (g - 200)}}{1.0 - \frac{1.0}{1.0 + k_2 \cdot 200}}\right),\quad \text{Rate} = 3 + \text{round}(22 \cdot \text{decay}_2)
+$$
 *   **Generation-Driven Multi-Phase Curriculum Learning & Archetype Rotation:** Decouples curriculum pacing from fragile heuristic thresholds, driving progression strictly by generation counts across 6 canonical Formula 1 Grand Prix archetypes:
     *   *Phase 1: Sensory-Motor Induction ($0 \le g < 40$):* Population trains on a single benchmark track with a deterministic 10-generation circuit rotation across Grand Prix archetypes (Silverstone $\to$ Interlagos $\to$ Suzuka $\to$ Montreal). This establishes core reflex primitives (corridor centering, high-speed straight tracking, and heavy threshold braking) without catastrophic procedural shock.
     *   *Phase 2: Multi-Archetype Generalization ($40 \le g < 100$):* Population is simultaneously evaluated across 3 diverse benchmark circuits per generation, forcing the neural controllers to generalize across high-speed chicanes, technical esses, and heavy-braking hairpins.
@@ -231,14 +237,14 @@ Records full-rate (60 Hz / tick-by-tick) physical and neurocognitive metrics for
     *   $\frac{\partial \text{Steer}}{\partial \text{Lidar}_{\text{Front}}}$ (`sens_steer_front`)
     *   $\frac{\partial \text{Steer}}{\partial (\text{Lidar}_{\text{Left}} - \text{Lidar}_{\text{Right}})}$ (`sens_steer_lat`)
 
-### 5. High-Entropy Procedural Track Synthesis Engine (Stochastic Macro-Graph)
+### 8. High-Entropy Procedural Track Synthesis Engine (Stochastic Macro-Graph)
 To prevent neural networks from overfitting to fixed track layouts, the procedural generator uses a high-entropy macro-graph pipeline that generates dense, topologically rich circuits:
 *   **Multi-Centric Macro-Graphs & 6 Canonical Archetypes:** Synthesizes randomized macro-skeletons featuring out-and-back corridors, asymmetric infield loops, triangular diagonals, L-shape carousels, dual-lobe horseshoes, and urban street grids.
 *   **Combinatorial Motif Injection:** Analyzes long straightaways and stochastically injects technical chicanes, esses, or kinks with dynamic lateral displacement.
 *   **Unconstrained 360° Affine Transformation:** Implements arbitrary planar rotation ($\phi \in [0, 2\pi)$), asymmetric scaling, and dynamic margin fitting, ensuring start straights and apexes can emerge at any angle.
 *   **Clearance & Self-Intersection Watchdog:** Validates candidates by verifying zero self-intersections and enforcing a minimum $45\text{ px}$ clearance between non-adjacent centerline sections, eliminating bottlenecks while maintaining high variance ($CV_L \approx 19\%$, $CV_{W/H} \approx 23\%$).
 
-### 6. Discrete Modular Track Synthesis Engine ($SE(2)$ Tile Coupling) & F1 Macro-Skeletons
+### 9. Discrete Modular Track Synthesis Engine ($SE(2)$ Tile Coupling) & F1 Macro-Skeletons
 In addition to continuous spline-based macro-graphs, the engine implements a discrete modular track builder inspired by modular slot-car and tile coupling architectures:
 *   **Expanded Functional Tile Catalog (17 Distinct Primitives):** Assembles tracks from discrete pre-validated geometric primitives with analytic curvature bounds:
     *   *Straights:* Micro connector (`STR_50`), medium (`STR_90`), standard (`STR_150`), extended DRS straightaway (`STR_240`), and F1 Grand Prix blast straights (`STR_350`, `STR_500`).
@@ -287,12 +293,20 @@ The engineering challenges resolved in the codebase are mapped below to show the
 
 ## Directory Structure
 
-```
+```plaintext
 NeuralRacer-CPP/
 ├── CMakeLists.txt         # CMake build configuration with CTest integration
 ├── LICENSE                # MIT License
 ├── README.md              # Project documentation
 ├── CHANGELOG.md           # Semantic versioning release log
+├── CONTRIBUTING.md        # Contribution guidelines and coding standards
+├── SECURITY.md            # Security policy and vulnerability disclosure
+├── CODE_OF_CONDUCT.md     # Contributor Covenant Code of Conduct
+├── .github/               # GitHub issue templates and PR configuration
+│   ├── ISSUE_TEMPLATE/
+│   │   ├── bug_report.md
+│   │   └── feature_request.md
+│   └── PULL_REQUEST_TEMPLATE.md
 ├── docs/                  # Media and instructional documentation
 │   ├── INSTRUCTIONS.md    # Guide on capturing images/GIFs for the simulator
 │   ├── Training.gif       # Principal animated training loop capture
@@ -359,8 +373,8 @@ sudo apt install build-essential cmake libraylib-dev libomp-dev libtbb-dev
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/jorgebd21/ML_Coches.git
-cd ML_Coches
+git clone https://github.com/jorgebd21/NeuralRacer-CPP.git
+cd NeuralRacer-CPP
 
 # 2. Setup build directory
 mkdir build && cd build
@@ -374,6 +388,12 @@ cmake --build . -j2
 # 5. Run automated test suite
 ctest --output-on-failure
 ```
+
+> [!TIP]
+> Use `-j2` during compilation on systems with less than 16 GB RAM to prevent heavy template instantiation in SIMD and JSON headers from exhausting system memory.
+
+> [!NOTE]
+> All unit and regression tests are integrated with CMake CTest. Running `ctest --output-on-failure` validates zero-allocation compliance, MGU neural forward passes, and spatial grid bounds across 13 automated test suites.
 
 ### Command-Line Interface (CLI) Options
 
@@ -453,8 +473,14 @@ $$F_{\text{total\_long}} = F_{\text{engine}} + F_{\text{drag}} + F_{\text{scrub}
 
 ### 4. Dynamic Tire Grip Saturation & Restoring Force
 Cornering grip scales dynamically with weight transfer. When the required lateral force exceeds the tire adhesion limit $F_{\text{max\_grip}}$, the tire breaks traction and enters dynamic drift:
-$$F_{\text{max\_grip}} = \mu_{\text{tire}} \cdot M \cdot \left( 1.0 + a_{\text{long}} \cdot k_{\text{weight}} \right)$$
-$$F_{\text{lateral}} = \begin{cases} \text{sgn}(-v_{\text{lat}}) \cdot F_{\text{max\_grip}} & \text{if } |v_{\text{lat}} \cdot C_{\alpha}| > F_{\text{max\_grip}} \text{ (Drift)} \\ -v_{\text{lat}} \cdot C_{\alpha} \cdot \text{tractionMultiplier} & \text{otherwise (Adhesion)} \end{cases}$$
+
+$$
+F_{\text{max\_grip}} = \mu_{\text{tire}} \cdot M \cdot \left( 1.0 + a_{\text{long}} \cdot k_{\text{weight}} \right)
+$$
+
+$$
+F_{\text{lateral}} = \begin{cases} \text{sgn}(-v_{\text{lat}}) \cdot F_{\text{max\_grip}} & \text{if } |v_{\text{lat}} \cdot C_{\alpha}| \gt F_{\text{max\_grip}} \text{ (Drift)} \\ -v_{\text{lat}} \cdot C_{\alpha} \cdot \text{tractionMultiplier} & \text{otherwise (Adhesion)} \end{cases}
+$$
 
 ### 5. Kinematic World Velocity Projection
 Following force integration, updated local chassis velocities are projected back to global space:
