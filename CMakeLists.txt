@@ -7,11 +7,14 @@ endif()
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # 1. Ponle un nombre al proyecto
-project(NeuralRacer VERSION 2.4.0 LANGUAGES CXX)
+project(NeuralRacer VERSION 2.5.0 LANGUAGES CXX)
 
 # 2. Configura el estándar de C++ (Pista: fíjate en el CXXFLAGS de tu Makefile)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
+
+# Enable CTest suite
+enable_testing()
 
 # Enable AVX2 and FMA SIMD instruction sets
 add_compile_options(-mavx2 -mfma)
@@ -94,3 +97,18 @@ target_link_libraries(test_track_surfaces raylib GL m pthread dl rt X11)
 # Sistema de Telemetría Exhaustiva y Auditor de Coherencia Comportamental
 add_executable(test_exhaustive_telemetry tests/test_exhaustive_telemetry.cpp src/ExhaustiveTelemetry.cpp src/Car.cpp src/TrackManager.cpp src/Evolution.cpp)
 target_link_libraries(test_exhaustive_telemetry raylib GL m pthread dl rt X11)
+
+# Automated CTest Target Registration
+add_test(NAME TestRingBuffer COMMAND test_ringbuffer)
+add_test(NAME TestSpatialGrid COMMAND test_spatial_grid)
+add_test(NAME TestVehicleSpatialGrid COMMAND test_vehicle_spatial_grid)
+add_test(NAME TestBrainSIMD COMMAND test_brain_simd)
+add_test(NAME TestSurfaceDynamics COMMAND test_surface_dynamics)
+add_test(NAME TestTireThermals COMMAND test_tire_thermals)
+add_test(NAME TestKammThermalCoupling COMMAND test_kamm_thermal_coupling)
+add_test(NAME TestMguCell COMMAND test_mgu_cell)
+add_test(NAME TestSpeciation COMMAND test_speciation)
+add_test(NAME TestFitnessSharing COMMAND test_fitness_sharing)
+add_test(NAME TestGenomeSerialization COMMAND test_genome_serialization)
+add_test(NAME TestSpeciationDiversity COMMAND test_speciation_diversity)
+add_test(NAME TestExhaustiveTelemetry COMMAND test_exhaustive_telemetry --ticks 50)

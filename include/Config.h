@@ -7,7 +7,7 @@
  * window settings. Encapsulated in a namespace to avoid global scope pollution.
  */
 namespace Config {
-    constexpr const char* ENGINE_VERSION = "2.4.0";
+    constexpr const char* ENGINE_VERSION = "2.5.0";
     constexpr int SCREEN_WIDTH = 1280;
     constexpr int SCREEN_HEIGHT = 768;
     constexpr float WORLD_WIDTH = 2400.0f;
