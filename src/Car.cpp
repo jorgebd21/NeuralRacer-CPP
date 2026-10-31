@@ -593,29 +593,33 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const FlatSpatia
     // 2. High-G threshold braking guidance: reward decisive deceleration before corner entry
     // Stopping distance under maximum braking power
     float stoppingDistance = (longitudinalVelocity * longitudinalVelocity) / (2.0f * (Config::BRAKING_POWER / Config::CAR_MASS));
-    bool approachingCorner = (longitudinalVelocity > 2.0f && (sensorDistances[2] < std::max(110.0f, stoppingDistance * 1.5f)));
+    bool approachingCorner = (longitudinalVelocity > 2.0f && (sensorDistances[2] < std::max(120.0f, stoppingDistance * 1.5f)));
     if (approachingCorner) {
         if (inputAccelerate < 0.0f) {
             // Quadratic reward for decisive, heavy brake stomps into corner entry
             float brakeStomp = std::abs(inputAccelerate);
             // Straight-line threshold braking bonus: real drivers brake hard while traveling straight before turning in
             float straightLineFactor = 1.0f - std::clamp(std::abs(inputTurn) * 1.5f, 0.0f, 0.75f);
-            cumulativeBrakeBonus += (brakeStomp * brakeStomp) * longitudinalVelocity * 30.0f * straightLineFactor;
-        } else if (inputAccelerate > 0.30f && sensorDistances[2] < 65.0f && std::abs(inputTurn) < 0.25f) {
-            // Penalize ONLY head-on barrier impact: flooring throttle straight into an imminent wall without steering
+            // High-velocity deceleration scale: extra reward for shedding speed above 4.5 px/t
+            float highSpeedBrakeMultiplier = (longitudinalVelocity > 4.5f) ? 1.5f : 1.0f;
+            cumulativeBrakeBonus += (brakeStomp * brakeStomp) * longitudinalVelocity * 35.0f * straightLineFactor * highSpeedBrakeMultiplier;
+        } else if (inputAccelerate > 0.20f && sensorDistances[2] < 60.0f) {
+            // Penalize flooring throttle into an impending barrier regardless of steering lock (prevents power-understeer wall strikes)
             cumulativeBehaviorPenalty += inputAccelerate * longitudinalVelocity * 8.0f;
         }
     }
 
     // Power understeer suppression: penalize flooring throttle when steering is heavily locked near corner barriers
-    bool powerUndersteerRisk = (sensorDistances[2] < 75.0f && longitudinalVelocity > 3.2f && std::abs(inputTurn) > 0.60f);
+    // Dynamic trigger distance scaled with stopping requirements to prevent terminal corner push
+    float understeerSafetyDist = std::max(95.0f, stoppingDistance * 1.25f);
+    bool powerUndersteerRisk = (sensorDistances[2] < understeerSafetyDist && longitudinalVelocity > 2.8f && std::abs(inputTurn) > 0.50f);
     if (powerUndersteerRisk) {
-        if (inputAccelerate > 0.35f) {
+        if (inputAccelerate > 0.25f) {
             // Penalize accelerating into saturated steering lock (induces push/understeer straight into barrier)
-            cumulativeBehaviorPenalty += (inputAccelerate - 0.20f) * longitudinalVelocity * 6.0f;
+            cumulativeBehaviorPenalty += (inputAccelerate - 0.15f) * longitudinalVelocity * 6.0f;
         } else if (inputAccelerate <= 0.15f) {
             // Lift-off turn-in reward: promotes transferring load to the front axle to rotate the car into the apex
-            cumulativeKineticBonus += 2.0f;
+            cumulativeKineticBonus += 2.5f;
         }
     }
 

@@ -49,8 +49,8 @@ void TestSpeciesDiversityAcross200Generations() {
             }
         }
 
-        // Apply natural selection, speciation, and fitness sharing
-        Evolution::EvolvePopulation(population, startPos, 0.0f, gen);
+        // Apply natural selection, speciation, and fitness sharing without overwriting data/best.json
+        Evolution::EvolvePopulation(population, startPos, 0.0f, gen, false);
 
         int activeSpeciesCount = static_cast<int>(Evolution::GetActiveSpecies().size());
         if (activeSpeciesCount < minSpeciesObserved) minSpeciesObserved = activeSpeciesCount;

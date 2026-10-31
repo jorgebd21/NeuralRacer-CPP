@@ -101,7 +101,7 @@ namespace Evolution {
      * @param startRotation Initial rotation to reset the cars.
      * @param genCount The current generation count.
      */
-    void EvolvePopulation(std::vector<Car>& population, Vector2 startPosition, float startRotation, int genCount);
+    void EvolvePopulation(std::vector<Car>& population, Vector2 startPosition, float startRotation, int genCount, bool saveDisk = true);
 
     /**
      * @brief Updates global mutation rate and Gaussian perturbation step size (sigma) based on curriculum decay.

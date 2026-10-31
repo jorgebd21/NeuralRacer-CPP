@@ -540,7 +540,7 @@ void UpdateMutationParameters(int generation) {
 
 static float adaptiveSpeciationThreshold = Config::SPECIATION_THRESHOLD;
 
-void EvolvePopulation(std::vector<Car>& population, Vector2 startPosition, float startRotation, int genCount) {
+void EvolvePopulation(std::vector<Car>& population, Vector2 startPosition, float startRotation, int genCount, bool saveDisk) {
     UpdateMutationParameters(genCount);
 
     std::sort(population.begin(), population.end(), [](const Car& a, const Car& b) {
@@ -557,7 +557,9 @@ void EvolvePopulation(std::vector<Car>& population, Vector2 startPosition, float
     ClusterSpecies(population, activeSpecies, adaptiveSpeciationThreshold);
     ApplyFitnessSharing(population, activeSpecies);
 
-    SaveBestBrains(population, genCount);
+    if (saveDisk) {
+        SaveBestBrains(population, genCount);
+    }
 
     // Breed the next generation using species-aware crossover and mutation.
     CrossoverAndMutate(population, activeSpecies);
