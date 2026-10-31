@@ -27,7 +27,7 @@ As a high-performance C++17 simulation engine incorporating native SIMD instruct
 If you discover a potential security vulnerability or memory hazard in **NeuralRacer-CPP**:
 
 1. **Do not open a public issue.**
-2. Report the vulnerability privately via **GitHub Security Advisory** on the repository or email the maintainer directly at `jorgebaezadiaz@gmail.com` with the subject tag `[SECURITY: NeuralRacer-CPP]`.
+2. Report the vulnerability privately via **GitHub Security Advisory** on the repository or email the maintainer directly at `baezadiazjorge2112@gmail.com` with the subject tag `[SECURITY: NeuralRacer-CPP]`.
 3. Provide a clear description including:
    * Engine version and operating system.
    * Minimal reproducible test case (e.g., malformed JSON payload or specific compiler flags).
