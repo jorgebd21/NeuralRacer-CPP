@@ -449,6 +449,13 @@ $$B_{\text{brake}} += 2.0 \cdot |u_a| \quad \text{when approaching apexes } (S_2
 $$\mathcal{P}_{\text{impact}} = 300.0 + 50.0 \cdot v_{\text{long}} \quad \text{on terminal wall impact}$$
 $$\mathcal{P}_{\text{behavior}} += 2.5 \cdot u_a \cdot \mathbb{I}_{\text{full\_throttle\_into\_wall}} + 2.0 \cdot |u_s| \cdot \mathbb{I}_{\text{steer\_into\_wall}} + \mathcal{P}_{\text{chatter}} + \mathcal{P}_{\text{slip}}$$
 
+### 12. Lookahead Sensor Geometry, Physical Steering Rate Limits & Speciation Breeding
+To guarantee robust corner entry across high-speed circuits, the perception and evolutionary breeding pipelines incorporate three foundational enhancements:
+*   **Adaptive Lookahead LIDAR Array ($\pm 75^\circ, \pm 20^\circ, 0^\circ$):** Eliminates corridor blind spots on $35\text{ px}$ tracks. Wide lateral rays ($\pm 75^\circ$, normalized to $80\text{ px}$) provide immediate wall centering, while narrow lookahead rays ($\pm 20^\circ$, normalized to $350\text{ px}$) detect approaching corners over $250\text{ px}$ ahead, preventing late corner-entry blindness.
+*   **Actuator Slew Rate Limiter & Steering Chatter Damping:** Implements physical steering rack dynamics ($\Delta \text{steer}_{\max} = 0.20/\text{tick}$) and penalizes erratic steering oscillations ($0.35 \cdot |\Delta \text{steer}|$), extinguishing bang-bang oscillation exploits and promoting butter-smooth steering inputs.
+*   **True Species-Allotted Breeding:** Connects genomic speciation (`ComputeSpeciesAllotments`) directly into crossover reproduction. Rather than breeding exclusively from global straight-line speed records, breeding quotas are partitioned across genomic niches, safeguarding technical cornering phenotypes from premature extinction.
+*   **Normalized Dynamic State Space:** Scales inputs to physical bounds ($v_{\text{long}} / 4.0\text{ px/t}$, $v_{\text{lat}} / 1.5\text{ px/t}$, $\text{TTC} / 25.0$), ensuring symmetric weight activation throughout the neural network.
+
 ---
 
 ## Versioning & Release Milestones
