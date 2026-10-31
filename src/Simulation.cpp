@@ -18,8 +18,9 @@
 static volatile sig_atomic_t stopRequested = 0;
 static void signalHandler(int) { stopRequested = 1; }
 
-Simulation::Simulation(bool isHeadless, bool startInTraining) : 
+Simulation::Simulation(bool isHeadless, bool startInTraining, int maxGenerations) : 
     isHeadless(isHeadless),
+    maxGenerations(maxGenerations),
     showCheckpoints(false),
     showTelemetry(false),
     showGhostVehicle(false),
@@ -119,10 +120,11 @@ void Simulation::Run() {
     std::signal(SIGTERM, signalHandler);
     if(isHeadless){
         currentState = TRAINING;
-        while(!stopRequested){
+        int targetGenerations = (maxGenerations > 0) ? (generationCount + maxGenerations) : -1;
+        while(!stopRequested && (targetGenerations <= 0 || generationCount < targetGenerations)){
             Update();
         }
-        std::cout << "Training stopped gracefully after " << generationCount << " generations." << std::endl;
+        std::cout << "Training stopped gracefully after reaching generation " << generationCount << "." << std::endl;
     }else{
         while (!WindowShouldClose() && !stopRequested) {
             Update();
