@@ -49,18 +49,18 @@ namespace Config {
     constexpr float ROLLING_RESISTANCE = 3.5f; // Constant Coulomb rolling resistance (N)
     constexpr float CAR_MAX_SENSOR_DIST = 350.0f;
     constexpr float CAR_LATERAL_SENSOR_MAX = 80.0f;
-    constexpr float CAR_FRONT_SENSOR_DIST = 450.0f;
+    constexpr float CAR_FRONT_SENSOR_DIST = 500.0f;
     constexpr int CAR_STALL_TIME_THRESHOLD = 90;
     constexpr float CAR_STALL_SPEED_THRESHOLD = -0.3f;
     constexpr int CAR_MAX_TIME_WITHOUT_CHECKPOINT = 180; // Anti-crawl sector timeout forcing aggressive race pacing
 
     constexpr float CAR_MASS = 1200.0f;
-    constexpr float ENGINE_POWER = 40.0f;   // Responsive race engine propulsion
-    constexpr float BRAKING_POWER = 120.0f; // High-authority motorsport threshold braking (3:1 brake-to-engine power ratio)
-    constexpr float DRAG_MULTIPLIER = 0.35f;
+    constexpr float ENGINE_POWER = 68.0f;   // F1-grade powertrain propulsion (+70% longitudinal acceleration)
+    constexpr float BRAKING_POWER = 210.0f; // High-authority F1 carbon-ceramic threshold braking (3.1:1 brake-to-engine ratio)
+    constexpr float DRAG_MULTIPLIER = 0.44f; // High aerodynamic downforce drag (v_term ~ 12.1 px/tick, with drafting ~ 15.6 px/tick)
     constexpr float CORNERING_STIFFNESS = 1000.0f;
     constexpr float WEIGHT_TRANSFER_FACTOR = 0.05f;
-    constexpr float TIRE_GRIP_LIMIT = 0.55f;
+    constexpr float TIRE_GRIP_LIMIT = 0.62f; // High-downforce F1 slick tire lateral grip envelope
     constexpr float TIRE_SCRUB_FACTOR = 55.0f;  // Lateral tire scrub deceleration force scale
 
     // Multi-Agent Aerodynamic Drafting & Slipstream Wake
