@@ -113,6 +113,7 @@ private:
     Car playerCar;
     Car aiCar;
     int exhibitionResult;
+    int testModeTimer{0};
 
     int generationTotalLaps;
     int globalLapsCompleted{0};

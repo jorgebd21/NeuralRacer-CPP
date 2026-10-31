@@ -147,11 +147,13 @@ void Simulation::Update() {
 void Simulation::UpdateMenu() {
     if (aiCar.isCrashed) {
         aiCar.Reset(startPosition.x, startPosition.y, startRotation);
+        testModeTimer = 0;
     }
     if (!aiCar.isCrashed) {
+        testModeTimer++;
         float aiAccelerate = 0.0f, aiTurn = 0.0f;
         aiCar.Think(aiAccelerate, aiTurn);
-        aiCar.UpdatePhysics(aiAccelerate, aiTurn, spatialGrid, 0, trackCheckpoints);
+        aiCar.UpdatePhysics(aiAccelerate, aiTurn, spatialGrid, testModeTimer, trackCheckpoints);
     }
 
     if (IsKeyPressed(KEY_T)) {
@@ -184,6 +186,7 @@ void Simulation::UpdateMenu() {
         }
         aiCar.Reset(startPosition.x, startPosition.y, startRotation);
         exhibitionResult = 0;
+        testModeTimer = 0;
         currentState = EXHIBITION;
     }
     if (IsKeyPressed(KEY_A)) {
@@ -193,6 +196,7 @@ void Simulation::UpdateMenu() {
         }
         aiCar.Reset(startPosition.x, startPosition.y, startRotation);
         exhibitionResult = 0;
+        testModeTimer = 0;
         currentState = TEST_AI;
     }
     if (IsKeyPressed(KEY_R)) {
@@ -419,19 +423,21 @@ void Simulation::UpdateExhibition() {
         playerCar.Reset(startPosition.x, startPosition.y, startRotation);
         aiCar.Reset(startPosition.x, startPosition.y, startRotation);
         exhibitionResult = 0;
+        testModeTimer = 0;
     }
 
     if (exhibitionResult == 0) {
+        testModeTimer++;
         float playerAccelerate = 0.0f, playerTurn = 0.0f;
         if (IsKeyDown(KEY_W) || IsKeyDown(KEY_UP)) playerAccelerate = 1.0f;
         if (IsKeyDown(KEY_S) || IsKeyDown(KEY_DOWN)) playerAccelerate = -1.0f;
         if (IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT)) playerTurn = 1.0f;
         if (IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT)) playerTurn = -1.0f;
-        playerCar.UpdatePhysics(playerAccelerate, playerTurn, spatialGrid, 0, trackCheckpoints);
+        playerCar.UpdatePhysics(playerAccelerate, playerTurn, spatialGrid, testModeTimer, trackCheckpoints);
 
         float aiAccelerate = 0.0f, aiTurn = 0.0f;
         aiCar.Think(aiAccelerate, aiTurn);
-        aiCar.UpdatePhysics(aiAccelerate, aiTurn, spatialGrid, 0, trackCheckpoints);
+        aiCar.UpdatePhysics(aiAccelerate, aiTurn, spatialGrid, testModeTimer, trackCheckpoints);
 
         if (playerCar.isCrashed && !aiCar.isCrashed) exhibitionResult = 2;
         else if (aiCar.isCrashed && !playerCar.isCrashed) exhibitionResult = 1;
@@ -677,14 +683,13 @@ void Simulation::DrawMenu() {
     DrawText("GENETIC SIMULATOR", Config::SCREEN_WIDTH/2 - 250, 200, 40, WHITE);
     DrawText(TextFormat("Current Track: < %s >", displayName.c_str()), Config::SCREEN_WIDTH/2 - 200, 300, 25, SKYBLUE);
     DrawText("[ T ] RESUME TRAINING (Load Best)", Config::SCREEN_WIDTH/2 - 200, 345, 20, LIGHTGRAY);
-    DrawText("[ N ] NEW TRAINING (Fresh Gen 0)", Config::SCREEN_WIDTH/2 - 200, 375, 20, YELLOW);
-    DrawText("[ E ] EXHIBITION MODE (Player vs Best AI)", Config::SCREEN_WIDTH/2 - 200, 410, 20, LIGHTGRAY);
-    DrawText("[ A ] TEST AI (Only watch best AI)", Config::SCREEN_WIDTH/2 - 200, 445, 20, LIGHTGRAY);
-    DrawText("[ R ] REPLAY MODE (60Hz Scrubber & Jacobians)", Config::SCREEN_WIDTH/2 - 200, 480, 20, GOLD);
-    DrawText("[ R ] REPLAY VIEWER (60Hz timeline scrubbing)", Config::SCREEN_WIDTH/2 - 200, 500, 20, SKYBLUE);
-    DrawText("[ P ] GENERATE PROCEDURAL TRACK (Modular Tiles)", Config::SCREEN_WIDTH/2 - 200, 550, 20, YELLOW);
+    DrawText("[ N ] NEW TRAINING (Fresh Gen 0)", Config::SCREEN_WIDTH/2 - 200, 380, 20, YELLOW);
+    DrawText("[ E ] EXHIBITION MODE (Player vs Best AI)", Config::SCREEN_WIDTH/2 - 200, 415, 20, LIGHTGRAY);
+    DrawText("[ A ] TEST AI (Only watch best AI)", Config::SCREEN_WIDTH/2 - 200, 450, 20, LIGHTGRAY);
+    DrawText("[ R ] REPLAY MODE (60Hz Scrubber & Jacobians)", Config::SCREEN_WIDTH/2 - 200, 485, 20, GOLD);
+    DrawText("[ P ] GENERATE PROCEDURAL TRACK (Modular Tiles)", Config::SCREEN_WIDTH/2 - 200, 520, 20, YELLOW);
     if (!proceduralPoints.empty()) {
-        DrawText("[ G ] SAVE CURRENT TRACK", Config::SCREEN_WIDTH/2 - 200, 600, 20, GREEN);
+        DrawText("[ G ] SAVE CURRENT TRACK", Config::SCREEN_WIDTH/2 - 200, 555, 20, GREEN);
     }
 }
 
@@ -782,7 +787,7 @@ void Simulation::DrawTraining() {
     for (int i = 0; i < 10 && i < (int)sortedPop.size(); i++) {
         Color rowColor = (sortedPop[i]->isCrashed) ? GRAY : WHITE;
         if (i == 0) rowColor = GOLD;
-        DrawText(TextFormat("%d. Fit: %.0f (L:%d)", i + 1, sortedPop[i]->fitness, sortedPop[i]->lapsCompleted), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 224 + (i * 24), 16, rowColor);
+        DrawText(TextFormat("%d. Fit: %.0f (L:%d)", i + 1, sortedPop[i]->fitness, sortedPop[i]->lapsCompleted), Config::SCREEN_WIDTH - UI_PANEL_WIDTH + 15, 240 + (i * 22), 16, rowColor);
     }
 
     if (!sortedPop.empty()) {
@@ -883,12 +888,14 @@ void Simulation::UpdateTestAI() {
     if (IsKeyPressed(KEY_M)) currentState = MENU;
     if (IsKeyPressed(KEY_R) && aiCar.isCrashed) {
         aiCar.Reset(startPosition.x, startPosition.y, startRotation);
+        testModeTimer = 0;
     }
 
     if (!aiCar.isCrashed) {
+        testModeTimer++;
         float aiAccelerate = 0.0f, aiTurn = 0.0f;
         aiCar.Think(aiAccelerate, aiTurn);
-        aiCar.UpdatePhysics(aiAccelerate, aiTurn, spatialGrid, 0, trackCheckpoints);
+        aiCar.UpdatePhysics(aiAccelerate, aiTurn, spatialGrid, testModeTimer, trackCheckpoints);
     }
 }
 

@@ -553,8 +553,8 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const FlatSpatia
     frontSensorHistoryIdx = (frontSensorHistoryIdx + 1) % FRONT_HISTORY_SIZE;
 
     // Trail-braking guidance: reward controlled deceleration when approaching a tight apex/wall at speed
-    bool approachingCorner = (sensorDistances[2] < 150.0f && longitudinalVelocity > 2.5f);
-    bool brakingIntoCorner = approachingCorner && (inputAccelerate < 0.2f);
+    bool approachingCorner = (sensorDistances[2] < 160.0f && longitudinalVelocity > 1.8f);
+    bool brakingIntoCorner = approachingCorner && (inputAccelerate < 0.1f);
     float trailBrakeBonus = brakingIntoCorner ? 1.5f : 0.0f;
 
     // Anti-chatter & smooth steering penalty: penalize abrupt bang-bang steering oscillations
@@ -603,7 +603,7 @@ void Car::UpdatePhysics(float inputAccelerate, float inputTurn, const FlatSpatia
 
     // Terminal collision penalty: penalize wall/terminal impacts so clean cornering always outranks crashing
     if (isCrashed && justCrashed) {
-        fitness = std::max(0.0f, fitness - 60.0f);
+        fitness = std::max(0.0f, fitness - 150.0f);
     }
 
     // 6. Record high-frequency telemetry sample if car is actively racing
