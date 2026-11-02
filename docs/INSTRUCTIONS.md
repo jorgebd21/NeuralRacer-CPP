@@ -64,8 +64,14 @@ Static screenshots should be captured in lossless PNG format and saved directly 
 1. **Training Mode (`docs/Training.png`):** Capture during active generation (e.g., Gen 100+) with the population distributed, telemetry dashboard active, and neural network weights highlighted.
 2. **Exhibition Mode (`docs/Exhibition.png`):** Capture side-by-side racing between the player vehicle (blue) and the elite neural brain (red).
 3. **Test AI Mode (`docs/TestAI.png`):** Capture a single elite vehicle navigating a technical chicane or hairpin in full overview mode (`[ V ]`).
+4. **Replay Mode (`docs/Replay.png`):** Capture 60Hz telemetry timeline scrubber with fastest lap projection, speed heatmaps, Kamm circle metrics, and tire thermals.
+
+---
+
+## 5. Fully Autonomous Asset Capture CLI Command
+
+To automatically boot the engine, step through each operational mode, capture all four high-resolution screenshots, and dump consecutive frames for the training GIF, run:
 
 ```bash
-# Optimize PNG file size losslessly before committing:
-optipng -o7 docs/*.png 2>/dev/null || true
+./build/bin/app --capture-docs
 ```

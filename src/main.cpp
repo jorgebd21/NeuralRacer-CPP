@@ -19,6 +19,7 @@ int main(int argc, char* argv[]) {
     bool startTraining = false;
     int maxGenerations = -1;
     bool startFresh = false;
+    bool captureDocs = false;
 
     if (argc > 1) {
         for(int i = 1; i < argc; i++) {
@@ -29,10 +30,12 @@ int main(int argc, char* argv[]) {
                 startTraining = true;
             }else if(arg == "--fresh" || arg == "--new"){
                 startFresh = true;
+            }else if(arg == "--capture-docs" || arg == "--capture-media"){
+                captureDocs = true;
             }else if((arg == "--generations" || arg == "-g") && i + 1 < argc){
                 maxGenerations = std::stoi(argv[++i]);
             }else if(arg == "--help"){
-                cout << "Usage: ./app [--headless] [--training] [--fresh] [--generations <N>]" << endl;
+                cout << "Usage: ./app [--headless] [--training] [--fresh] [--capture-docs] [--generations <N>]" << endl;
                 return 0;
             }else{
                 cout << "Unknown argument: " << argv[i] << endl;
@@ -40,6 +43,12 @@ int main(int argc, char* argv[]) {
                 return 1;
             }
         }
+    }
+
+    if (captureDocs) {
+        Simulation sim(false, false, -1, false);
+        sim.CaptureDocumentationMedia();
+        return 0;
     }
 
     Simulation sim(isHeadless, startTraining, maxGenerations, startFresh); 

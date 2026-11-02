@@ -132,7 +132,7 @@ The engine provides four distinct simulation configurations to analyze agent beh
 
 | **1. Training Mode** | **2. Exhibition Mode** | **3. Test AI Mode** | **4. Replay Mode** |
 | :---: | :---: | :---: | :---: |
-| [![Training Mode](docs/Training.png)](docs/Training.png) | [![Exhibition Mode](docs/Exhibition.png)](docs/Exhibition.png) | [![Test AI Mode](docs/TestAI.png)](docs/TestAI.png) | `[ R ] Key` |
+| [![Training Mode](docs/Training.png)](docs/Training.png) | [![Exhibition Mode](docs/Exhibition.png)](docs/Exhibition.png) | [![Test AI Mode](docs/TestAI.png)](docs/TestAI.png) | [![Replay Mode](docs/Replay.png)](docs/Replay.png) |
 | *Neural network undergoing continuous training with live dashboard metrics and weight visualizations.* | *Manual player driving (blue car) competing head-to-head against the elite neural network brain (red car).* | *Observing the standalone driving strategy of the saved elite network navigate challenging curves.* | *Interactive 60Hz telemetry scrubber with ghost car projection, speed heatmaps, and cockpit Jacobians.* |
 
 ---
@@ -551,7 +551,8 @@ NeuralRacer-CPP/
 │   ├── Training.gif       # Principal animated training loop capture
 │   ├── Training.png       # Training mode screenshot
 │   ├── Exhibition.png     # Exhibition mode screenshot
-│   └── TestAI.png         # Test AI mode screenshot
+│   ├── TestAI.png         # Test AI mode screenshot
+│   └── Replay.png         # 60Hz telemetry replay scrubber screenshot
 ├── include/               # Header definitions
 │   ├── Brain.h            # Neural network struct, MGU cell, and inference functions
 │   ├── Car.h              # Vehicle state, kinematics, steering slew rate, and OBB structure

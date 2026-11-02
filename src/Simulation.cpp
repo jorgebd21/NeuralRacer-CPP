@@ -14,6 +14,7 @@
 #include <atomic>
 #include <csignal>
 #include <omp.h>
+#include <filesystem>
 
 static volatile sig_atomic_t stopRequested = 0;
 static void signalHandler(int) { stopRequested = 1; }
@@ -139,6 +140,113 @@ void Simulation::Run() {
         CloseWindow();
     }
     Telemetry::Flush();
+}
+
+void Simulation::CaptureDocumentationMedia() {
+    Init();
+    std::filesystem::create_directories("docs");
+    std::filesystem::create_directories("build/frames");
+
+    std::cout << "[CAPTURE] Starting documentation media asset generation..." << std::endl;
+
+    // 1. Training Mode & Animated GIF sequence
+    currentState = TRAINING;
+    showTelemetry = true;
+    showGhostVehicle = true;
+    showCheckpoints = false;
+    cameraMode = CAM_FOLLOW_LEADER;
+    targetZoom = 1.0f;
+
+    std::cout << "[CAPTURE] Warming up Training mode..." << std::endl;
+    for (int t = 0; t < 120; t++) {
+        UpdateTraining();
+        UpdateCameraControl();
+        Draw();
+    }
+
+    std::cout << "[CAPTURE] Capturing docs/Training.png..." << std::endl;
+    TakeScreenshot("docs/Training.png");
+
+    std::cout << "[CAPTURE] Recording 120 frames for docs/Training.gif..." << std::endl;
+    for (int f = 0; f < 120; f++) {
+        UpdateTraining();
+        UpdateCameraControl();
+        Draw();
+        char framePath[128];
+        snprintf(framePath, sizeof(framePath), "build/frames/frame_%04d.png", f);
+        TakeScreenshot(framePath);
+    }
+
+    // 2. Exhibition Mode (Player vs AI side-by-side)
+    std::cout << "[CAPTURE] Setting up Exhibition Mode..." << std::endl;
+    currentState = EXHIBITION;
+    playerCar.Reset(startPosition.x, startPosition.y, startRotation);
+    aiCar.Reset(startPosition.x, startPosition.y, startRotation);
+    {
+        std::vector<Car> temp(1, Car(startPosition.x, startPosition.y, startRotation));
+        if (Evolution::LoadBestBrains(temp, generationCount)) {
+            aiCar = temp[0];
+        }
+        aiCar.Reset(startPosition.x, startPosition.y, startRotation);
+    }
+    exhibitionResult = 0;
+    testModeTimer = 0;
+    cameraMode = CAM_FOLLOW_LEADER;
+
+    for (int t = 0; t < 75; t++) {
+        testModeTimer++;
+        float playerAcc = 1.0f;
+        float playerTurn = 0.04f;
+        playerCar.UpdatePhysics(playerAcc, playerTurn, spatialGrid, testModeTimer, trackCheckpoints);
+        float aiAcc = 0.0f, aiTurn = 0.0f;
+        aiCar.Think(aiAcc, aiTurn);
+        aiCar.UpdatePhysics(aiAcc, aiTurn, spatialGrid, testModeTimer, trackCheckpoints);
+        UpdateCameraControl();
+        Draw();
+    }
+    std::cout << "[CAPTURE] Capturing docs/Exhibition.png..." << std::endl;
+    TakeScreenshot("docs/Exhibition.png");
+
+    // 3. Test AI Mode (Standalone elite AI on cornering line)
+    std::cout << "[CAPTURE] Setting up Test AI Mode..." << std::endl;
+    currentState = TEST_AI;
+    aiCar.Reset(startPosition.x, startPosition.y, startRotation);
+    testModeTimer = 0;
+    cameraMode = CAM_FOLLOW_LEADER;
+
+    for (int t = 0; t < 90; t++) {
+        testModeTimer++;
+        float aiAcc = 0.0f, aiTurn = 0.0f;
+        aiCar.Think(aiAcc, aiTurn);
+        aiCar.UpdatePhysics(aiAcc, aiTurn, spatialGrid, testModeTimer, trackCheckpoints);
+        UpdateCameraControl();
+        Draw();
+    }
+    std::cout << "[CAPTURE] Capturing docs/TestAI.png..." << std::endl;
+    TakeScreenshot("docs/TestAI.png");
+
+    // 4. Replay Mode (60Hz Scrubber with fastest lap data)
+    std::cout << "[CAPTURE] Setting up Replay Mode..." << std::endl;
+    if (!Telemetry::HasFastestLap()) {
+        Telemetry::LoadFastestLapCSV("data/telemetry_best_lap.csv");
+    }
+    replay.samples = Telemetry::GetFastestLapBuffer();
+    if (!replay.samples.empty()) {
+        currentState = REPLAY;
+        replay.isPaused = true;
+        replay.currentFrame = std::min(220.0f, static_cast<float>(replay.samples.size() - 1));
+        size_t fIdx = static_cast<size_t>(replay.currentFrame);
+        worldCamera.target = replay.samples[fIdx].position;
+        targetZoom = 1.0f;
+        worldCamera.zoom = 1.0f;
+        Draw();
+        std::cout << "[CAPTURE] Capturing docs/Replay.png..." << std::endl;
+        TakeScreenshot("docs/Replay.png");
+    }
+
+    CloseWindow();
+    Telemetry::Flush();
+    std::cout << "[CAPTURE] Completed documentation media generation." << std::endl;
 }
 
 void Simulation::Update() {

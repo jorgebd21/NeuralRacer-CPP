@@ -32,6 +32,11 @@ public:
      */
     void Run();
 
+    /**
+     * @brief Autonomously executes each simulation mode and captures updated documentation media assets.
+     */
+    void CaptureDocumentationMedia();
+
 private:
     /**
      * @brief Initializes visual resources and necessary base logic.
